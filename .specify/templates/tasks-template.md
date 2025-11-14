@@ -79,12 +79,15 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 1 (MANDATORY per Constitution Principle I) ⚠️
 
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+> **CONSTITUTION REQUIREMENT**: Test-First Development is NON-NEGOTIABLE
+> Write these tests FIRST → Get stakeholder approval → Verify they FAIL → Then implement
 
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T010 [P] [US1] Unit tests (pytest) for [component] in backend/tests/unit/test_[name].py
+- [ ] T011 [P] [US1] Integration test for [API endpoint] in backend/tests/integration/test_[name].py
+- [ ] T012 [P] [US1] Frontend component tests (React Testing Library) in frontend/src/[component]/__tests__/
+- [ ] T013 [US1] Full-stack integration test for [user journey] (Constitution Principle II)
 
 ### Implementation for User Story 1
 

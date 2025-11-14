@@ -31,7 +31,16 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Verify compliance with [Kampus Plus Constitution](../../.specify/memory/constitution.md):
+
+- [ ] **Test-First Development**: Test strategy defined (pytest + React Testing Library)
+- [ ] **Integration Testing**: API contracts and inter-service communication tests planned
+- [ ] **Security by Default**: HTTPS enforcement, JWT auth, input validation considered
+- [ ] **AI Ethics & Privacy**: If AI features present, anonymization and consent mechanisms defined
+- [ ] **Branch Strategy**: Feature branch naming follows `feature/###-descriptive-name`
+- [ ] **Observability**: Structured logging, health checks, error tracking planned
+- [ ] **Technology Stack**: Python/FastAPI (backend), React (frontend), Docker Compose (deployment)
+- [ ] **Code Review**: PR approval process and testing gates defined
 
 ## Project Structure
 
