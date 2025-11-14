@@ -21,16 +21,16 @@ bcrypt==4.1.1
 pydantic[email]>=2.10.0  # Python 3.13 compatible with pre-built wheels
 pydantic-settings>=2.7.0
 
-# AI & Vector Store (TEMPORARILY DISABLED - will enable after database setup)
-# langchain==0.0.350
-# langchain-openai==0.0.2
-# openai==1.3.7
-# faiss-cpu>=1.9.0
-# tiktoken>=0.6.0
+# AI & Vector Store (compatible versions)
+langchain==0.1.20
+langchain-openai==0.1.7
+openai>=1.25.0
+faiss-cpu>=1.9.0
+tiktoken>=0.5.2,<0.8.0
 
-# PDF Processing (TEMPORARILY DISABLED)
-# pypdf2==3.0.1
-# pdfplumber==0.10.3
+# PDF Processing
+pypdf2==3.0.1
+pdfplumber==0.10.3
 
 # Scheduling
 apscheduler==3.10.4
@@ -40,8 +40,8 @@ httpx==0.25.2
 requests==2.31.0
 beautifulsoup4==4.12.2
 
-# Data Processing (TEMPORARILY DISABLED - pandas requires numpy)
-# pandas>=2.2.0
+# Data Processing
+pandas>=2.2.0
 python-dateutil==2.8.2
 
 # Testing
@@ -56,3 +56,6 @@ black==23.12.1
 
 # Utilities
 python-dotenv==1.0.0
+
+# Security - Malware Scanning
+clamd==1.0.2  # ClamAV Python client

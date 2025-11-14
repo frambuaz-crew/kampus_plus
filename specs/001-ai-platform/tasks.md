@@ -34,7 +34,7 @@ Each task follows this format:
 
 ### Database & Storage Infrastructure
 
-- [ ] T010 Create PostgreSQL schema in Alembic migration `001_initial_schema.py` with all 13 entities from `data-model.md`: User, Course, Enrollment, OfficialDocument, UserDocument, VectorEmbedding, ConversationSession, ChatMessage, ForumPost, AnonymousMapping, SyncJob, RefreshToken, AuditLog
+- [ ] T010 Create PostgreSQL schema in Alembic migration `001_initial_schema.py` with all 13 entities from `data-model.md`: User, RefreshToken, Course, Enrollment, OfficialDocument, UserDocument, VectorEmbedding, ConversationSession, ChatMessage, ForumPost, AnonymousMapping, SyncJob, AuditLog
 - [ ] T011 Configure SQLAlchemy models in `backend/src/models/` matching data model: `user.py`, `course.py`, `document.py`, `conversation.py`, `forum.py`, `sync.py`
 - [ ] T012 Create database connection pool in `backend/src/core/database.py` with async SQLAlchemy engine
 - [ ] T013 Initialize FAISS vector stores: create `backend/src/services/vector_service.py` with dual IndexFlatL2 indexes (VDB_Official, VDB_Social), persist to disk in `backend/data/vectors/`
@@ -79,6 +79,7 @@ Each task follows this format:
 - [ ] T032 Create anonymization utility in `backend/src/services/anonymization_service.py`: detect PII using regex + spaCy Turkish model, replace with generic tokens (e.g., "[ÖĞRENCİ_ADI]")
 - [ ] T033 Run T022 and T023 tests → Verify they PASS → Achieve 80%+ coverage for vector and PDF modules
 - [ ] T034 Run T024 integration tests → Verify all services integrate correctly
+- [ ] T034.5 **[TEST]** Write integration tests for `backend/tests/integration/test_password_reset_flow.py`: request password reset → receive email with token → validate token → reset password → login with new password → verify old password rejected
 
 ---
 
@@ -176,7 +177,8 @@ Each task follows this format:
 
 ### Backend Implementation
 
-- [ ] T078 [US3] Implement `/documents` POST endpoint in `backend/src/api/routes/documents.py`: accept multipart/form-data, validate file type (PDF) and size (<25MB), upload to S3 with user_id prefix, create UserDocument record with `processing_status=pending`
+- [ ] T078 [US3] Implement `/documents` POST endpoint in `backend/src/api/routes/documents.py`: accept multipart/form-data, validate file type (PDF) and size (<25MB), scan for malware (see T078.5), upload to S3 with user_id prefix, create UserDocument record with `processing_status=pending`
+- [ ] T078.5 [US3] **[SECURITY]** Integrate malware scanning for uploaded PDFs: add ClamAV Docker container to `docker-compose.yml`, create `backend/src/services/malware_service.py` with ClamAV client, reject infected files before S3 upload with clear error message
 - [ ] T079 [US3] Implement `/documents` GET endpoint: list user's uploaded documents with metadata (name, size, upload date, processing status)
 - [ ] T080 [US3] Implement `/documents/{id}` GET endpoint: retrieve document metadata
 - [ ] T081 [US3] Implement `/documents/{id}/download` GET endpoint: generate pre-signed S3 URL (15-minute expiry), return URL for client download

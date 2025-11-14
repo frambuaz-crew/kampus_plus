@@ -149,7 +149,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 
 **Document Upload & Processing**
 - **FR-016**: System MUST allow students to upload PDF documents for personal knowledge base creation
-- **FR-017**: System MUST enforce file size limits (maximum file size to be set during planning)
+- **FR-017**: System MUST enforce file size limits (25MB maximum for PDF uploads)
 - **FR-018**: System MUST validate uploaded files for security (malware scanning, file type verification)
 - **FR-019**: System MUST process uploaded PDFs into searchable vector representations
 - **FR-020**: System MUST store user-uploaded documents securely with encryption at rest

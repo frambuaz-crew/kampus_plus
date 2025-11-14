@@ -118,6 +118,42 @@ Represents students, instructors, and administrators in the system.
 **Indexes:**
 - PRIMARY KEY on `id`
 - UNIQUE INDEX on `email`
+- INDEX on `role` (for role-based queries)
+- INDEX on `is_active` (for filtering active accounts)
+
+---
+
+### 2. RefreshToken
+
+Stores JWT refresh tokens for secure session management and token rotation.
+
+**Attributes:**
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| user_id | UUID | FK (User.id), NOT NULL | Token owner |
+| token_hash | VARCHAR(255) | NOT NULL | SHA-256 hash of refresh token |
+| expires_at | TIMESTAMP | NOT NULL | Token expiration timestamp |
+| created_at | TIMESTAMP | NOT NULL | Token creation timestamp |
+| is_revoked | BOOLEAN | DEFAULT FALSE | Revocation status |
+| device_fingerprint | VARCHAR(255) | NULLABLE | Device identifier for security |
+| ip_address | VARCHAR(45) | NULLABLE | IP address of token creation |
+
+**Validation Rules:**
+- `token_hash` MUST be SHA-256 hashed (64 characters hex)
+- `expires_at` MUST be 7 days from creation (configurable)
+- `device_fingerprint` generated from User-Agent + IP hash
+- Expired tokens (expires_at < NOW) should be periodically cleaned
+
+**Relationships:**
+- RefreshToken belongs to one User (many-to-one)
+
+**Indexes:**
+- PRIMARY KEY on `id`
+- INDEX on `user_id`
+- INDEX on `token_hash` (for fast lookup)
+- INDEX on `expires_at` (for cleanup jobs)
 - UNIQUE INDEX on `student_id` (where not NULL)
 - INDEX on `role` (for filtering)
 - INDEX on `is_active` (for filtering)
