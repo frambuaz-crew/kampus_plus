@@ -29,8 +29,8 @@ Each task follows this format:
 - [x] T005 Create `.env.example` and `.env` files with required secrets: `POSTGRES_PASSWORD`, `JWT_SECRET_KEY`, `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` ✅ 2025-11-14
 - [x] T006 Create `backend/src/core/config.py` using Pydantic Settings to load environment variables ✅ 2025-11-14
 - [x] T007 Set up Alembic for database migrations: `alembic init alembic` in backend, configure `alembic.ini` with PostgreSQL URL
-- [ ] T008 Create `backend/Dockerfile` with Python 3.11 slim base, multi-stage build for production
-- [ ] T009 Create `frontend/Dockerfile` with Node 18, multi-stage build (build stage + nginx serve)
+- [x] T008 Create `backend/Dockerfile` with Python 3.11 slim base, multi-stage build for production
+- [x] T009 Create `frontend/Dockerfile` with Node 18, multi-stage build (build stage + nginx serve)
 
 ### Database & Storage Infrastructure
 
