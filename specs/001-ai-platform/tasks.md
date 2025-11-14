@@ -22,12 +22,12 @@ Each task follows this format:
 
 ### Repository & Environment Setup
 
-- [ ] T001 [P] Initialize Git repository with `.gitignore` for Python/Node, create `backend/` and `frontend/` directories
-- [ ] T002 [P] Set up Docker Compose with services: `postgres`, `backend`, `frontend`, `nginx` in `docker-compose.yml`
-- [ ] T003 [P] Create `backend/requirements.txt` with FastAPI, SQLAlchemy, psycopg2, LangChain, openai, faiss-cpu, boto3, APScheduler, pytest
-- [ ] T004 [P] Initialize React app in `frontend/` with Create React App or Vite, add TailwindCSS dependency
-- [ ] T005 Create `.env.example` and `.env` files with required secrets: `POSTGRES_PASSWORD`, `JWT_SECRET_KEY`, `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET`
-- [ ] T006 Create `backend/src/core/config.py` using Pydantic Settings to load environment variables
+- [x] T001 [P] Initialize Git repository with `.gitignore` for Python/Node, create `backend/` and `frontend/` directories ✅ 2025-11-14
+- [ ] T002 [P] Set up Docker Compose with services: `postgres`, `backend`, `frontend`, `nginx` in `docker-compose.yml` (⏸️ POSTPONED - Node.js kurulana kadar)
+- [x] T003 [P] Create `backend/requirements.txt` with FastAPI, SQLAlchemy, psycopg2, LangChain, openai, faiss-cpu, boto3, APScheduler, pytest ✅ 2025-11-14
+- [ ] T004 [P] Initialize React app in `frontend/` with Create React App or Vite, add TailwindCSS dependency (⏸️ POSTPONED - Node.js kurulana kadar)
+- [x] T005 Create `.env.example` and `.env` files with required secrets: `POSTGRES_PASSWORD`, `JWT_SECRET_KEY`, `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` ✅ 2025-11-14
+- [x] T006 Create `backend/src/core/config.py` using Pydantic Settings to load environment variables ✅ 2025-11-14
 - [ ] T007 Set up Alembic for database migrations: `alembic init alembic` in backend, configure `alembic.ini` with PostgreSQL URL
 - [ ] T008 Create `backend/Dockerfile` with Python 3.11 slim base, multi-stage build for production
 - [ ] T009 Create `frontend/Dockerfile` with Node 18, multi-stage build (build stage + nginx serve)
