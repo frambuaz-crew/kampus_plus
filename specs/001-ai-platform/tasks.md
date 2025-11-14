@@ -25,10 +25,10 @@ Each task follows this format:
 - [x] T001 [P] Initialize Git repository with `.gitignore` for Python/Node, create `backend/` and `frontend/` directories ✅ 2025-11-14
 - [x] T002 [P] Set up Docker Compose with services: `postgres`, `backend`, `frontend`, `nginx` in `docker-compose.yml` ✅ 2025-11-14 (PostgreSQL ready, backend/frontend commented out for later)
 - [x] T003 [P] Create `backend/requirements.txt` with FastAPI, SQLAlchemy, psycopg2, LangChain, openai, faiss-cpu, boto3, APScheduler, pytest ✅ 2025-11-14
-- [x] T004 [P] Initialize React app in `frontend/` with Create React App or Vite, add TailwindCSS dependency (⏭️ READY - Node.js v24 kurulu, sırada bu!)
+- [x] T004 [P] Initialize React app in `frontend/` with Create React App or Vite, add TailwindCSS dependency
 - [x] T005 Create `.env.example` and `.env` files with required secrets: `POSTGRES_PASSWORD`, `JWT_SECRET_KEY`, `OPENAI_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` ✅ 2025-11-14
 - [x] T006 Create `backend/src/core/config.py` using Pydantic Settings to load environment variables ✅ 2025-11-14
-- [ ] T007 Set up Alembic for database migrations: `alembic init alembic` in backend, configure `alembic.ini` with PostgreSQL URL
+- [x] T007 Set up Alembic for database migrations: `alembic init alembic` in backend, configure `alembic.ini` with PostgreSQL URL
 - [ ] T008 Create `backend/Dockerfile` with Python 3.11 slim base, multi-stage build for production
 - [ ] T009 Create `frontend/Dockerfile` with Node 18, multi-stage build (build stage + nginx serve)
 
