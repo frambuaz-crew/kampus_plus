@@ -1,0 +1,56 @@
+# KAMPÜS+ Backend Dependencies - Minimal Version (No PostgreSQL libs)
+# Python 3.11+ required
+# Use this for development without PostgreSQL installed locally
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database - SQLite for now (PostgreSQL later)
+sqlalchemy==2.0.23
+alembic==1.12.1
+aiosqlite==0.19.0  # Async SQLite driver
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.1
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
+
+# AI & Vector Store
+langchain==0.0.350
+langchain-openai==0.0.2
+openai==1.3.7
+faiss-cpu>=1.9.0
+tiktoken==0.5.2
+
+# PDF Processing
+pypdf2==3.0.1
+pdfplumber==0.10.3
+
+# Scheduling
+apscheduler==3.10.4
+
+# HTTP Client
+httpx==0.25.2
+requests==2.31.0
+beautifulsoup4==4.12.2
+
+# Data Processing
+pandas==2.1.4
+python-dateutil==2.8.2
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# Code Quality
+ruff==0.1.8
+black==23.12.1
+
+# Utilities
+python-dotenv==1.0.0
