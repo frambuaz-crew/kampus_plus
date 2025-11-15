@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.database import close_db, init_db
+from src.services import get_vector_service
 
 
 @asynccontextmanager
@@ -15,8 +16,15 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager for startup/shutdown events."""
     # Startup
     await init_db()
+    
+    # Initialize vector stores
+    vector_service = get_vector_service()
+    print(f"✅ Vector stores initialized: {vector_service.get_stats()}")
+    
     yield
+    
     # Shutdown
+    vector_service.save_indexes()
     await close_db()
 
 
@@ -78,5 +86,23 @@ async def health_check_db():
         return {
             "status": "unhealthy",
             "database": "disconnected",
+            "error": str(e)
+        }
+
+
+@app.get("/health/vectors")
+async def health_check_vectors():
+    """Vector stores health check endpoint"""
+    try:
+        vector_service = get_vector_service()
+        stats = vector_service.get_stats()
+        
+        return {
+            "status": "healthy",
+            "vector_stores": stats
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
             "error": str(e)
         }
