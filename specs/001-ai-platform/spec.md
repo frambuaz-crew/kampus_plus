@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: User description: "Project: KAMPÜS+ – AI-Powered Hybrid Intelligence Platform for Universities. Goal: Eliminate information fragmentation across university systems by merging official academic data (UZEM, announcements, schedules) with user-generated content (notes, discussions) into a unified AI assistant platform."
 
+## Clarifications
+
+### Session 2025-11-15
+
+- Q: What are the specific API response time targets for AI queries vs. non-AI queries? → A: 5 seconds for AI queries, 200ms for non-AI queries
+- Q: What malware scanning approach should be used for uploaded PDFs? → A: ClamAV with synchronous scanning during upload
+- Q: What are the expected data volume targets for documents and vector embeddings? → A: 100K documents, 1M vector embeddings
+- Q: What are the specific rate limiting thresholds for API endpoints? → A: 100 requests/minute per user, 10 AI queries/minute per user, 1000 requests/minute per IP
+- Q: What logging strategy should be implemented for observability? → A: Structured JSON logging with request ID tracking and sensitive data filtering
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Student Authentication & Dashboard Access (Priority: P1)
@@ -150,7 +160,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 **Document Upload & Processing**
 - **FR-016**: System MUST allow students to upload PDF documents for personal knowledge base creation
 - **FR-017**: System MUST enforce file size limits (25MB maximum for PDF uploads)
-- **FR-018**: System MUST validate uploaded files for security (malware scanning, file type verification)
+- **FR-018**: System MUST validate uploaded files for security using ClamAV malware scanning (synchronous during upload) and file type verification
 - **FR-019**: System MUST process uploaded PDFs into searchable vector representations
 - **FR-020**: System MUST store user-uploaded documents securely with encryption at rest
 - **FR-021**: System MUST allow users to delete their uploaded documents
@@ -174,7 +184,16 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 - **FR-033**: System MUST NOT persist LLM prompt logs as per constitutional requirements
 - **FR-034**: System MUST encrypt sensitive data at rest (user documents, credentials)
 - **FR-035**: System MUST enforce HTTPS for all connections
-- **FR-036**: System MUST implement rate limiting on API endpoints to prevent abuse
+- **FR-036**: System MUST implement rate limiting: 100 requests/minute per authenticated user, 10 AI queries/minute per user, 1000 requests/minute per IP address
+
+**Performance Requirements**
+- **FR-037**: AI-powered query endpoints (chatbot, document search) MUST respond within 5 seconds at p95 percentile
+- **FR-038**: Non-AI API endpoints (authentication, profile, file listing) MUST respond within 200ms at p95 percentile
+
+**Observability Requirements**
+- **FR-039**: System MUST implement structured JSON logging for all application events
+- **FR-040**: System MUST track request IDs across all API calls for distributed tracing
+- **FR-041**: System MUST filter sensitive data (passwords, tokens, PII) from logs before persistence
 
 ### Key Entities
 
@@ -214,6 +233,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 8. Basic moderation workflows exist for forum content review
 9. Infrastructure supports vector database deployment and LLM API access
 10. Initial user base is projected at 1,000-5,000 students per university
+11. Expected data volume: ~100,000 documents (official + user) and ~1,000,000 vector embeddings for MVP deployment
 
 ## Dependencies
 

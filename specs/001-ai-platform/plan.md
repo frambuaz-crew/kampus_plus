@@ -35,7 +35,7 @@ KAMPÜS+ eliminates information fragmentation across university systems by mergi
 **Project Type**: Web application (full-stack: backend API + frontend SPA)
 
 **Performance Goals**: 
-- API response time: <200ms p95 for non-AI queries, <5s for AI queries
+- API response time: <200ms p95 for non-AI queries, <5s for AI queries (clarified 2025-11-15)
 - Concurrent users: 500+ during peak times
 - PDF processing: <2 minutes for 10MB documents
 - Vector search: <1s for similarity retrieval
@@ -46,12 +46,15 @@ KAMPÜS+ eliminates information fragmentation across university systems by mergi
 - HTTPS mandatory, JWT token-based auth
 - Turkish language support (UTF-8)
 - Single university deployment (not multi-tenant for MVP)
+- Malware scanning: ClamAV synchronous scanning during PDF upload (clarified 2025-11-15)
+- Rate limiting: 100 req/min per user, 10 AI queries/min per user, 1000 req/min per IP (clarified 2025-11-15)
 
 **Scale/Scope**: 
 - Initial: 1,000-5,000 students per university
-- Database: ~100k documents, ~1M vector embeddings
+- Database: ~100,000 documents, ~1,000,000 vector embeddings (clarified 2025-11-15)
 - Storage: ~50GB for PDFs, ~10GB for vectors
 - API endpoints: ~30-40 REST endpoints
+- Observability: Structured JSON logging with request ID tracking and sensitive data filtering (clarified 2025-11-15)
 
 ## Constitution Check
 

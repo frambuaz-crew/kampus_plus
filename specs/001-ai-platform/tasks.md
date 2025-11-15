@@ -2,6 +2,19 @@
 
 **Branch**: `001-ai-platform` | **Date**: 2025-11-11 | **Spec**: [spec.md](./spec.md) | **Plan**: [plan.md](./plan.md)
 
+## Recent Updates
+
+**2025-11-15 Clarifications Applied**:
+- Performance targets: 5s for AI queries, 200ms for non-AI APIs (p95)
+- Malware scanning: ClamAV synchronous scanning (affects T014, FR-018)
+- Data volume: 100K documents, 1M embeddings (affects T010-T013)
+- Rate limiting: 100 req/min/user, 10 AI/min/user, 1000/min/IP (affects T016, new tasks needed)
+- Observability: Structured JSON logging + request ID tracking (affects T015, FR-039-041)
+
+**Implementation Progress**:
+- ✅ Phase 1 Complete: T001-T014 (Setup & Infrastructure)
+- ⏭️ Next: T015 (Structured JSON Logging)
+
 ## Task Format
 
 Each task follows this format:
@@ -34,15 +47,15 @@ Each task follows this format:
 
 ### Database & Storage Infrastructure
 
-- [ ] T010 Create PostgreSQL schema in Alembic migration `001_initial_schema.py` with all 13 entities from `data-model.md`: User, RefreshToken, Course, Enrollment, OfficialDocument, UserDocument, VectorEmbedding, ConversationSession, ChatMessage, ForumPost, AnonymousMapping, SyncJob, AuditLog
-- [ ] T011 Configure SQLAlchemy models in `backend/src/models/` matching data model: `user.py`, `course.py`, `document.py`, `conversation.py`, `forum.py`, `sync.py`
-- [ ] T012 Create database connection pool in `backend/src/core/database.py` with async SQLAlchemy engine
-- [ ] T013 Initialize FAISS vector stores: create `backend/src/services/vector_service.py` with dual IndexFlatL2 indexes (VDB_Official, VDB_Social), persist to disk in `backend/data/vectors/`
-- [ ] T014 Set up AWS S3 bucket structure: create `backend/src/services/s3_service.py` with boto3 client, implement upload/download with pre-signed URLs (15-minute expiry)
+- [x] T010 Create PostgreSQL schema in Alembic migration `001_initial_schema.py` with all 13 entities from `data-model.md`: User, RefreshToken, Course, Enrollment, OfficialDocument, UserDocument, VectorEmbedding, ConversationSession, ChatMessage, ForumPost, AnonymousMapping, SyncJob, AuditLog ✅ 2025-11-15 (Updated with spec compliance fixes)
+- [x] T011 Configure SQLAlchemy models in `backend/src/models/` matching data model: `user.py`, `course.py`, `document.py`, `conversation.py`, `forum.py`, `sync.py` ✅ 2025-11-15
+- [x] T012 Create database connection pool in `backend/src/core/database.py` with async SQLAlchemy engine ✅ 2025-11-15
+- [x] T013 Initialize FAISS vector stores: create `backend/src/services/vector_service.py` with dual IndexFlatL2 indexes (VDB_Official, VDB_User), persist to disk in `backend/data/vectors/` ✅ 2025-11-15
+- [x] T014 Set up AWS S3 bucket structure: create `backend/src/services/s3_service.py` with boto3 client, implement upload/download with pre-signed URLs (15-minute expiry) ✅ 2025-11-15
 
 ### Observability & Development Tools
 
-- [ ] T015 [P] Configure structured JSON logging in `backend/src/core/logging.py` using Python `logging` with custom formatter
+- [ ] T015 [P] Configure structured JSON logging in `backend/src/core/logging.py` using Python `logging` with custom formatter, request ID tracking, and sensitive data filtering (clarified 2025-11-15)
 - [ ] T016 [P] Create health check endpoints in `backend/src/api/routes/health.py`: `/health` (basic), `/health/ready` (DB + vector store), `/health/live` (liveness probe)
 - [ ] T017 [P] Set up pytest configuration in `backend/pytest.ini` with coverage settings (80% target), async test support
 - [ ] T018 [P] Set up Jest + React Testing Library in `frontend/package.json`, create test setup file `frontend/src/setupTests.js`

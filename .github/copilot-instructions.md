@@ -23,9 +23,9 @@ cd src; pytest; ruff check .
 Python 3.11+ (backend), JavaScript/TypeScript (frontend with React.js): Follow standard conventions
 
 ## Recent Changes
+- 001-ai-platform: Added Python 3.11+ (backend), JavaScript/TypeScript (frontend with React.js)
 - 2025-11-11: Feature 001-ai-platform planning complete (constitution, spec, plan, tasks)
 - 2025-11-11: 217 tasks generated, organized by 6 user stories (US1-US6)
-- 2025-11-11: Test-first development mandated: 59 test tasks MUST be written before implementation
 
 ## Implementation Status
 - ✅ Phase 0: Research complete (15 technical decisions)
