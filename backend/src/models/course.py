@@ -128,7 +128,7 @@ class Enrollment(Base):
         nullable=False,
     )
     status: Mapped[EnrollmentStatus] = mapped_column(
-        Enum(EnrollmentStatus),
+        Enum(EnrollmentStatus, values_callable=lambda obj: [e.value for e in obj]),
         server_default=text("'active'"),
         nullable=False,
     )

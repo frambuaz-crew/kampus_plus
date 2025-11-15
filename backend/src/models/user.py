@@ -46,7 +46,11 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     
     # Profile
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False, index=True)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+        index=True
+    )
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     student_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
