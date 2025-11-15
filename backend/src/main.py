@@ -2,14 +2,30 @@
 KAMPÜS+ Backend API
 FastAPI application entry point
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from src.core.database import close_db, init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager for startup/shutdown events."""
+    # Startup
+    await init_db()
+    yield
+    # Shutdown
+    await close_db()
+
 
 # Create FastAPI app
 app = FastAPI(
     title="KAMPÜS+ AI Platform",
     version="0.1.0",
-    description="AI-Powered Hybrid Intelligence Platform for Universities"
+    description="AI-Powered Hybrid Intelligence Platform for Universities",
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -39,3 +55,28 @@ async def health_check():
         "status": "healthy",
         "service": "kampus-backend"
     }
+
+
+@app.get("/health/db")
+async def health_check_db():
+    """Database health check endpoint"""
+    from sqlalchemy import text
+    from src.core.database import get_db
+    
+    try:
+        async for db in get_db():
+            # Test database connection with simple query
+            result = await db.execute(text("SELECT 1 as health_check"))
+            row = result.fetchone()
+            
+            return {
+                "status": "healthy",
+                "database": "connected",
+                "test_query": row[0] == 1
+            }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e)
+        }

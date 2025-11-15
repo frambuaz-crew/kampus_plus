@@ -107,7 +107,6 @@ class OfficialDocument(Base):
     
     # Relationships
     course = relationship("Course", back_populates="official_documents")
-    vector_embeddings = relationship("VectorEmbedding", back_populates="official_document")
     
     def __repr__(self) -> str:
         return f"<OfficialDocument(id={self.id}, title={self.title[:30]})>"
@@ -160,7 +159,6 @@ class UserDocument(Base):
     
     # Relationships
     user = relationship("User", back_populates="user_documents")
-    vector_embeddings = relationship("VectorEmbedding", back_populates="user_document")
     
     def __repr__(self) -> str:
         return f"<UserDocument(id={self.id}, filename={self.filename})>"
@@ -206,23 +204,8 @@ class VectorEmbedding(Base):
         nullable=False,
     )
     
-    # Relationships (manual join on document_id + document_type)
-    official_document = relationship(
-        "OfficialDocument",
-        back_populates="vector_embeddings",
-        foreign_keys=[document_id],
-        primaryjoin="and_(VectorEmbedding.document_id==OfficialDocument.id, "
-                    "VectorEmbedding.document_type=='official')",
-        viewonly=True,
-    )
-    user_document = relationship(
-        "UserDocument",
-        back_populates="vector_embeddings",
-        foreign_keys=[document_id],
-        primaryjoin="and_(VectorEmbedding.document_id==UserDocument.id, "
-                    "VectorEmbedding.document_type=='user')",
-        viewonly=True,
-    )
+    # Note: No explicit relationships for polymorphic document reference
+    # Use document_id + document_type to manually join in queries
     
     def __repr__(self) -> str:
         return f"<VectorEmbedding(id={self.id}, vector_store={self.vector_store}, faiss_index_id={self.faiss_index_id})>"
