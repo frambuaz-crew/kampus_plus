@@ -106,3 +106,23 @@ async def health_check_vectors():
             "status": "unhealthy",
             "error": str(e)
         }
+
+
+@app.get("/health/s3")
+async def health_check_s3():
+    """S3 storage health check endpoint"""
+    try:
+        from src.services import get_s3_service
+        
+        s3_service = get_s3_service()
+        info = s3_service.get_bucket_info()
+        
+        return {
+            "status": "healthy" if info["status"] == "connected" else "unhealthy",
+            "s3": info
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
