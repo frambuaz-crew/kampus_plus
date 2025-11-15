@@ -11,7 +11,7 @@ python-multipart==0.0.6
 sqlalchemy>=2.0.35  # Python 3.13 compatible
 alembic>=1.13.0  # Python 3.13 compatible
 # asyncpg==0.29.0  # DISABLED: requires C compiler on Windows
-psycopg>=3.2.0  # PostgreSQL driver (pure Python, no binary needed)
+psycopg[binary]>=3.2.0  # PostgreSQL driver with binary extensions
 aiosqlite==0.19.0  # Async SQLite driver (for testing)
 
 # Authentication & Security
