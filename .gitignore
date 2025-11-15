@@ -47,6 +47,7 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+backend/package*.json  # Backend is Python-only, no Node.js files
 
 # React / Build
 /build
