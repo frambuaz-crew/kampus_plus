@@ -56,7 +56,7 @@ Each task follows this format:
 ### Observability & Development Tools
 
 - [x] T015 [P] Configure structured JSON logging in `backend/src/core/logging.py` using Python `logging` with custom formatter, request ID tracking, and sensitive data filtering (clarified 2025-11-15) ✅ 2025-11-15
-- [ ] T016 [P] Create health check endpoints in `backend/src/api/routes/health.py`: `/health` (basic), `/health/ready` (DB + vector store), `/health/live` (liveness probe)
+- [x] T016 [P] Create health check endpoints in `backend/src/api/routes/health.py`: `/health` (basic), `/health/ready` (DB + vector store), `/health/live` (liveness probe) ✅ 2025-11-15
 - [ ] T017 [P] Set up pytest configuration in `backend/pytest.ini` with coverage settings (80% target), async test support
 - [ ] T018 [P] Set up Jest + React Testing Library in `frontend/package.json`, create test setup file `frontend/src/setupTests.js`
 - [ ] T019 Create database seed script `backend/scripts/seed_data.py` with sample users (student/instructor), courses, enrollments for development

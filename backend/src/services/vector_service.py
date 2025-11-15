@@ -74,6 +74,22 @@ class VectorStoreService:
             faiss.write_index(self.vdb_user, str(self.user_index_path))
             print(f"💾 Saved VDB_User: {self.vdb_user.ntotal} vectors")
     
+    def get_index_size(self, store_type: str) -> int:
+        """Get number of vectors in the specified index.
+        
+        Args:
+            store_type: Either "official" or "user".
+        
+        Returns:
+            Number of vectors in the index, or -1 if index not initialized.
+        """
+        if store_type == "official":
+            return self.vdb_official.ntotal if self.vdb_official is not None else -1
+        elif store_type == "user":
+            return self.vdb_user.ntotal if self.vdb_user is not None else -1
+        else:
+            raise ValueError(f"Invalid store_type: {store_type}. Must be 'official' or 'user'.")
+    
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding vector for text using OpenAI.
         
