@@ -69,8 +69,8 @@ class Settings(BaseSettings):
     
     # FAISS Vector Store
     vector_store_path: str = "./data/vectors"
-    faiss_index_official: str = "kampus_official.index"
-    faiss_index_user: str = "kampus_user.index"
+    faiss_index_official: str = "vdb_official.index"
+    faiss_index_user: str = "vdb_user.index"
     vector_dimension: int = 1536
     vector_search_k: int = 5
     
