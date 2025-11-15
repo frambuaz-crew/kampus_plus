@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Python dependencies'i kopyala ve kur
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir --user -r requirements-dev.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
 
 # ============================================================================
 # Stage 2: Runtime (production image)
