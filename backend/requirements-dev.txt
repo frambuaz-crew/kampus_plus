@@ -21,12 +21,12 @@ bcrypt==4.1.1
 pydantic[email]>=2.10.0  # Python 3.13 compatible with pre-built wheels
 pydantic-settings>=2.7.0
 
-# AI & Vector Store (compatible versions)
-langchain==0.1.20
-langchain-openai==0.1.7
+# AI & Vector Store (compatible versions - updated for Python 3.13)
+langchain>=0.3.0  # Updated for Python 3.13 + numpy 2.x compatibility
+langchain-openai>=0.2.0
 openai>=1.25.0
 faiss-cpu>=1.9.0
-tiktoken>=0.5.2,<0.8.0
+tiktoken>=0.5.2
 
 # PDF Processing
 pypdf2==3.0.1
