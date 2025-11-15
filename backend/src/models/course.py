@@ -17,7 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSON, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -59,6 +59,12 @@ class Course(Base):
     # Semester Info
     semester: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    # Additional Course Details (from spec)
+    department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    credits: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    schedule: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    syllabus_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False)

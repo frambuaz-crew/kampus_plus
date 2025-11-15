@@ -80,6 +80,9 @@ class SyncJob(Base):
         index=True,
     )
     
+    # Relationships
+    official_documents = relationship("OfficialDocument", back_populates="sync_job")
+    
     def __repr__(self) -> str:
         return f"<SyncJob(id={self.id}, source={self.source_system}, status={self.status})>"
 

@@ -73,6 +73,11 @@ class OfficialDocument(Base):
         nullable=True,
         index=True,
     )
+    sync_job_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("sync_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     
     # Source Info
     source_system: Mapped[SourceSystemType] = mapped_column(
@@ -80,6 +85,8 @@ class OfficialDocument(Base):
         nullable=False,
         index=True,
     )
+    source_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    document_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
     # Content
     title: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -90,6 +97,14 @@ class OfficialDocument(Base):
     published_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=False),
         nullable=True,
+        index=True,
+    )
+    
+    # Status
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=text("true"),
+        nullable=False,
         index=True,
     )
     
@@ -107,6 +122,7 @@ class OfficialDocument(Base):
     
     # Relationships
     course = relationship("Course", back_populates="official_documents")
+    sync_job = relationship("SyncJob", back_populates="official_documents")
     
     def __repr__(self) -> str:
         return f"<OfficialDocument(id={self.id}, title={self.title[:30]})>"
@@ -135,8 +151,10 @@ class UserDocument(Base):
     # File Info
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     s3_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    s3_bucket: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    page_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     
     # Processing
     processing_status: Mapped[ProcessingStatusType] = mapped_column(
@@ -145,9 +163,10 @@ class UserDocument(Base):
         nullable=False,
         index=True,
     )
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     # Timestamps
-    upload_at: Mapped[datetime] = mapped_column(
+    uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
