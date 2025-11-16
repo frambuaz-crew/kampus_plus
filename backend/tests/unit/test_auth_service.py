@@ -9,12 +9,16 @@ Expected to FAIL initially (Red), then pass after implementation (Green).
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 # These imports will fail until implementation exists (RED phase)
 try:
     from src.services.auth_service import AuthService
+except ImportError:
+    AuthService = None
+
+try:
     from src.core.security import (
         hash_password,
         verify_password,
@@ -24,7 +28,6 @@ try:
     )
 except ImportError:
     # Expected during RED phase - tests should still be runnable
-    AuthService = None
     hash_password = None
     verify_password = None
     create_access_token = None
@@ -118,8 +121,8 @@ class TestJWTTokenGeneration:
         payload = decode_token(token)
         
         assert "exp" in payload
-        exp_time = datetime.fromtimestamp(payload["exp"])
-        now = datetime.utcnow()
+        exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        now = datetime.now(timezone.utc)
         
         # Access token should expire in ~15 minutes (allow 14-16 min range)
         time_diff = (exp_time - now).total_seconds()
@@ -133,8 +136,8 @@ class TestJWTTokenGeneration:
         payload = decode_token(token)
         
         assert "iat" in payload
-        iat_time = datetime.fromtimestamp(payload["iat"])
-        now = datetime.utcnow()
+        iat_time = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+        now = datetime.now(timezone.utc)
         
         # Should be issued within last few seconds
         time_diff = (now - iat_time).total_seconds()
@@ -148,8 +151,8 @@ class TestJWTTokenGeneration:
         payload = decode_token(token)
         
         assert payload["type"] == "refresh"
-        exp_time = datetime.fromtimestamp(payload["exp"])
-        now = datetime.utcnow()
+        exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        now = datetime.now(timezone.utc)
         
         # Refresh token should expire in ~7 days
         time_diff = (exp_time - now).total_seconds()
@@ -273,9 +276,11 @@ class TestTokenRotation:
     
     def test_refresh_tokens_are_unique(self):
         """Test that creating multiple refresh tokens produces unique values."""
+        import time
         user_id = uuid4()
         
         token1 = create_refresh_token(user_id=user_id)
+        time.sleep(1)  # Ensure different iat timestamp
         token2 = create_refresh_token(user_id=user_id)
         
         assert token1 != token2, "Refresh tokens should be unique even for same user"
