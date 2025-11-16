@@ -72,7 +72,13 @@ Each task follows this format:
 
 **CONSTITUTION REQUIREMENT**: Test-First Development is NON-NEGOTIABLE. Write these tests FIRST → Get stakeholder approval → Verify they FAIL (Red) → Then implement (Green) → Refactor.
 
-- [x] T021 **[TEST]** Write unit tests for `backend/tests/unit/test_auth_service.py`: test JWT token generation, password hashing (bcrypt), token validation, token expiration, refresh token flow ✅ 2025-11-15 (RED: 25 tests skipped, awaiting implementation)
+- [x] T021 **[TEST]** Write unit tests for `backend/tests/unit/test_auth_service.py` ✅ 2025-11-15 (RED: 25 tests skipped, awaiting implementation)
+
+#### Write Additional Tests (Continue RED phase)
+
+- [x] T022 **[TEST]** Write unit tests for `backend/tests/unit/test_vector_service.py`: test FAISS indexing (official vs user isolation), similarity search returns correct format, embedding generation, access control ✅ 2025-11-16 (RED: 28 tests skipped - dual stores, OpenAI embeddings, search isolation)
+- [ ] T023 **[TEST]** Write unit tests for `backend/tests/unit/test_pdf_service.py`: test PDF text extraction (PyPDF2 primary), chunking with overlap, embedding generation, malformed PDF handling
+- [ ] T024 **[TEST]** Write integration tests for `backend/tests/integration/test_core_services.py`: test DB connection, S3 upload/download, FAISS persistence, config loading
 - [ ] T022 **[TEST]** Write unit tests for `backend/tests/unit/test_vector_service.py`: test FAISS indexing, similarity search, dual vector store isolation, user document access control
 - [ ] T023 **[TEST]** Write unit tests for `backend/tests/unit/test_pdf_service.py`: test PDF text extraction (PyPDF2), chunking with overlap, embedding generation, malformed PDF handling
 - [ ] T024 **[TEST]** Write integration tests for `backend/tests/integration/test_core_services.py`: test DB connection, S3 upload/download, FAISS persistence, config loading
