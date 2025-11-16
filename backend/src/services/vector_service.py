@@ -206,6 +206,9 @@ class VectorStoreService:
             for idx, meta in zip(assigned_ids, metadata):
                 self.official_metadata[idx] = meta
         
+        # Auto-save indexes after adding vectors
+        self.save_indexes()
+        
         logger.info(f"Added {len(texts)} vectors to VDB_Official (IDs: {assigned_ids[0]}-{assigned_ids[-1]})")
         
         return assigned_ids
@@ -437,6 +440,61 @@ class VectorStoreService:
             "dimension": self.EMBEDDING_DIMENSION,
             "metadata_count": len(self.user_metadata)
         }
+    
+    def get_stats(self) -> Dict[str, Dict]:
+        """Get combined statistics for both vector stores.
+        
+        Returns:
+            Dict with stats for both stores and embedding model info.
+        """
+        return {
+            "vdb_official": self.get_official_stats(),
+            "vdb_user": self.get_user_stats(),
+            "embedding_model": "text-embedding-3-small"
+        }
+    
+    def get_index_size(self, store_type: str) -> int:
+        """Get number of vectors in specified store.
+        
+        Args:
+            store_type: Either "official" or "user".
+        
+        Returns:
+            Number of vectors in the store.
+        
+        Raises:
+            ValueError: If store_type is invalid.
+        """
+        if store_type == "official":
+            return self.vdb_official.ntotal
+        elif store_type == "user":
+            return self.vdb_user.ntotal
+        else:
+            raise ValueError(f"Invalid store_type: {store_type}. Must be 'official' or 'user'.")
+    
+    def remove_from_official(self, index_ids: List[int]) -> None:
+        """Remove vectors from official store.
+        
+        Args:
+            index_ids: List of FAISS index IDs to remove.
+        
+        Raises:
+            NotImplementedError: FAISS IndexFlatL2 doesn't support removal.
+        """
+        raise NotImplementedError("FAISS IndexFlatL2 doesn't support removal operations. "
+                                  "Consider using IndexIDMap wrapper for removal support.")
+    
+    def remove_from_user(self, index_ids: List[int]) -> None:
+        """Remove vectors from user store.
+        
+        Args:
+            index_ids: List of FAISS index IDs to remove.
+        
+        Raises:
+            NotImplementedError: FAISS IndexFlatL2 doesn't support removal.
+        """
+        raise NotImplementedError("FAISS IndexFlatL2 doesn't support removal operations. "
+                                  "Consider using IndexIDMap wrapper for removal support.")
 
 
 # ============================================================================
