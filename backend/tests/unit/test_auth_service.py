@@ -395,6 +395,158 @@ class TestAuthService:
             )
         
         assert "invalid" in str(exc_info.value).lower() or "expired" in str(exc_info.value).lower()
+    
+    @pytest.mark.asyncio
+    async def test_register_user_rejects_duplicate_email(self, auth_service, mocker):
+        """Test that registering with existing email raises ValueError."""
+        email = "existing@university.edu.tr"
+        
+        # Mock existing user
+        mock_existing_user = mocker.Mock()
+        mock_existing_user.email = email
+        
+        # Mock DB session returning existing user
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_existing_user))
+        )
+        
+        # Attempt registration
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.register_user(
+                session=mock_session,
+                email=email,
+                password="Password123!",
+                first_name="Ali",
+                last_name="Yılmaz",
+                role="student"
+            )
+        
+        assert "already exists" in str(exc_info.value).lower()
+    
+    @pytest.mark.asyncio
+    async def test_register_user_rejects_invalid_role(self, auth_service, mocker):
+        """Test that registering with invalid role raises ValueError."""
+        # Mock DB session (no existing user)
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None))
+        )
+        
+        # Attempt registration with invalid role
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.register_user(
+                session=mock_session,
+                email="newuser@university.edu.tr",
+                password="Password123!",
+                first_name="Ali",
+                last_name="Yılmaz",
+                role="superuser"  # Invalid role
+            )
+        
+        assert "invalid role" in str(exc_info.value).lower()
+    
+    @pytest.mark.asyncio
+    async def test_authenticate_user_rejects_nonexistent_email(self, auth_service, mocker):
+        """Test that authentication fails with non-existent email."""
+        # Mock DB session returning None (user not found)
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None))
+        )
+        
+        # Attempt authentication
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.authenticate_user(
+                session=mock_session,
+                email="nonexistent@university.edu.tr",
+                password="Password123!"
+            )
+        
+        assert "invalid" in str(exc_info.value).lower()
+    
+    @pytest.mark.asyncio
+    async def test_authenticate_user_rejects_inactive_user(self, auth_service, mocker):
+        """Test that authentication fails for deactivated user."""
+        email = "inactive@university.edu.tr"
+        password = "Password123!"
+        
+        # Create mock inactive user
+        from src.models.user import UserRole
+        mock_user = mocker.Mock()
+        mock_user.email = email
+        mock_user.password_hash = hash_password(password)
+        mock_user.role = UserRole.STUDENT
+        mock_user.is_active = False  # Deactivated
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user))
+        )
+        
+        # Attempt authentication
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.authenticate_user(
+                session=mock_session,
+                email=email,
+                password=password
+            )
+        
+        assert "deactivated" in str(exc_info.value).lower()
+    
+    @pytest.mark.asyncio
+    async def test_refresh_access_token_rejects_nonexistent_user(self, auth_service, mocker):
+        """Test that refresh fails if user no longer exists."""
+        user_id = uuid4()
+        
+        # Create valid refresh token
+        refresh_token = create_refresh_token(user_id=user_id)
+        
+        # Mock DB session returning None (user deleted)
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None))
+        )
+        
+        # Attempt refresh
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.refresh_access_token(
+                session=mock_session,
+                refresh_token_str=refresh_token
+            )
+        
+        assert "not found" in str(exc_info.value).lower()
+    
+    @pytest.mark.asyncio
+    async def test_refresh_access_token_rejects_inactive_user(self, auth_service, mocker):
+        """Test that refresh fails for deactivated user."""
+        user_id = uuid4()
+        
+        # Create valid refresh token
+        refresh_token = create_refresh_token(user_id=user_id)
+        
+        # Create mock inactive user
+        from src.models.user import UserRole
+        mock_user = mocker.Mock()
+        mock_user.id = user_id
+        mock_user.role = UserRole.STUDENT
+        mock_user.is_active = False  # Deactivated
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user))
+        )
+        
+        # Attempt refresh
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.refresh_access_token(
+                session=mock_session,
+                refresh_token_str=refresh_token
+            )
+        
+        assert "deactivated" in str(exc_info.value).lower()
 
 
 # ============================================================================
@@ -456,3 +608,248 @@ class TestSecurityEdgeCases:
         """Test that None token raises appropriate exception."""
         with pytest.raises(Exception):
             decode_token(None)
+
+
+# ============================================================================
+# EMAIL VERIFICATION TESTS
+# ============================================================================
+
+@pytest.mark.skipif(AuthService is None, reason="Implementation not yet available")
+class TestEmailVerification:
+    """Test email verification functionality."""
+    
+    @pytest.fixture
+    def auth_service(self):
+        """Provide AuthService instance for testing."""
+        return AuthService()
+    
+    @pytest.mark.asyncio
+    async def test_generate_verification_token_creates_valid_token(self, auth_service):
+        """Test that verification token is generated correctly."""
+        user_id = uuid4()
+        
+        # Generate verification token
+        token = await auth_service.generate_verification_token(user_id)
+        
+        # Verify token structure
+        assert isinstance(token, str)
+        assert len(token) > 0
+        
+        # Decode and verify payload
+        payload = decode_token(token)
+        assert payload["user_id"] == str(user_id)
+        assert payload["role"] == "verification"
+    
+    @pytest.mark.asyncio
+    async def test_verify_email_marks_user_as_verified(self, auth_service, mocker):
+        """Test that email verification updates user.is_verified."""
+        user_id = uuid4()
+        
+        # Create verification token
+        verification_token = await auth_service.generate_verification_token(user_id)
+        
+        # Mock unverified user
+        mock_user = mocker.Mock()
+        mock_user.id = user_id
+        mock_user.is_verified = False
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user))
+        )
+        mock_session.commit = mocker.AsyncMock()
+        mock_session.refresh = mocker.AsyncMock()
+        
+        # Verify email
+        user = await auth_service.verify_email(mock_session, verification_token)
+        
+        # Check user is verified
+        assert user.is_verified is True
+        mock_session.commit.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_verify_email_rejects_expired_token(self, auth_service, mocker):
+        """Test that expired verification token is rejected."""
+        from datetime import timedelta
+        user_id = uuid4()
+        
+        # Create expired token
+        expired_token = create_access_token(
+            user_id=user_id,
+            role="verification",
+            expires_delta=timedelta(seconds=-1)
+        )
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        
+        # Attempt verification
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.verify_email(mock_session, expired_token)
+        
+        assert "invalid" in str(exc_info.value).lower() or "expired" in str(exc_info.value).lower()
+    
+    @pytest.mark.asyncio
+    async def test_verify_email_rejects_nonexistent_user(self, auth_service, mocker):
+        """Test that verification fails if user doesn't exist."""
+        user_id = uuid4()
+        
+        # Create valid token
+        verification_token = await auth_service.generate_verification_token(user_id)
+        
+        # Mock DB session returning None (user deleted)
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None))
+        )
+        
+        # Attempt verification
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.verify_email(mock_session, verification_token)
+        
+        assert "not found" in str(exc_info.value).lower()
+
+
+# ============================================================================
+# TOKEN REVOCATION TESTS
+# ============================================================================
+
+@pytest.mark.skipif(AuthService is None, reason="Implementation not yet available")
+class TestTokenRevocation:
+    """Test token revocation (logout) functionality."""
+    
+    @pytest.fixture
+    def auth_service(self):
+        """Provide AuthService instance for testing."""
+        return AuthService()
+    
+    @pytest.mark.asyncio
+    async def test_revoke_refresh_token_marks_tokens_as_revoked(self, auth_service, mocker):
+        """Test that revoking refresh token updates database."""
+        user_id = uuid4()
+        
+        # Create refresh token
+        refresh_token = create_refresh_token(user_id=user_id)
+        
+        # Mock existing token in database
+        from src.models.user import RefreshToken
+        mock_token = mocker.Mock(spec=RefreshToken)
+        mock_token.user_id = user_id
+        mock_token.is_revoked = False
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalars=mocker.Mock(return_value=mocker.Mock(all=mocker.Mock(return_value=[mock_token]))))
+        )
+        mock_session.commit = mocker.AsyncMock()
+        
+        # Revoke token
+        await auth_service.revoke_refresh_token(mock_session, refresh_token)
+        
+        # Verify token is revoked
+        assert mock_token.is_revoked is True
+        mock_session.commit.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_revoke_refresh_token_rejects_invalid_token(self, auth_service, mocker):
+        """Test that invalid token raises error."""
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        
+        # Attempt to revoke invalid token
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.revoke_refresh_token(mock_session, "invalid.token.here")
+        
+        assert "invalid" in str(exc_info.value).lower()
+
+
+# ============================================================================
+# USER LOOKUP TESTS
+# ============================================================================
+
+@pytest.mark.skipif(AuthService is None, reason="Implementation not yet available")
+class TestUserLookup:
+    """Test user lookup helper methods."""
+    
+    @pytest.fixture
+    def auth_service(self):
+        """Provide AuthService instance for testing."""
+        return AuthService()
+    
+    @pytest.mark.asyncio
+    async def test_get_user_by_id_returns_user(self, auth_service, mocker):
+        """Test that get_user_by_id returns user when exists."""
+        user_id = uuid4()
+        
+        # Mock user
+        mock_user = mocker.Mock()
+        mock_user.id = user_id
+        mock_user.email = "student@university.edu.tr"
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user))
+        )
+        
+        # Get user by ID
+        user = await auth_service.get_user_by_id(mock_session, user_id)
+        
+        assert user is not None
+        assert user.id == user_id
+    
+    @pytest.mark.asyncio
+    async def test_get_user_by_id_returns_none_when_not_found(self, auth_service, mocker):
+        """Test that get_user_by_id returns None when user doesn't exist."""
+        user_id = uuid4()
+        
+        # Mock DB session returning None
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None))
+        )
+        
+        # Get user by ID
+        user = await auth_service.get_user_by_id(mock_session, user_id)
+        
+        assert user is None
+    
+    @pytest.mark.asyncio
+    async def test_get_user_by_email_returns_user(self, auth_service, mocker):
+        """Test that get_user_by_email returns user when exists."""
+        email = "student@university.edu.tr"
+        
+        # Mock user
+        mock_user = mocker.Mock()
+        mock_user.email = email
+        mock_user.id = uuid4()
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user))
+        )
+        
+        # Get user by email
+        user = await auth_service.get_user_by_email(mock_session, email)
+        
+        assert user is not None
+        assert user.email == email
+    
+    @pytest.mark.asyncio
+    async def test_get_user_by_email_returns_none_when_not_found(self, auth_service, mocker):
+        """Test that get_user_by_email returns None when user doesn't exist."""
+        email = "nonexistent@university.edu.tr"
+        
+        # Mock DB session returning None
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(
+            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None))
+        )
+        
+        # Get user by email
+        user = await auth_service.get_user_by_email(mock_session, email)
+        
+        assert user is None
