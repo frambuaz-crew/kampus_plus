@@ -234,36 +234,167 @@ class TestAuthService:
         """Provide AuthService instance for testing."""
         return AuthService()
     
-    def test_register_user_hashes_password(self, auth_service):
+    @pytest.mark.asyncio
+    async def test_register_user_hashes_password(self, auth_service, mocker):
         """Test that user registration hashes password with bcrypt."""
         email = "newstudent@university.edu.tr"
         password = "SecurePass123!"
         
-        # This will need mock DB session - placeholder for now
-        # user = auth_service.register_user(email=email, password=password, role="student")
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None)))
+        mock_session.commit = mocker.AsyncMock()
+        mock_session.refresh = mocker.AsyncMock()
         
-        # assert user.password_hash != password
-        # assert user.password_hash.startswith("$2b$")
-        # assert verify_password(password, user.password_hash) is True
+        # Register user
+        user = await auth_service.register_user(
+            session=mock_session,
+            email=email,
+            password=password,
+            first_name="Ali",
+            last_name="Yılmaz",
+            role="student"
+        )
         
-        pytest.skip("Requires DB mocking - will implement after service structure is clear")
+        # Verify password is hashed
+        assert user.password_hash != password
+        assert user.password_hash.startswith("$2b$")
+        assert verify_password(password, user.password_hash) is True
+        
+        # Verify DB operations called
+        mock_session.add.assert_called_once()
+        mock_session.commit.assert_called_once()
     
-    def test_authenticate_user_returns_tokens_for_valid_credentials(self, auth_service):
+    @pytest.mark.asyncio
+    async def test_authenticate_user_returns_tokens_for_valid_credentials(self, auth_service, mocker):
         """Test that authentication with correct credentials returns access + refresh tokens."""
-        # This requires DB with seeded user - placeholder
-        pytest.skip("Requires DB mocking - will implement after service structure is clear")
+        email = "student@university.edu.tr"
+        password = "SecurePass123!"
+        
+        # Create mock user with hashed password
+        from src.models.user import UserRole
+        user_id = uuid4()
+        mock_user = mocker.Mock()
+        mock_user.id = user_id
+        mock_user.email = email
+        mock_user.password_hash = hash_password(password)
+        mock_user.role = UserRole.STUDENT
+        mock_user.is_active = True
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user)))
+        mock_session.commit = mocker.AsyncMock()
+        
+        # Authenticate
+        user, access_token, refresh_token = await auth_service.authenticate_user(
+            session=mock_session,
+            email=email,
+            password=password
+        )
+        
+        # Verify returned values
+        assert user.id == user_id
+        assert isinstance(access_token, str)
+        assert isinstance(refresh_token, str)
+        
+        # Verify tokens are valid
+        access_payload = decode_token(access_token)
+        assert access_payload["user_id"] == str(user_id)
+        assert access_payload["type"] == "access"
+        
+        refresh_payload = decode_token(refresh_token)
+        assert refresh_payload["user_id"] == str(user_id)
+        assert refresh_payload["type"] == "refresh"
     
-    def test_authenticate_user_raises_exception_for_invalid_password(self, auth_service):
+    @pytest.mark.asyncio
+    async def test_authenticate_user_raises_exception_for_invalid_password(self, auth_service, mocker):
         """Test that authentication fails with wrong password."""
-        pytest.skip("Requires DB mocking - will implement after service structure is clear")
+        email = "student@university.edu.tr"
+        correct_password = "SecurePass123!"
+        wrong_password = "WrongPassword"
+        
+        # Create mock user
+        from src.models.user import UserRole
+        mock_user = mocker.Mock()
+        mock_user.email = email
+        mock_user.password_hash = hash_password(correct_password)
+        mock_user.role = UserRole.STUDENT
+        mock_user.is_active = True
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user)))
+        
+        # Attempt authentication with wrong password
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.authenticate_user(
+                session=mock_session,
+                email=email,
+                password=wrong_password
+            )
+        
+        assert "invalid" in str(exc_info.value).lower()
     
-    def test_refresh_tokens_generates_new_access_token(self, auth_service):
+    @pytest.mark.asyncio
+    async def test_refresh_tokens_generates_new_access_token(self, auth_service, mocker):
         """Test that refresh endpoint generates new access token."""
-        pytest.skip("Requires DB mocking - will implement after service structure is clear")
+        import time
+        user_id = uuid4()
+        
+        # Create valid refresh token
+        refresh_token = create_refresh_token(user_id=user_id)
+        time.sleep(1)  # Ensure different iat timestamp for new token
+        
+        # Create mock user
+        from src.models.user import UserRole
+        mock_user = mocker.Mock()
+        mock_user.id = user_id
+        mock_user.role = UserRole.STUDENT
+        mock_user.is_active = True
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        mock_session.execute = mocker.AsyncMock(return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=mock_user)))
+        mock_session.commit = mocker.AsyncMock()
+        
+        # Refresh tokens
+        new_access_token, new_refresh_token = await auth_service.refresh_access_token(
+            session=mock_session,
+            refresh_token_str=refresh_token
+        )
+        
+        # Verify new tokens
+        assert isinstance(new_access_token, str)
+        assert isinstance(new_refresh_token, str)
+        assert new_access_token != refresh_token
+        assert new_refresh_token != refresh_token
+        
+        # Verify new access token is valid
+        access_payload = decode_token(new_access_token)
+        assert access_payload["user_id"] == str(user_id)
+        assert access_payload["type"] == "access"
     
-    def test_refresh_tokens_rejects_revoked_refresh_token(self, auth_service):
+    @pytest.mark.asyncio
+    async def test_refresh_tokens_rejects_revoked_refresh_token(self, auth_service, mocker):
         """Test that revoked refresh tokens cannot be used."""
-        pytest.skip("Requires DB mocking - will implement after service structure is clear")
+        user_id = uuid4()
+        
+        # Create expired refresh token (negative expiration)
+        from datetime import timedelta
+        expired_token = create_refresh_token(user_id=user_id, expires_delta=timedelta(seconds=-1))
+        
+        # Mock DB session
+        mock_session = mocker.AsyncMock()
+        
+        # Attempt to use expired token
+        with pytest.raises(ValueError) as exc_info:
+            await auth_service.refresh_access_token(
+                session=mock_session,
+                refresh_token_str=expired_token
+            )
+        
+        assert "invalid" in str(exc_info.value).lower() or "expired" in str(exc_info.value).lower()
 
 
 # ============================================================================
