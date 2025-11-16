@@ -4,13 +4,16 @@ FastAPI application entry point
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from src.core.config import get_settings
 from src.core.database import close_db, init_db
 from src.core.logging import RequestIDMiddleware, setup_logging
 from src.api.routes.health import router as health_router
+from src.api.routes.auth import router as auth_router
 from src.services import get_vector_service
 
 
@@ -59,8 +62,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Custom exception handlers
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Convert Pydantic 422 validation errors to 400 Bad Request with consistent format."""
+    errors = exc.errors()
+    
+    # Extract first error message for simplicity
+    first_error = errors[0] if errors else {"msg": "Validation error"}
+    field = " -> ".join(str(loc) for loc in first_error.get("loc", []))
+    message = first_error.get("msg", "Validation error")
+    
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": f"{field}: {message}" if field else message,
+                "details": errors
+            }
+        }
+    )
+
+
 # Include routers
 app.include_router(health_router)
+app.include_router(auth_router, prefix="/v1")
 
 
 @app.get("/")

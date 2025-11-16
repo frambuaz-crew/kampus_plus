@@ -23,30 +23,44 @@ from typing import List, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch, mock_open
 from io import BytesIO
 
-# Imports will be available after implementation
-try:
-    from src.services.pdf_service import PDFService
-except ImportError:
-    PDFService = None
+# Import implementation
+from src.services.pdf_service import PDFService
 
 
-pytestmark = pytest.mark.skipif(
-    PDFService is None,
-    reason="Implementation not yet available (RED phase)"
-)
+@pytest.fixture
+def mock_openai():
+    """Mock OpenAI client to avoid API calls during tests."""
+    with patch('src.services.pdf_service.AsyncOpenAI') as mock:
+        mock.return_value = MagicMock()
+        yield mock
+
+
+@pytest.fixture
+def mock_tiktoken():
+    """Mock tiktoken to avoid downloading encoding files."""
+    with patch('src.services.pdf_service.tiktoken') as mock:
+        mock_encoding = MagicMock()
+        mock_encoding.encode.return_value = list(range(100))  # Mock tokens
+        mock_encoding.decode.return_value = "decoded text"
+        mock.encoding_for_model.return_value = mock_encoding
+        yield mock
+
+
+@pytest.fixture
+def pdf_service(mock_openai, mock_tiktoken):
+    """Create PDFService instance with mocked OpenAI and tiktoken."""
+    return PDFService()
 
 
 class TestPDFTextExtraction:
     """Test PDF text extraction methods."""
     
-    def test_extract_text_uses_pypdf2_as_primary_method(self):
+    def test_extract_text_uses_pypdf2_as_primary_method(self, pdf_service):
         """Test that extract_text tries PyPDF2 first."""
-        pytest.skip("Implementation not yet available (RED phase)")
-        
-        service = PDFService()
+        service = pdf_service
         pdf_bytes = b"%PDF-1.4 mock content"
         
-        with patch('PyPDF2.PdfReader') as mock_pypdf2:
+        with patch('src.services.pdf_service.PyPDF2.PdfReader') as mock_pypdf2:
             mock_reader = MagicMock()
             mock_reader.pages = [MagicMock(extract_text=lambda: "Sample text")]
             mock_pypdf2.return_value = mock_reader
@@ -58,7 +72,7 @@ class TestPDFTextExtraction:
     
     def test_extract_text_falls_back_to_pdfplumber_on_poor_quality(self):
         """Test that pdfplumber is used when PyPDF2 extraction quality is poor."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         pdf_bytes = b"%PDF-1.4 scanned content"
@@ -86,7 +100,7 @@ class TestPDFTextExtraction:
     
     def test_extract_text_handles_empty_pdf(self):
         """Test that empty PDFs are handled gracefully."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -101,7 +115,7 @@ class TestPDFTextExtraction:
     
     def test_extract_text_handles_multi_page_pdf(self):
         """Test that multi-page PDFs extract all pages."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -122,7 +136,7 @@ class TestPDFTextExtraction:
     
     def test_extract_text_handles_unicode_turkish_content(self):
         """Test that Turkish characters (ğ, ü, ş, ı, ö, ç) are handled correctly."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         turkish_text = "Öğrenci üniversite müfredatını öğreniyor. İçerik şöyle: çalışma notları."
@@ -144,7 +158,7 @@ class TestPDFChunking:
     
     def test_chunk_text_creates_512_token_segments(self):
         """Test that text is chunked into ~512 token segments."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -162,7 +176,7 @@ class TestPDFChunking:
     
     def test_chunk_text_uses_50_token_overlap(self):
         """Test that chunks have 50-token overlap for context preservation."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -182,7 +196,7 @@ class TestPDFChunking:
     
     def test_chunk_text_preserves_sentence_boundaries(self):
         """Test that chunking respects sentence boundaries when possible."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -197,7 +211,7 @@ class TestPDFChunking:
     
     def test_chunk_text_handles_short_text(self):
         """Test that short text (< 512 tokens) returns single chunk."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -210,7 +224,7 @@ class TestPDFChunking:
     
     def test_chunk_text_handles_empty_string(self):
         """Test that empty string returns empty list or single empty chunk."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -226,7 +240,7 @@ class TestEmbeddingGeneration:
     @pytest.mark.asyncio
     async def test_generate_embeddings_for_chunks_calls_openai(self):
         """Test that generate_embeddings calls OpenAI for each chunk."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         chunks = ["Chunk 1 content", "Chunk 2 content", "Chunk 3 content"]
@@ -242,7 +256,7 @@ class TestEmbeddingGeneration:
     @pytest.mark.asyncio
     async def test_generate_embeddings_returns_1536_dimension_vectors(self):
         """Test that embeddings have 1536 dimensions (OpenAI text-embedding-3-small)."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         chunks = ["Test chunk"]
@@ -258,7 +272,7 @@ class TestEmbeddingGeneration:
     @pytest.mark.asyncio
     async def test_generate_embeddings_handles_large_batch(self):
         """Test that large batches (>100 chunks) are handled properly."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         chunks = [f"Chunk {i}" for i in range(150)]  # 150 chunks
@@ -278,7 +292,7 @@ class TestPDFProcessingPipeline:
     @pytest.mark.asyncio
     async def test_process_pdf_complete_pipeline(self):
         """Test that process_pdf executes full pipeline: extract → chunk → embed."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         pdf_bytes = b"%PDF-1.4 test content"
@@ -301,7 +315,7 @@ class TestPDFProcessingPipeline:
     @pytest.mark.asyncio
     async def test_process_pdf_returns_chunks_with_embeddings(self):
         """Test that process_pdf returns list of (chunk_text, embedding) tuples."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -320,7 +334,7 @@ class TestPDFProcessingPipeline:
     @pytest.mark.asyncio
     async def test_process_pdf_calculates_page_count(self):
         """Test that process_pdf returns page count metadata."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -341,7 +355,7 @@ class TestErrorHandling:
     
     def test_extract_text_raises_on_corrupted_pdf(self):
         """Test that corrupted PDF raises clear error."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         corrupted_bytes = b"This is not a PDF file at all"
@@ -354,7 +368,7 @@ class TestErrorHandling:
     
     def test_validate_pdf_rejects_oversized_files(self):
         """Test that files >25MB are rejected."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -368,7 +382,7 @@ class TestErrorHandling:
     
     def test_validate_pdf_rejects_non_pdf_files(self):
         """Test that non-PDF files are rejected."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -382,7 +396,7 @@ class TestErrorHandling:
     
     def test_validate_pdf_accepts_valid_pdf(self):
         """Test that valid PDF passes validation."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -397,7 +411,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_process_pdf_handles_extraction_failure_gracefully(self):
         """Test that extraction failures are handled with clear error messages."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -412,7 +426,7 @@ class TestErrorHandling:
     
     def test_extract_text_logs_fallback_to_pdfplumber(self):
         """Test that fallback to pdfplumber is logged for monitoring."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -444,7 +458,7 @@ class TestSecurityValidation:
     
     def test_validate_pdf_checks_magic_bytes(self):
         """Test that PDF magic bytes (%PDF) are verified."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -457,7 +471,7 @@ class TestSecurityValidation:
     
     def test_validate_pdf_enforces_size_limit_parameter(self):
         """Test that custom size limits can be enforced."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -475,7 +489,7 @@ class TestSecurityValidation:
     @pytest.mark.asyncio
     async def test_process_pdf_sanitizes_metadata(self):
         """Test that PDF metadata is sanitized to remove potential XSS."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         
@@ -501,7 +515,7 @@ class TestPerformanceOptimization:
     @pytest.mark.asyncio
     async def test_process_pdf_completes_within_2_minutes_for_10mb(self):
         """Test that 10MB PDF processing completes within 2 minutes (success criteria)."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         import time
         
@@ -525,7 +539,7 @@ class TestPerformanceOptimization:
     @pytest.mark.asyncio
     async def test_generate_embeddings_batches_requests(self):
         """Test that embeddings are batched to reduce API calls."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = PDFService()
         chunks = [f"Chunk {i}" for i in range(200)]  # 200 chunks

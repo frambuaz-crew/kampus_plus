@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.fixture
 async def client():
-    """Create async HTTP client for testing."""
+    """Create async HTTP client for testing with test database."""
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
 
