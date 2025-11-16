@@ -4,17 +4,22 @@ Provides:
 - Test database setup/teardown
 - Database session fixtures
 - Test client with overridden dependencies
+- Test user and auth fixtures
 """
 
 import asyncio
 import pytest
 import pytest_asyncio
 from typing import AsyncGenerator
+from uuid import uuid4
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from src.core.database import get_db
 from src.models.base import Base
+from src.models.user import User
+from src.core.security import hash_password, create_access_token
 from src.main import app
 
 # Import all models so they are registered with Base.metadata
@@ -22,6 +27,7 @@ import src.models.user  # noqa: F401
 import src.models.document  # noqa: F401
 import src.models.sync  # noqa: F401
 import src.models.forum  # noqa: F401
+import src.models.course  # noqa: F401
 
 
 # Test database URL (file-based for consistency)
@@ -120,3 +126,35 @@ async def setup_test_db():
     # Drop all tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest_asyncio.fixture
+async def client() -> AsyncGenerator[AsyncClient, None]:
+    """Create async HTTP client for API testing."""
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def test_user(db_session: AsyncSession) -> User:
+    """Create a test user for authentication tests."""
+    user = User(
+        email=f"testuser{uuid4().hex[:8]}@university.edu.tr",
+        first_name="Test",
+        last_name="User",
+        password_hash=hash_password("TestPassword123!"),
+        role="student",
+        is_verified=True,
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def auth_headers(test_user: User) -> dict:
+    """Create authorization headers with valid JWT token."""
+    access_token = create_access_token(user_id=test_user.id, role=test_user.role)
+    return {"Authorization": f"Bearer {access_token}"}

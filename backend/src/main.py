@@ -14,6 +14,7 @@ from src.core.database import close_db, init_db
 from src.core.logging import RequestIDMiddleware, setup_logging
 from src.api.routes.health import router as health_router
 from src.api.routes.auth import router as auth_router
+from src.api.routes.courses import router as courses_router
 from src.services import get_vector_service
 
 
@@ -105,7 +106,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": f"{field}: {message}" if field else message,
-                "details": errors
+                "details": {"validation_errors": errors} if errors else None
             }
         }
     )
@@ -114,6 +115,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Include routers
 app.include_router(health_router)
 app.include_router(auth_router, prefix="/v1")
+app.include_router(courses_router, prefix="/v1")
 
 
 @app.get("/")

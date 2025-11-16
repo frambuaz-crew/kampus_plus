@@ -17,18 +17,18 @@ from src.core.security import decode_token
 from src.models.user import User, UserRole
 
 
-# Bearer token authentication scheme
-security = HTTPBearer()
+# Bearer token authentication scheme (auto_error=False to manually handle missing token)
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     session: AsyncSession = Depends(get_db)
 ) -> User:
     """Get currently authenticated user from JWT token.
     
     Args:
-        credentials: Bearer token from Authorization header
+        credentials: Bearer token from Authorization header (optional to allow 401 response)
         session: Database session
         
     Returns:
@@ -37,6 +37,19 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token invalid or user not found
     """
+    # Check if credentials are provided
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Missing authentication token"
+                }
+            },
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
     try:
         # Decode JWT token
         token = credentials.credentials
@@ -55,14 +68,30 @@ async def get_current_user(
             )
         
         # Extract user_id from payload
-        user_id: Optional[str] = payload.get("sub")
-        if not user_id:
+        user_id_str: Optional[str] = payload.get("user_id")
+        if not user_id_str:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={
                     "error": {
                         "code": "UNAUTHORIZED",
                         "message": "Invalid token payload"
+                    }
+                },
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
+        # Convert string UUID to UUID object
+        try:
+            from uuid import UUID
+            user_id = UUID(user_id_str)
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": {
+                        "code": "UNAUTHORIZED",
+                        "message": "Invalid user ID format"
                     }
                 },
                 headers={"WWW-Authenticate": "Bearer"}

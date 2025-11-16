@@ -37,6 +37,8 @@ coverage.json
 htmlcov/
 *.cover
 .hypothesis/
+test.db
+test_debug.py
 
 # Alembic
 alembic/versions/*.pyc

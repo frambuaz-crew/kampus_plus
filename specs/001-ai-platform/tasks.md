@@ -118,9 +118,9 @@ Each task follows this format:
 - [x] T039 [US1] Implement `/auth/verify-email` endpoint: validate token, mark `is_verified=True`, return success ✅ 2025-11-16 (GREEN: 3/3 tests passing)
 - [x] T040 [US1] Implement `/auth/login` endpoint: validate credentials, check `is_verified` and `is_active`, issue access + refresh tokens, set httpOnly cookie ✅ 2025-11-16 (GREEN: 5/5 tests passing - JWT issuance, cookie management, 401/403 error handling)
 - [x] T041 [US1] Implement `/auth/refresh` endpoint: validate refresh token from cookie, issue new access token, rotate refresh token ✅ 2025-11-16 (GREEN: 2/2 tests passing - token rotation, cookie validation)
-- [ ] T042 [US1] Implement `/auth/logout` endpoint: revoke refresh token in DB, clear cookie (PARTIAL: 0/2 tests - endpoint exists, needs Bearer token auth validation fix)
-- [ ] T043 [US1] Implement `/auth/forgot-password` and `/auth/reset-password` endpoints for password recovery flow
-- [ ] T044 [US1] Create `/courses/my-courses` endpoint in `backend/src/api/routes/courses.py`: return enrolled courses for authenticated student
+- [x] T042 [US1] Implement `/auth/logout` endpoint: revoke refresh token in DB, clear cookie ✅ 2025-11-16 (GREEN: 2/2 tests passing - Bearer token auth, HTTPBearer auto_error=False for 401 handling)
+- [x] T043 [US1] Implement `/auth/forgot-password` and `/auth/reset-password` endpoints for password recovery flow ✅ 2025-11-16 (GREEN: 5/5 tests passing - forgot always 200, reset validates token/password length)
+- [x] T044 [US1] Create `/courses/my-courses` endpoint in `backend/src/api/routes/courses.py`: return enrolled courses for authenticated student ✅ 2025-11-16 (GREEN: 9/9 tests passing - enrollment filtering, instructor names, schema compliance, UUID conversion in dependencies)
 
 ### Frontend Implementation
 
@@ -134,7 +134,7 @@ Each task follows this format:
 
 ### Testing & Validation
 
-- [ ] T052 [US1] Run T035 contract tests → Verify all auth endpoints match OpenAPI spec
+- [x] T052 [US1] Run T035 contract tests → Verify all auth endpoints match OpenAPI spec ✅ 2025-11-16 (GREEN: 27/27 contract tests passing - all endpoints validated)
 - [ ] T053 [US1] Run T036 integration tests → Verify complete auth flow (registration to logout)
 - [ ] T054 [US1] Run T037 frontend tests → Verify LoginForm component behavior
 - [ ] T055 [US1] Manual E2E test: Register new student → Verify email → Login → Access dashboard → Logout → Verify cannot access dashboard
