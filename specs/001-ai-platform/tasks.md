@@ -110,7 +110,7 @@ Each task follows this format:
 
 - [x] T035 **[TEST]** [US1] Write API contract tests in `backend/tests/contract/test_auth_endpoints.py`: validate `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` against OpenAPI schema ✅ 2025-11-16 (RED: 43 contract tests - register/login/refresh/logout/verify-email/forgot-password/reset-password endpoints, request/response schema validation, error format consistency)
 - [x] T036 **[TEST]** [US1] Write integration tests in `backend/tests/integration/test_auth_flow.py`: full registration → email verification → login → token refresh → logout flow ✅ 2025-11-16 (RED: 18 integration tests - complete auth lifecycle, registration+verification+login+refresh+logout flow, password reset flow, JWT validation, cookie management, database state verification, email mocking)
-- [ ] T037 **[TEST]** [US1] Write frontend tests in `frontend/src/components/auth/__tests__/LoginForm.test.jsx`: test form validation, successful login, error handling, JWT storage
+- [x] T037 **[TEST]** [US1] Write frontend tests in `frontend/src/components/auth/__tests__/LoginForm.test.tsx`: test form validation, successful login, error handling, JWT storage ✅ 2025-11-16 (RED: 24 Vitest tests - form rendering, email/password validation, successful login flow, 401/403/500 error handling, JWT storage, loading states, form interactions, keyboard navigation)
 
 ### Backend Implementation
 
