@@ -24,14 +24,17 @@ import src.models.sync  # noqa: F401
 import src.models.forum  # noqa: F401
 
 
-# Test database URL (in-memory SQLite for speed)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Test database URL (file-based for consistency)
+import os
+TEST_DB_PATH = os.path.join(os.path.dirname(__file__), "test.db")
+TEST_DATABASE_URL = f"sqlite+aiosqlite:///{TEST_DB_PATH}"
 
 # Create test engine
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
     poolclass=NullPool,  # Disable connection pooling for tests
     echo=False,  # Set to True for SQL query debugging
+    connect_args={"check_same_thread": False}  # Allow multiple threads for SQLite
 )
 
 # Create test session maker

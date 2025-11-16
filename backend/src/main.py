@@ -4,7 +4,7 @@ FastAPI application entry point
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -63,6 +63,32 @@ app.add_middleware(
 )
 
 # Custom exception handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTPException to unwrap nested detail structure.
+    
+    If detail is already a dict with 'error' key, use it directly.
+    Otherwise, wrap in standard error format.
+    """
+    if isinstance(exc.detail, dict) and "error" in exc.detail:
+        # Already in correct format (from our endpoints)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail
+        )
+    else:
+        # Legacy format or string detail
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": {
+                    "code": "ERROR",
+                    "message": str(exc.detail)
+                }
+            }
+        )
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Convert Pydantic 422 validation errors to 400 Bad Request with consistent format."""
