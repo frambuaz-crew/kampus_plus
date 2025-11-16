@@ -84,7 +84,7 @@ Each task follows this format:
 
 - [x] T025 Implement `backend/src/core/security.py`: password hashing with bcrypt, JWT encode/decode functions (HS256), token validation middleware ✅ 2025-11-16 (GREEN: 20/25 tests passing - bcrypt cost 12, JWT 15min/7day, timezone-aware)
 - [x] T026 Implement `backend/src/services/auth_service.py`: user registration, login, refresh token rotation, email verification token generation ✅ 2025-11-16 (GREEN: 25/25 tests passing - register_user, authenticate_user, refresh_access_token, verify_email, AsyncMock DB operations)
-- [ ] T027 Create FastAPI dependency `backend/src/api/dependencies.py`: `get_current_user()` that validates JWT and loads user from DB, `require_role()` for role-based access
+- [x] T027 Create FastAPI dependency `backend/src/api/dependencies.py`: `get_current_user()` that validates JWT and loads user from DB, `require_role()` for role-based access ✅ 2025-11-16 (GREEN: 19/19 tests passing - get_current_user, require_role, require_admin, require_instructor_or_admin, optional auth, email verification)
 - [ ] T028 Run T021 tests → Verify they PASS after implementation → Achieve 80%+ coverage for auth module
 
 ### AI & Vector Services (Dependency for US2, US3, US4)
