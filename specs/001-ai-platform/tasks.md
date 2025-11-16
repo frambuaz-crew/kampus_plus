@@ -78,10 +78,7 @@ Each task follows this format:
 
 - [x] T022 **[TEST]** Write unit tests for `backend/tests/unit/test_vector_service.py`: test FAISS indexing (official vs user isolation), similarity search returns correct format, embedding generation, access control ✅ 2025-11-16 (RED: 28 tests skipped - dual stores, OpenAI embeddings, search isolation)
 - [x] T023 **[TEST]** Write unit tests for `backend/tests/unit/test_pdf_service.py`: test PDF text extraction (PyPDF2 primary), chunking with overlap, embedding generation, malformed PDF handling ✅ 2025-11-16 (RED: 27 tests skipped - extraction, chunking 512 tokens/50 overlap, security)
-- [ ] T024 **[TEST]** Write integration tests for `backend/tests/integration/test_core_services.py`: test DB connection, S3 upload/download, FAISS persistence, config loading
-- [ ] T022 **[TEST]** Write unit tests for `backend/tests/unit/test_vector_service.py`: test FAISS indexing, similarity search, dual vector store isolation, user document access control
-- [ ] T023 **[TEST]** Write unit tests for `backend/tests/unit/test_pdf_service.py`: test PDF text extraction (PyPDF2), chunking with overlap, embedding generation, malformed PDF handling
-- [ ] T024 **[TEST]** Write integration tests for `backend/tests/integration/test_core_services.py`: test DB connection, S3 upload/download, FAISS persistence, config loading
+- [x] T024 **[TEST]** Write integration tests for `backend/tests/integration/test_core_services.py`: test DB connection, S3 upload/download, FAISS persistence, config loading ✅ 2025-11-16 (RED: 27 tests skipped - DB sessions, S3 operations, FAISS persistence, service integration)
 
 ### Authentication Service Implementation (Dependency for ALL User Stories)
 
