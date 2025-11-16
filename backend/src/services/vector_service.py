@@ -1,15 +1,22 @@
-"""Vector store service for FAISS-based document embeddings.
+"""Vector store service for document embeddings and similarity search.
 
-This module manages dual vector stores:
-- VDB_Official: Official university documents (UZEM, announcements, schedules)
-- VDB_User: User-uploaded PDFs (personal notes, materials)
+This module provides:
+- Dual FAISS vector stores (official documents + user documents)
+- OpenAI embedding generation (text-embedding-3-small, 1536 dimensions)
+- Similarity search with k=5 default
+- User access control (users can only search their own documents)
+- Index persistence to disk (data/vectors/)
 
-Uses FAISS IndexFlatL2 for similarity search with OpenAI embeddings.
+Vector Store Structure:
+- VDB_Official: Course materials, official documents (read-only for students)
+- VDB_User: Student-uploaded documents (user-scoped access control)
 """
 
 import os
+import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple, Dict
+from uuid import UUID
 
 import faiss
 import numpy as np
@@ -18,304 +25,441 @@ from openai import AsyncOpenAI
 from src.core.config import get_settings
 
 
+logger = logging.getLogger(__name__)
+
+
 class VectorStoreService:
-    """Manages FAISS vector stores for document embeddings."""
+    """Service for managing FAISS vector stores and OpenAI embeddings."""
     
-    # Vector dimension for OpenAI text-embedding-3-small
+    # OpenAI text-embedding-3-small dimension
     EMBEDDING_DIMENSION = 1536
     
     def __init__(self):
-        """Initialize vector store service."""
-        settings = get_settings()
+        """Initialize vector store service with dual FAISS indexes."""
+        self.settings = get_settings()
+        self.openai_client = AsyncOpenAI(api_key=self.settings.openai_api_key)
         
-        # OpenAI client
-        self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.embedding_model = "text-embedding-3-small"
-        
-        # Storage paths
-        self.data_dir = Path("data/vectors")
+        # Initialize storage paths
+        self.data_dir = Path(self.settings.vector_store_path)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         self.official_index_path = self.data_dir / "vdb_official.index"
         self.user_index_path = self.data_dir / "vdb_user.index"
         
-        # FAISS indexes
-        self.vdb_official: faiss.IndexFlatL2 | None = None
-        self.vdb_user: faiss.IndexFlatL2 | None = None
+        # Initialize or load FAISS indexes
+        self.vdb_official = self._load_or_create_index(
+            self.official_index_path,
+            "VDB_Official"
+        )
+        self.vdb_user = self._load_or_create_index(
+            self.user_index_path,
+            "VDB_User"
+        )
         
-        # Load or create indexes
-        self._initialize_indexes()
-    
-    def _initialize_indexes(self) -> None:
-        """Load existing indexes from disk or create new ones."""
-        # Official documents index
-        if self.official_index_path.exists():
-            self.vdb_official = faiss.read_index(str(self.official_index_path))
-            print(f"✅ Loaded VDB_Official: {self.vdb_official.ntotal} vectors")
-        else:
-            self.vdb_official = faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
-            print(f"✅ Created new VDB_Official (empty)")
+        # In-memory metadata storage (maps FAISS index ID -> metadata)
+        # In production, this should be backed by database
+        self.official_metadata: Dict[int, Dict] = {}
+        self.user_metadata: Dict[int, Dict] = {}
         
-        # User documents index
-        if self.user_index_path.exists():
-            self.vdb_user = faiss.read_index(str(self.user_index_path))
-            print(f"✅ Loaded VDB_User: {self.vdb_user.ntotal} vectors")
-        else:
-            self.vdb_user = faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
-            print(f"✅ Created new VDB_User (empty)")
+        logger.info(
+            f"VectorStoreService initialized. "
+            f"Official: {self.vdb_official.ntotal} vectors, "
+            f"User: {self.vdb_user.ntotal} vectors"
+        )
     
-    def save_indexes(self) -> None:
-        """Persist indexes to disk."""
-        if self.vdb_official is not None:
-            faiss.write_index(self.vdb_official, str(self.official_index_path))
-            print(f"💾 Saved VDB_Official: {self.vdb_official.ntotal} vectors")
-        
-        if self.vdb_user is not None:
-            faiss.write_index(self.vdb_user, str(self.user_index_path))
-            print(f"💾 Saved VDB_User: {self.vdb_user.ntotal} vectors")
-    
-    def get_index_size(self, store_type: str) -> int:
-        """Get number of vectors in the specified index.
+    def _load_or_create_index(self, path: Path, name: str) -> faiss.IndexFlatL2:
+        """Load existing FAISS index or create new one.
         
         Args:
-            store_type: Either "official" or "user".
+            path: Path to index file.
+            name: Index name for logging.
         
         Returns:
-            Number of vectors in the index, or -1 if index not initialized.
+            FAISS IndexFlatL2 instance.
         """
-        if store_type == "official":
-            return self.vdb_official.ntotal if self.vdb_official is not None else -1
-        elif store_type == "user":
-            return self.vdb_user.ntotal if self.vdb_user is not None else -1
-        else:
-            raise ValueError(f"Invalid store_type: {store_type}. Must be 'official' or 'user'.")
+        if path.exists():
+            try:
+                index = faiss.read_index(str(path))
+                logger.info(f"Loaded {name} from {path} ({index.ntotal} vectors)")
+                return index
+            except Exception as e:
+                logger.warning(f"Failed to load {name} from {path}: {e}. Creating new index.")
+        
+        # Create new index (L2 distance)
+        index = faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
+        logger.info(f"Created new {name} index")
+        return index
+    
+    def save_indexes(self) -> None:
+        """Persist both indexes to disk."""
+        try:
+            faiss.write_index(self.vdb_official, str(self.official_index_path))
+            faiss.write_index(self.vdb_user, str(self.user_index_path))
+            logger.info("Successfully saved vector indexes to disk")
+        except Exception as e:
+            logger.error(f"Failed to save indexes: {e}")
+            raise
+    
+    # ============================================================================
+    # EMBEDDING GENERATION
+    # ============================================================================
     
     async def generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding vector for text using OpenAI.
+        """Generate embedding vector using OpenAI API.
         
         Args:
             text: Text to embed.
         
         Returns:
-            List of floats representing the embedding vector.
+            List of 1536 floats representing the embedding.
+        
+        Example:
+            >>> embedding = await service.generate_embedding("Sample text")
+            >>> len(embedding)
+            1536
         """
-        response = await self.openai_client.embeddings.create(
-            model=self.embedding_model,
-            input=text,
-        )
-        return response.data[0].embedding
+        try:
+            response = await self.openai_client.embeddings.create(
+                model="text-embedding-3-small",
+                input=text
+            )
+            embedding = response.data[0].embedding
+            return embedding
+        except Exception as e:
+            logger.error(f"Failed to generate embedding: {e}")
+            raise
+    
+    async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for multiple texts (batched API call).
+        
+        Args:
+            texts: List of texts to embed.
+        
+        Returns:
+            List of embeddings (each is 1536 floats).
+        
+        Example:
+            >>> embeddings = await service.generate_embeddings_batch(["Text 1", "Text 2"])
+            >>> len(embeddings)
+            2
+        """
+        if not texts:
+            return []
+        
+        try:
+            response = await self.openai_client.embeddings.create(
+                model="text-embedding-3-small",
+                input=texts
+            )
+            embeddings = [item.embedding for item in response.data]
+            return embeddings
+        except Exception as e:
+            logger.error(f"Failed to generate batch embeddings: {e}")
+            raise
+    
+    # ============================================================================
+    # OFFICIAL DOCUMENTS STORE
+    # ============================================================================
     
     async def add_to_official(
         self,
         texts: List[str],
-        start_index: int,
+        start_index: int = 0,
+        metadata: Optional[List[Dict]] = None
     ) -> List[int]:
-        """Add embeddings to official documents vector store.
+        """Add documents to official vector store.
         
         Args:
-            texts: List of text chunks to embed and add.
-            start_index: Starting FAISS index ID.
+            texts: List of text chunks to add.
+            start_index: Starting FAISS index ID for sequential assignment.
+            metadata: Optional metadata for each text (e.g., source, page_num).
         
         Returns:
-            List of FAISS index IDs for the added vectors.
+            List of FAISS index IDs assigned to each text.
+        
+        Example:
+            >>> texts = ["Chapter 1 content", "Chapter 2 content"]
+            >>> ids = await service.add_to_official(texts, start_index=0)
+            >>> print(ids)
+            [0, 1]
         """
+        if not texts:
+            return []
+        
         # Generate embeddings
-        embeddings = []
-        for text in texts:
-            embedding = await self.generate_embedding(text)
-            embeddings.append(embedding)
+        embeddings = await self.generate_embeddings_batch(texts)
         
         # Convert to numpy array
         vectors = np.array(embeddings, dtype=np.float32)
         
-        # Add to index
+        # Get current index size (for ID assignment)
+        current_size = self.vdb_official.ntotal
+        
+        # Add to FAISS index
         self.vdb_official.add(vectors)
         
-        # Return assigned indexes
-        faiss_ids = list(range(start_index, start_index + len(texts)))
+        # Calculate assigned IDs
+        assigned_ids = list(range(start_index, start_index + len(texts)))
         
-        # Auto-save after adding
-        self.save_indexes()
+        # Store metadata
+        if metadata:
+            for idx, meta in zip(assigned_ids, metadata):
+                self.official_metadata[idx] = meta
         
-        return faiss_ids
+        logger.info(f"Added {len(texts)} vectors to VDB_Official (IDs: {assigned_ids[0]}-{assigned_ids[-1]})")
+        
+        return assigned_ids
+    
+    async def search_official(
+        self,
+        query_text: str,
+        k: int = 5
+    ) -> List[Tuple[int, float]]:
+        """Search official documents by similarity.
+        
+        Args:
+            query_text: Query text to search for.
+            k: Number of results to return (default 5).
+        
+        Returns:
+            List of (index_id, distance) tuples, sorted by similarity.
+        
+        Example:
+            >>> results = await service.search_official("machine learning", k=3)
+            >>> print(results)
+            [(42, 0.15), (103, 0.22), (7, 0.28)]
+        """
+        if self.vdb_official.ntotal == 0:
+            return []
+        
+        # Generate query embedding
+        query_embedding = await self.generate_embedding(query_text)
+        query_vector = np.array([query_embedding], dtype=np.float32)
+        
+        # Search FAISS index
+        distances, indices = self.vdb_official.search(query_vector, k)
+        
+        # Convert to list of tuples
+        results = [
+            (int(idx), float(dist))
+            for idx, dist in zip(indices[0], distances[0])
+            if idx != -1  # Filter out invalid indices
+        ]
+        
+        return results
+    
+    # ============================================================================
+    # USER DOCUMENTS STORE
+    # ============================================================================
     
     async def add_to_user(
         self,
         texts: List[str],
-        start_index: int,
+        user_id: UUID,
+        start_index: int = 0,
+        metadata: Optional[List[Dict]] = None
     ) -> List[int]:
-        """Add embeddings to user documents vector store.
+        """Add documents to user-specific vector store.
         
         Args:
-            texts: List of text chunks to embed and add.
+            texts: List of text chunks to add.
+            user_id: Owner's user ID (for ACL).
             start_index: Starting FAISS index ID.
+            metadata: Optional metadata for each text.
         
         Returns:
-            List of FAISS index IDs for the added vectors.
+            List of FAISS index IDs assigned to each text.
+        
+        Example:
+            >>> from uuid import uuid4
+            >>> user_id = uuid4()
+            >>> texts = ["My notes on AI", "Summary of lecture"]
+            >>> ids = await service.add_to_user(texts, user_id, start_index=0)
         """
+        if not texts:
+            return []
+        
         # Generate embeddings
-        embeddings = []
-        for text in texts:
-            embedding = await self.generate_embedding(text)
-            embeddings.append(embedding)
+        embeddings = await self.generate_embeddings_batch(texts)
         
         # Convert to numpy array
         vectors = np.array(embeddings, dtype=np.float32)
         
-        # Add to index
+        # Get current index size
+        current_size = self.vdb_user.ntotal
+        
+        # Add to FAISS index
         self.vdb_user.add(vectors)
         
-        # Return assigned indexes
-        faiss_ids = list(range(start_index, start_index + len(texts)))
+        # Calculate assigned IDs
+        assigned_ids = list(range(start_index, start_index + len(texts)))
         
-        # Auto-save after adding
-        self.save_indexes()
+        # Store metadata with user_id for ACL
+        if metadata:
+            for idx, meta in zip(assigned_ids, metadata):
+                meta_with_acl = {**meta, "user_id": str(user_id)}
+                self.user_metadata[idx] = meta_with_acl
+        else:
+            for idx in assigned_ids:
+                self.user_metadata[idx] = {"user_id": str(user_id)}
         
-        return faiss_ids
-    
-    async def search_official(
-        self,
-        query: str,
-        k: int = 5,
-    ) -> List[Tuple[int, float]]:
-        """Search official documents vector store.
+        logger.info(f"Added {len(texts)} vectors to VDB_User for user {user_id} (IDs: {assigned_ids[0]}-{assigned_ids[-1]})")
         
-        Args:
-            query: Search query text.
-            k: Number of nearest neighbors to return.
-        
-        Returns:
-            List of (faiss_index_id, distance) tuples, sorted by distance.
-        """
-        # Generate query embedding
-        query_embedding = await self.generate_embedding(query)
-        query_vector = np.array([query_embedding], dtype=np.float32)
-        
-        # Search
-        distances, indices = self.vdb_official.search(query_vector, k)
-        
-        # Return results as list of tuples
-        results = [
-            (int(idx), float(dist))
-            for idx, dist in zip(indices[0], distances[0])
-            if idx != -1  # Filter out padding results
-        ]
-        
-        return results
+        return assigned_ids
     
     async def search_user(
         self,
-        query: str,
-        k: int = 5,
+        query_text: str,
+        user_id: UUID,
+        k: int = 5
     ) -> List[Tuple[int, float]]:
-        """Search user documents vector store.
+        """Search user documents with ACL enforcement.
+        
+        Only returns documents owned by the specified user.
         
         Args:
-            query: Search query text.
-            k: Number of nearest neighbors to return.
+            query_text: Query text to search for.
+            user_id: User ID for access control.
+            k: Number of results to return (default 5).
         
         Returns:
-            List of (faiss_index_id, distance) tuples, sorted by distance.
+            List of (index_id, distance) tuples for user's documents only.
+        
+        Example:
+            >>> results = await service.search_user("my notes", user_id, k=3)
+            >>> print(results)
+            [(5, 0.12), (9, 0.18), (14, 0.25)]
         """
+        if self.vdb_user.ntotal == 0:
+            return []
+        
         # Generate query embedding
-        query_embedding = await self.generate_embedding(query)
+        query_embedding = await self.generate_embedding(query_text)
         query_vector = np.array([query_embedding], dtype=np.float32)
         
-        # Search
-        distances, indices = self.vdb_user.search(query_vector, k)
+        # Search with larger k to filter by user_id
+        search_k = min(k * 10, self.vdb_user.ntotal)  # Over-fetch for ACL filtering
+        distances, indices = self.vdb_user.search(query_vector, search_k)
         
-        # Return results as list of tuples
-        results = [
-            (int(idx), float(dist))
-            for idx, dist in zip(indices[0], distances[0])
-            if idx != -1  # Filter out padding results
-        ]
+        # Filter by user_id and limit to k results
+        user_id_str = str(user_id)
+        results = []
+        for idx, dist in zip(indices[0], distances[0]):
+            if idx == -1:
+                continue
+            
+            # Check ACL
+            metadata = self.user_metadata.get(int(idx), {})
+            if metadata.get("user_id") == user_id_str:
+                results.append((int(idx), float(dist)))
+                
+                if len(results) >= k:
+                    break
         
         return results
     
-    async def search_both(
+    # ============================================================================
+    # HYBRID SEARCH (OFFICIAL + USER)
+    # ============================================================================
+    
+    async def search_hybrid(
         self,
-        query: str,
-        k_per_store: int = 5,
-    ) -> Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]:
-        """Search both vector stores and return separate results.
+        query_text: str,
+        user_id: UUID,
+        k: int = 5,
+        official_weight: float = 0.7
+    ) -> List[Tuple[str, int, float]]:
+        """Search both official and user documents, merge results.
         
         Args:
-            query: Search query text.
-            k_per_store: Number of results from each store.
+            query_text: Query text to search for.
+            user_id: User ID for user document access.
+            k: Total number of results to return.
+            official_weight: Weight for official documents (0.0-1.0).
         
         Returns:
-            Tuple of (official_results, user_results).
+            List of (source, index_id, distance) tuples.
+            source is either "official" or "user".
+        
+        Example:
+            >>> results = await service.search_hybrid("AI algorithms", user_id, k=5)
+            >>> for source, idx, dist in results:
+            ...     print(f"{source}: {idx} (distance: {dist:.2f})")
+            official: 42 (distance: 0.15)
+            user: 7 (distance: 0.18)
+            official: 103 (distance: 0.22)
         """
-        official_results = await self.search_official(query, k_per_store)
-        user_results = await self.search_user(query, k_per_store)
+        # Search both stores
+        official_results = await self.search_official(query_text, k=k)
+        user_results = await self.search_user(query_text, user_id, k=k)
         
-        return official_results, user_results
+        # Apply weights and merge
+        weighted_official = [
+            ("official", idx, dist * official_weight)
+            for idx, dist in official_results
+        ]
+        weighted_user = [
+            ("user", idx, dist * (1 - official_weight))
+            for idx, dist in user_results
+        ]
+        
+        # Combine and sort by weighted distance
+        all_results = weighted_official + weighted_user
+        all_results.sort(key=lambda x: x[2])
+        
+        # Return top k
+        return all_results[:k]
     
-    def remove_from_official(self, faiss_ids: List[int]) -> None:
-        """Remove vectors from official store.
-        
-        Note: FAISS IndexFlatL2 doesn't support direct removal.
-        This method is a placeholder for future implementation
-        using IDMap or reconstruction.
-        
-        Args:
-            faiss_ids: List of FAISS index IDs to remove.
-        """
-        raise NotImplementedError(
-            "FAISS IndexFlatL2 doesn't support removal. "
-            "Consider using IndexIDMap wrapper for this feature."
-        )
+    # ============================================================================
+    # INDEX MANAGEMENT
+    # ============================================================================
     
-    def remove_from_user(self, faiss_ids: List[int]) -> None:
-        """Remove vectors from user store.
-        
-        Note: FAISS IndexFlatL2 doesn't support direct removal.
-        This method is a placeholder for future implementation
-        using IDMap or reconstruction.
-        
-        Args:
-            faiss_ids: List of FAISS index IDs to remove.
-        """
-        raise NotImplementedError(
-            "FAISS IndexFlatL2 doesn't support removal. "
-            "Consider using IndexIDMap wrapper for this feature."
-        )
-    
-    def get_stats(self) -> dict:
-        """Get statistics about vector stores.
+    def get_official_stats(self) -> Dict[str, int]:
+        """Get statistics for official vector store.
         
         Returns:
-            Dictionary with store statistics.
+            Dict with index statistics.
         """
         return {
-            "vdb_official": {
-                "total_vectors": self.vdb_official.ntotal if self.vdb_official else 0,
-                "dimension": self.EMBEDDING_DIMENSION,
-                "file_exists": self.official_index_path.exists(),
-            },
-            "vdb_user": {
-                "total_vectors": self.vdb_user.ntotal if self.vdb_user else 0,
-                "dimension": self.EMBEDDING_DIMENSION,
-                "file_exists": self.user_index_path.exists(),
-            },
-            "embedding_model": self.embedding_model,
+            "total_vectors": self.vdb_official.ntotal,
+            "dimension": self.EMBEDDING_DIMENSION,
+            "metadata_count": len(self.official_metadata)
+        }
+    
+    def get_user_stats(self) -> Dict[str, int]:
+        """Get statistics for user vector store.
+        
+        Returns:
+            Dict with index statistics.
+        """
+        return {
+            "total_vectors": self.vdb_user.ntotal,
+            "dimension": self.EMBEDDING_DIMENSION,
+            "metadata_count": len(self.user_metadata)
         }
 
 
-# Global service instance
-_vector_service: VectorStoreService | None = None
+# ============================================================================
+# SINGLETON PATTERN
+# ============================================================================
+
+_vector_service_instance: Optional[VectorStoreService] = None
 
 
 def get_vector_service() -> VectorStoreService:
-    """Get or create the global vector service instance.
+    """Get singleton instance of VectorStoreService.
     
     Returns:
-        VectorStoreService: Singleton instance.
+        Singleton VectorStoreService instance.
+    
+    Example:
+        >>> service = get_vector_service()
+        >>> service2 = get_vector_service()
+        >>> assert service is service2  # Same instance
     """
-    global _vector_service
+    global _vector_service_instance
     
-    if _vector_service is None:
-        _vector_service = VectorStoreService()
+    if _vector_service_instance is None:
+        _vector_service_instance = VectorStoreService()
     
-    return _vector_service
+    return _vector_service_instance

@@ -30,10 +30,11 @@ except ImportError:
     get_vector_service = None
 
 
-pytestmark = pytest.mark.skipif(
-    VectorStoreService is None,
-    reason="Implementation not yet available (RED phase)"
-)
+# Implementation now available - running tests in GREEN phase
+# pytestmark = pytest.mark.skipif(
+#     VectorStoreService is None,
+#     reason="Implementation not yet available (RED phase)"
+# )
 
 
 class TestVectorStoreInitialization:
@@ -41,8 +42,6 @@ class TestVectorStoreInitialization:
     
     def test_initialize_creates_dual_indexes(self):
         """Test that initialization creates both VDB_Official and VDB_User indexes."""
-        pytest.skip("Implementation not yet available (RED phase)")
-        
         service = VectorStoreService()
         
         assert service.vdb_official is not None, "VDB_Official index should be initialized"
