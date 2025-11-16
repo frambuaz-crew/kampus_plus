@@ -114,11 +114,11 @@ Each task follows this format:
 
 ### Backend Implementation
 
-- [x] T038 [US1] Implement `/auth/register` endpoint in `backend/src/api/routes/auth.py`: validate university email format, hash password, create User record, send verification email ✅ 2025-11-16 (PARTIAL GREEN: 5/7 contract tests passing, endpoint functional, test DB setup issue remains - all 7 auth endpoints created including login/refresh/logout/verify-email/forgot-password/reset-password)
-- [ ] T039 [US1] Implement `/auth/verify-email` endpoint: validate token, mark `is_verified=True`, return success
-- [ ] T040 [US1] Implement `/auth/login` endpoint: validate credentials, check `is_verified` and `is_active`, issue access + refresh tokens, set httpOnly cookie
-- [ ] T041 [US1] Implement `/auth/refresh` endpoint: validate refresh token from cookie, issue new access token, rotate refresh token
-- [ ] T042 [US1] Implement `/auth/logout` endpoint: revoke refresh token in DB, clear cookie
+- [x] T038 [US1] Implement `/auth/register` endpoint in `backend/src/api/routes/auth.py`: validate university email format, hash password, create User record, send verification email ✅ 2025-11-16 (FULL GREEN: 7/7 contract tests passing - email validation, password hashing, conflict handling, all 7 auth endpoints created)
+- [x] T039 [US1] Implement `/auth/verify-email` endpoint: validate token, mark `is_verified=True`, return success ✅ 2025-11-16 (GREEN: 3/3 tests passing)
+- [x] T040 [US1] Implement `/auth/login` endpoint: validate credentials, check `is_verified` and `is_active`, issue access + refresh tokens, set httpOnly cookie ✅ 2025-11-16 (GREEN: 5/5 tests passing - JWT issuance, cookie management, 401/403 error handling)
+- [x] T041 [US1] Implement `/auth/refresh` endpoint: validate refresh token from cookie, issue new access token, rotate refresh token ✅ 2025-11-16 (GREEN: 2/2 tests passing - token rotation, cookie validation)
+- [ ] T042 [US1] Implement `/auth/logout` endpoint: revoke refresh token in DB, clear cookie (PARTIAL: 0/2 tests - endpoint exists, needs Bearer token auth validation fix)
 - [ ] T043 [US1] Implement `/auth/forgot-password` and `/auth/reset-password` endpoints for password recovery flow
 - [ ] T044 [US1] Create `/courses/my-courses` endpoint in `backend/src/api/routes/courses.py`: return enrolled courses for authenticated student
 
