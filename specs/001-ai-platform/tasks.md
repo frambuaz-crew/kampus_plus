@@ -108,7 +108,7 @@ Each task follows this format:
 
 ### MANDATORY TESTS - Write FIRST
 
-- [ ] T035 **[TEST]** [US1] Write API contract tests in `backend/tests/contract/test_auth_endpoints.py`: validate `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` against OpenAPI schema
+- [x] T035 **[TEST]** [US1] Write API contract tests in `backend/tests/contract/test_auth_endpoints.py`: validate `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` against OpenAPI schema ✅ 2025-11-16 (RED: 43 contract tests - register/login/refresh/logout/verify-email/forgot-password/reset-password endpoints, request/response schema validation, error format consistency)
 - [ ] T036 **[TEST]** [US1] Write integration tests in `backend/tests/integration/test_auth_flow.py`: full registration → email verification → login → token refresh → logout flow
 - [ ] T037 **[TEST]** [US1] Write frontend tests in `frontend/src/components/auth/__tests__/LoginForm.test.jsx`: test form validation, successful login, error handling, JWT storage
 
