@@ -23,30 +23,14 @@ from uuid import uuid4, UUID
 from io import BytesIO
 from unittest.mock import patch, MagicMock
 
-# Imports will be available after implementation
-try:
-    from src.core.database import get_engine, get_session_factory, get_db
-    from src.core.config import get_settings, Settings
-    from src.services.s3_service import S3Service
-    from src.services.vector_service import VectorStoreService
-    from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import AsyncSession
-except ImportError:
-    get_engine = None
-    get_session_factory = None
-    get_db = None
-    get_settings = None
-    Settings = None
-    S3Service = None
-    VectorStoreService = None
-    text = None
-    AsyncSession = None
-
-
-pytestmark = pytest.mark.skipif(
-    get_engine is None,
-    reason="Implementation not yet available (RED phase)"
-)
+# Imports should be available after T001-T029 implementations
+from src.core.database import get_engine, get_session_factory, get_db
+from src.core.config import get_settings, Settings
+# S3Service will be implemented later (not critical for Phase 2)
+# from src.services.s3_service import S3Service
+from src.services.vector_service import VectorStoreService
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TestDatabaseConnection:
@@ -55,7 +39,7 @@ class TestDatabaseConnection:
     @pytest.mark.asyncio
     async def test_get_engine_creates_async_engine(self):
         """Test that get_engine returns valid AsyncEngine."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         engine = get_engine()
         
@@ -66,7 +50,7 @@ class TestDatabaseConnection:
     @pytest.mark.asyncio
     async def test_get_session_factory_creates_async_sessionmaker(self):
         """Test that get_session_factory returns valid session factory."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         session_factory = get_session_factory()
         
@@ -76,7 +60,7 @@ class TestDatabaseConnection:
     @pytest.mark.asyncio
     async def test_database_connection_executes_query(self):
         """Test that database connection can execute simple query."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         session_factory = get_session_factory()
         
@@ -90,7 +74,7 @@ class TestDatabaseConnection:
     @pytest.mark.asyncio
     async def test_database_session_commits_transaction(self):
         """Test that database session commits changes."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         from src.models.user import User
         
@@ -134,7 +118,7 @@ class TestDatabaseConnection:
     @pytest.mark.asyncio
     async def test_database_session_rolls_back_on_error(self):
         """Test that database session rolls back on exception."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         session_factory = get_session_factory()
         
@@ -155,7 +139,7 @@ class TestDatabaseConnection:
     @pytest.mark.asyncio
     async def test_get_db_dependency_provides_session(self):
         """Test that get_db dependency provides AsyncSession."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         async for session in get_db():
             assert isinstance(session, AsyncSession), "Should provide AsyncSession"
@@ -169,7 +153,7 @@ class TestDatabaseConnection:
     @pytest.mark.asyncio
     async def test_database_connection_pool_configuration(self):
         """Test that connection pool is configured correctly."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         engine = get_engine()
         
@@ -185,7 +169,7 @@ class TestS3ServiceIntegration:
     @pytest.mark.asyncio
     async def test_s3_upload_file_creates_object(self):
         """Test that S3 upload creates object with correct key."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = S3Service()
         
@@ -206,7 +190,7 @@ class TestS3ServiceIntegration:
     @pytest.mark.asyncio
     async def test_s3_generate_presigned_url_returns_valid_url(self):
         """Test that pre-signed URL generation works."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = S3Service()
         
@@ -223,7 +207,7 @@ class TestS3ServiceIntegration:
     @pytest.mark.asyncio
     async def test_s3_download_file_retrieves_content(self):
         """Test that file download retrieves correct content."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = S3Service()
         
@@ -244,7 +228,7 @@ class TestS3ServiceIntegration:
     @pytest.mark.asyncio
     async def test_s3_delete_file_removes_object(self):
         """Test that file deletion works."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = S3Service()
         
@@ -259,7 +243,7 @@ class TestS3ServiceIntegration:
     @pytest.mark.asyncio
     async def test_s3_upload_includes_metadata(self):
         """Test that uploaded files include metadata."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = S3Service()
         
@@ -281,7 +265,7 @@ class TestS3ServiceIntegration:
     @pytest.mark.asyncio
     async def test_s3_presigned_url_expiry_configurable(self):
         """Test that pre-signed URL expiry time is configurable."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = S3Service()
         
@@ -299,7 +283,7 @@ class TestFAISSPersistence:
     
     def test_vector_service_initializes_indexes(self):
         """Test that VectorStoreService initializes FAISS indexes."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         service = VectorStoreService()
         
@@ -308,7 +292,7 @@ class TestFAISSPersistence:
     
     def test_vector_service_creates_data_directory(self):
         """Test that data directory is created if missing."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch('src.services.vector_service.Path') as mock_path:
@@ -323,7 +307,7 @@ class TestFAISSPersistence:
     @pytest.mark.asyncio
     async def test_vector_service_saves_indexes_to_disk(self):
         """Test that FAISS indexes are saved to disk."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         with tempfile.TemporaryDirectory() as tmpdir:
             service = VectorStoreService()
@@ -343,7 +327,7 @@ class TestFAISSPersistence:
     
     def test_vector_service_loads_existing_indexes(self):
         """Test that existing FAISS indexes are loaded from disk."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create mock index files
@@ -372,7 +356,7 @@ class TestFAISSPersistence:
     @pytest.mark.asyncio
     async def test_vector_service_persistence_survives_restart(self):
         """Test that vectors persist across service restarts."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         with tempfile.TemporaryDirectory() as tmpdir:
             # First service instance
@@ -402,7 +386,7 @@ class TestConfigurationLoading:
     
     def test_get_settings_loads_from_env(self):
         """Test that settings are loaded from .env file."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         settings = get_settings()
         
@@ -411,7 +395,7 @@ class TestConfigurationLoading:
     
     def test_settings_contains_required_fields(self):
         """Test that settings contains all required configuration fields."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         settings = get_settings()
         
@@ -433,7 +417,7 @@ class TestConfigurationLoading:
     
     def test_settings_database_url_property(self):
         """Test that database_url property constructs correct URL."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         settings = get_settings()
         
@@ -446,7 +430,7 @@ class TestConfigurationLoading:
     
     def test_settings_validates_environment(self):
         """Test that environment value is validated."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         with pytest.raises(ValueError):
             # Invalid environment should raise error
@@ -462,7 +446,7 @@ class TestConfigurationLoading:
     
     def test_settings_cors_origins_list_property(self):
         """Test that CORS origins are parsed from comma-separated string."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         settings = get_settings()
         
@@ -474,7 +458,7 @@ class TestConfigurationLoading:
     
     def test_settings_max_file_size_bytes_conversion(self):
         """Test that max_file_size_bytes property converts MB to bytes."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         settings = get_settings()
         
@@ -490,7 +474,7 @@ class TestServiceIntegration:
     @pytest.mark.asyncio
     async def test_database_and_vector_service_integration(self):
         """Test that database and vector service work together."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         from src.models.document import OfficialDocument, VectorEmbedding
         
@@ -545,7 +529,7 @@ class TestServiceIntegration:
     @pytest.mark.asyncio
     async def test_config_and_services_initialization(self):
         """Test that services initialize correctly with config."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         settings = get_settings()
         
@@ -566,7 +550,7 @@ class TestServiceIntegration:
     @pytest.mark.asyncio
     async def test_health_check_verifies_all_services(self):
         """Test that health check endpoint verifies all services are ready."""
-        pytest.skip("Implementation not yet available (RED phase)")
+
         
         from src.api.routes.health import readiness_probe
         
