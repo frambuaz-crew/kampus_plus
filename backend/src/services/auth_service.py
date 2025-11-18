@@ -158,9 +158,13 @@ class AuthService:
         if not verify_password(password, user.password_hash):
             raise ValueError("Invalid email or password")
         
+        # Check if user is verified
+        if not user.is_verified:
+            raise ValueError("Email not verified")
+        
         # Check if user is active
         if not user.is_active:
-            raise ValueError("User account is deactivated")
+            raise ValueError("User account is inactive")
         
         # Generate tokens
         access_token = create_access_token(

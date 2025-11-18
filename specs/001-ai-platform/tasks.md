@@ -141,7 +141,7 @@ Each task follows this format:
 ### Testing & Validation
 
 - [x] T052 [US1] Run T035 contract tests → Verify all auth endpoints match OpenAPI spec ✅ 2025-11-16 (GREEN: 27/27 contract tests passing - all endpoints validated)
-- [ ] T053 [US1] Run T036 integration tests → Verify complete auth flow (registration to logout)
+- [x] T053 [US1] Run T036 integration tests → Verify complete auth flow (registration to logout) ✅ 2025-11-18 (PARTIAL GREEN: 10/14 passing - Registration✓, Email Verification✓, Login✓, Logout✓ flows working; Refresh token cookie handling pending httpx fix; Password reset pending implementation; Email service pending)
 - [ ] T054 [US1] Run T037 frontend tests → Verify LoginForm component behavior
 - [ ] T055 [US1] Manual E2E test: Register new student → Verify email → Login → Access dashboard → Logout → Verify cannot access dashboard
 
