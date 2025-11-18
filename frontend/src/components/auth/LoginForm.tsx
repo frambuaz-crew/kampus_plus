@@ -11,11 +11,11 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import type { LoginCredentials } from '../../types/auth';
+import type { LoginCredentials, User } from '../../types/auth';
 import axios from 'axios';
 
 interface LoginFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (user: User) => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
@@ -59,11 +59,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
     try {
       const credentials: LoginCredentials = { email, password };
-      await login(credentials);
+      const user = await login(credentials);
 
-      // Success - call callback
+      // Success - call callback with user data
       if (onSuccess) {
-        onSuccess();
+        onSuccess(user);
       }
     } catch (error) {
       // Handle API errors

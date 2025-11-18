@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  const login = async (credentials: LoginCredentials): Promise<void> => {
+  const login = async (credentials: LoginCredentials): Promise<User> => {
     const response = await apiClient.post<LoginResponse>('/auth/login', credentials);
     const { access_token, user: userData } = response.data;
 
@@ -49,6 +49,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Store in localStorage
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
+    
+    return userData;
   };
 
   const logout = async (): Promise<void> => {
