@@ -357,6 +357,133 @@ class AuthService:
         return user
     
     # ============================================================================
+    # PASSWORD RESET
+    # ============================================================================
+    
+    def create_password_reset_token(self, email: str) -> str:
+        """Generate password reset token for email.
+        
+        This is a synchronous method that creates a JWT token without
+        database interaction. The token contains the email and has a
+        1-hour expiration.
+        
+        Args:
+            email: User's email address.
+        
+        Returns:
+            JWT token string.
+        
+        Example:
+            >>> token = auth_service.create_password_reset_token("student@university.edu.tr")
+        """
+        from datetime import timedelta
+        return create_access_token(
+            user_id=email,  # Store email in user_id field
+            role="password_reset",  # Special role for password reset
+            expires_delta=timedelta(hours=1)
+        )
+    
+    async def verify_password_reset_token(
+        self,
+        session: AsyncSession,
+        token: str,
+    ) -> User:
+        """Verify password reset token and return user.
+        
+        Args:
+            session: Database session.
+            token: JWT password reset token.
+        
+        Returns:
+            User instance if token is valid.
+        
+        Raises:
+            ValueError: If token is invalid, expired, or user not found.
+        
+        Example:
+            >>> user = await auth_service.verify_password_reset_token(session, token)
+        """
+        # Decode token
+        try:
+            payload = decode_token(token)
+        except Exception as e:
+            raise ValueError(f"Invalid password reset token: {e}")
+        
+        # Verify token role
+        if payload.get("role") != "password_reset":
+            raise ValueError("Token is not a password reset token")
+        
+        # Extract email (stored in user_id field)
+        email = payload.get("user_id")
+        if not email:
+            raise ValueError("Token missing email")
+        
+        # Find user by email
+        result = await session.execute(
+            select(User).where(User.email == email)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("User not found")
+        
+        return user
+    
+    async def reset_password(
+        self,
+        session: AsyncSession,
+        token: str,
+        new_password: str,
+    ) -> User:
+        """Reset user password with token.
+        
+        Args:
+            session: Database session.
+            token: JWT password reset token.
+            new_password: New password (will be hashed).
+        
+        Returns:
+            Updated User instance.
+        
+        Raises:
+            ValueError: If token is invalid or password requirements not met.
+        
+        Example:
+            >>> user = await auth_service.reset_password(session, token, "NewPass123!")
+        """
+        # Verify token and get user
+        user = await self.verify_password_reset_token(session, token)
+        
+        # Validate password length (minimum 8 characters)
+        if len(new_password) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        
+        # Hash new password
+        user.password_hash = hash_password(new_password)
+        user.updated_at = datetime.now(timezone.utc)
+        
+        # Revoke all existing refresh tokens for security
+        await session.execute(
+            select(RefreshToken)
+            .where(RefreshToken.user_id == user.id)
+            .where(RefreshToken.is_revoked == False)
+        )
+        result = await session.execute(
+            select(RefreshToken)
+            .where(RefreshToken.user_id == user.id)
+            .where(RefreshToken.is_revoked == False)
+        )
+        tokens = result.scalars().all()
+        for token_record in tokens:
+            token_record.is_revoked = True
+            token_record.revoked_at = datetime.now(timezone.utc)
+        
+        await session.commit()
+        await session.refresh(user)
+        
+        return user
+    
+    # ============================================================================
     # TOKEN REVOCATION
     # ============================================================================
     

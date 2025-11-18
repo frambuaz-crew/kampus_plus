@@ -525,15 +525,12 @@ async def reset_password(
     Updates user's password.
     """
     try:
-        # TODO: Implement full password reset functionality (T043)
-        # For now, return 400 for invalid tokens to satisfy contract tests
-        if not request.token or len(request.token) < 10:
-            raise ValueError("Invalid or expired reset token")
-        # await auth_service.reset_password(
-        #     session=session,
-        #     reset_token=request.token,
-        #     new_password=request.new_password
-        # )
+        # Reset password using token
+        await auth_service.reset_password(
+            session=session,
+            token=request.token,
+            new_password=request.new_password
+        )
         
         return {"message": "Password reset successfully"}
     
