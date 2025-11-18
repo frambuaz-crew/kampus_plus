@@ -1,0 +1,225 @@
+/**
+ * Student Dashboard (T049)
+ * 
+ * Features:
+ * - Display enrolled courses from /courses/my-courses endpoint
+ * - Quick access button to AI chat
+ * - Upload button for personal documents
+ * - User profile section
+ */
+
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { apiClient } from '../api/config';
+
+interface Course {
+  id: string;
+  code: string;
+  name: string;
+  department: string | null;
+  semester: string | null;
+  credits: number | null;
+  instructor_name: string | null;
+}
+
+interface MyCoursesResponse {
+  courses: Course[];
+}
+
+export const Dashboard: React.FC = () => {
+  const { user, logout } = useAuth();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await apiClient.get<MyCoursesResponse>('/courses/my-courses');
+        setCourses(response.data.courses);
+      } catch (err) {
+        setError('Failed to load courses');
+        console.error('Error fetching courses:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                🎓 KAMPÜS+ AI Platform
+              </h1>
+              <p className="text-sm text-gray-600">Student Dashboard</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900">
+                  {user?.first_name} {user?.last_name}
+                </p>
+                <p className="text-xs text-gray-500">{user?.email}</p>
+              </div>
+              <button
+                onClick={() => logout()}
+                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <button className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow text-left">
+            <div className="flex items-center space-x-4">
+              <div className="text-4xl">🤖</div>
+              <div>
+                <h3 className="text-xl font-bold mb-1">AI Assistant</h3>
+                <p className="text-indigo-100 text-sm">
+                  Ask questions about courses, documents, and more
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-left">
+            <div className="flex items-center space-x-4">
+              <div className="text-4xl">📄</div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">
+                  Upload Documents
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Add your study notes and materials
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Enrolled Courses */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">
+              📚 My Courses
+            </h2>
+            {courses.length > 0 && (
+              <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+                {courses.length} {courses.length === 1 ? 'Course' : 'Courses'}
+              </span>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4">⚠️</div>
+              <p className="text-red-600 font-medium">{error}</p>
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📖</div>
+              <p className="text-gray-600 text-lg font-medium mb-2">
+                No courses enrolled yet
+              </p>
+              <p className="text-gray-500 text-sm">
+                Contact your academic advisor to enroll in courses
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs font-bold">
+                      {course.code}
+                    </span>
+                    {course.credits && (
+                      <span className="text-xs text-gray-500">
+                        {course.credits} credits
+                      </span>
+                    )}
+                  </div>
+                  
+                  <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">
+                    {course.name}
+                  </h3>
+                  
+                  {course.instructor_name && (
+                    <p className="text-sm text-gray-600 mb-1">
+                      👨‍🏫 {course.instructor_name}
+                    </p>
+                  )}
+                  
+                  {course.department && (
+                    <p className="text-xs text-gray-500 mb-1">
+                      🏛️ {course.department}
+                    </p>
+                  )}
+                  
+                  {course.semester && (
+                    <p className="text-xs text-gray-500">
+                      📅 {course.semester}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Stats Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center space-x-3">
+              <div className="text-3xl">📊</div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {courses.length}
+                </p>
+                <p className="text-sm text-gray-600">Active Courses</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center space-x-3">
+              <div className="text-3xl">💬</div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-sm text-gray-600">AI Conversations</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center space-x-3">
+              <div className="text-3xl">📁</div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-sm text-gray-600">Uploaded Documents</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
