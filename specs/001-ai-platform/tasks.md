@@ -12,8 +12,13 @@
 - Observability: Structured JSON logging + request ID tracking (affects T015, FR-039-041)
 
 **Implementation Progress**:
-- ✅ Phase 1 Complete: T001-T014 (Setup & Infrastructure)
-- ⏭️ Next: T015 (Structured JSON Logging)
+- ✅ Phase 1 Complete: T001-T020 (Setup & Infrastructure) - 20/20 tasks
+- ✅ Phase 2 Complete: T021-T034 (Foundational Services) - 14/14 tasks
+- ⏳ Phase 3 In Progress: T035-T055 (US1 Authentication) - 16/18 tasks (89%)
+  - ✅ Backend: T038-T044 (7/7 endpoints, 36/36 tests GREEN)
+  - ✅ Frontend: T045-T051 (7/7 components + router setup)
+  - ⏭️ Testing: T053-T055 (3 remaining tasks)
+- 🎯 Next: T053 (Integration tests), T054 (Fix frontend tests), T055 (Manual E2E)
 
 ## Task Format
 
@@ -127,10 +132,11 @@ Each task follows this format:
 - [x] T045 [P] [US1] Create `frontend/src/components/auth/LoginForm.jsx`: email/password form, Axios POST to `/auth/login`, store access token in React Context ✅ 2025-11-16 (Component implemented with form validation, error handling, loading states - 8/20 tests passing, fetch→axios migration needed for full GREEN)
 - [x] T046 [P] [US1] Create `frontend/src/components/auth/RegisterForm.jsx`: registration form with validation, university email check, success message prompting email verification ✅ 2025-11-16 (Complete with role selection, student ID conditional field, success message)
 - [x] T047 [P] [US1] Create `frontend/src/contexts/AuthContext.jsx`: React Context for auth state (user, token, isAuthenticated), token refresh logic ✅ 2025-11-16 (Context + useAuth hook, localStorage persistence, token refresh interceptor in API config)
-- [ ] T048 [P] [US1] Create `frontend/src/components/auth/ProtectedRoute.jsx`: wrapper component that redirects to login if not authenticated
-- [ ] T049 [US1] Create `frontend/src/pages/Dashboard.jsx`: student dashboard showing enrolled courses, quick access to AI chat, upload button
-- [ ] T050 [US1] Create `frontend/src/pages/InstructorDashboard.jsx`: instructor dashboard with course list, analytics preview
+- [x] T048 [P] [US1] Create `frontend/src/components/auth/ProtectedRoute.jsx`: wrapper component that redirects to login if not authenticated ✅ 2025-11-18 (ProtectedRoute with role-based access control, loading states, Navigate redirect, Access Denied page for unauthorized roles)
+- [x] T049 [US1] Create `frontend/src/pages/Dashboard.jsx`: student dashboard showing enrolled courses, quick access to AI chat, upload button ✅ 2025-11-18 (Student dashboard with /courses/my-courses integration, responsive grid layout, quick action buttons, stats cards, loading/error/empty states)
+- [x] T050 [US1] Create `frontend/src/pages/InstructorDashboard.jsx`: instructor dashboard with course list, analytics preview ✅ 2025-11-18 (Instructor dashboard with course management, analytics preview, purple gradient theme, material upload tips)
 - [x] T051 [US1] Implement automatic token refresh: Axios interceptor detects 401, calls `/auth/refresh`, retries original request ✅ 2025-11-16 (Implemented in api/config.ts interceptor, auto-retry on 401 with refresh token)
+- [x] **Router Setup** [US1] Configure BrowserRouter with role-based navigation: /login, /register, /dashboard (student), /instructor (instructor) ✅ 2025-11-18 (App.tsx refactored with Routes, ProtectedRoute integration, automatic redirect based on user role after login)
 
 ### Testing & Validation
 
