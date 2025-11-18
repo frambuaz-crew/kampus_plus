@@ -25,23 +25,39 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Database
+    database_url: str | None = None  # Can be set directly for SQLite or other databases
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_db: str = "kampus_plus"
     postgres_user: str = "kampus_user"
-    postgres_password: str
+    postgres_password: str | None = None
     
-    @property
-    def database_url(self) -> str:
-        """Construct async database URL (using psycopg async driver)."""
+    def get_database_url(self) -> str:
+        """Get database URL - either from DATABASE_URL env or construct from postgres settings."""
+        if self.database_url:
+            return self.database_url
+        
+        # Fallback to PostgreSQL construction
+        if not self.postgres_password:
+            raise ValueError("Either DATABASE_URL or postgres_password must be set")
+        
         return (
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
     
-    @property
-    def database_url_sync(self) -> str:
-        """Construct sync database URL (for Alembic migrations)."""
+    def get_database_url_sync(self) -> str:
+        """Get sync database URL for Alembic migrations."""
+        if self.database_url:
+            # Convert async SQLite URL to sync for Alembic
+            if self.database_url.startswith("sqlite+aiosqlite"):
+                return self.database_url.replace("sqlite+aiosqlite", "sqlite")
+            return self.database_url
+        
+        # Fallback to PostgreSQL construction
+        if not self.postgres_password:
+            raise ValueError("Either DATABASE_URL or postgres_password must be set")
+        
         return (
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"

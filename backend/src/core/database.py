@@ -37,7 +37,7 @@ def get_engine() -> AsyncEngine:
         
         # Create async engine with connection pool
         engine = create_async_engine(
-            settings.database_url,
+            settings.get_database_url(),
             echo=settings.debug,  # Log SQL queries in debug mode
             pool_size=10,  # Max connections in pool
             max_overflow=20,  # Max additional connections beyond pool_size
