@@ -38,7 +38,7 @@ target_metadata = None
 # Override database URL from our Settings (reads from environment variables)
 # ============================================================================
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url_sync)
+config.set_main_option("sqlalchemy.url", settings.get_database_url_sync())
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

@@ -100,13 +100,29 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     field = " -> ".join(str(loc) for loc in first_error.get("loc", []))
     message = first_error.get("msg", "Validation error")
     
+    # Sanitize errors for JSON serialization (convert any non-serializable objects to strings)
+    sanitized_errors = []
+    for error in errors:
+        sanitized_error = {
+            "loc": error.get("loc", []),
+            "msg": str(error.get("msg", "")),
+            "type": error.get("type", ""),
+        }
+        # Only include 'ctx' if it exists and is serializable
+        if "ctx" in error:
+            try:
+                sanitized_error["ctx"] = {k: str(v) for k, v in error["ctx"].items()}
+            except:
+                pass
+        sanitized_errors.append(sanitized_error)
+    
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": f"{field}: {message}" if field else message,
-                "details": {"validation_errors": errors} if errors else None
+                "details": {"validation_errors": sanitized_errors} if sanitized_errors else None
             }
         }
     )

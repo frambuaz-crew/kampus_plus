@@ -52,8 +52,9 @@ class RegisterRequest(BaseModel):
     @classmethod
     def validate_university_email(cls, v: str) -> str:
         """Validate that email is from university domain."""
-        if not v.endswith('.edu.tr') and not v.endswith('.university.edu'):
-            raise ValueError('Email must be from university domain (.edu.tr or .university.edu)')
+        # Accept any .edu domain (e.g., .edu, .edu.tr, university.edu, etc.)
+        if not ('.edu' in v.lower()):
+            raise ValueError('Email must be from a university domain (must contain .edu)')
         return v
 
 
@@ -406,7 +407,7 @@ async def logout(
             # Revoke refresh token
             await auth_service.revoke_refresh_token(
                 session=session,
-                token=refresh_token
+                refresh_token_str=refresh_token
             )
         
         # Clear refresh token cookie
@@ -415,7 +416,7 @@ async def logout(
             path="/v1/auth"
         )
         
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
+        return  # 204 No Content (specified in decorator)
     
     except Exception as e:
         raise HTTPException(

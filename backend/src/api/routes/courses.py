@@ -51,20 +51,28 @@ async def get_my_courses(
     session: AsyncSession = Depends(get_db),
 ) -> MyCoursesResponse:
     """
-    Get all courses the authenticated user is enrolled in.
+    Get all courses the authenticated user is enrolled in (students) or teaching (instructors).
     
     - **Authentication required**: Bearer JWT token
-    - **Returns**: List of enrolled courses with course details
+    - **Returns**: List of enrolled/teaching courses with course details
     - **Filters**: Only active and completed enrollments (excludes dropped)
     """
-    # Query enrollments with course and instructor data
-    stmt = (
-        select(Course)
-        .join(Enrollment, Enrollment.course_id == Course.id)
-        .where(Enrollment.student_id == current_user.id)
-        .where(Enrollment.status.in_([EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED]))
-        .options(selectinload(Course.instructor))
-    )
+    # For instructors, return courses they teach
+    if current_user.role == "instructor":
+        stmt = (
+            select(Course)
+            .where(Course.instructor_id == current_user.id)
+            .options(selectinload(Course.instructor))
+        )
+    else:
+        # For students, query enrollments with course and instructor data
+        stmt = (
+            select(Course)
+            .join(Enrollment, Enrollment.course_id == Course.id)
+            .where(Enrollment.student_id == current_user.id)
+            .where(Enrollment.status.in_([EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED]))
+            .options(selectinload(Course.instructor))
+        )
     
     result = await session.execute(stmt)
     courses = result.scalars().all()
