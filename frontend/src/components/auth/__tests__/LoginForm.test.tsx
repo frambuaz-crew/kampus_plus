@@ -21,12 +21,35 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LoginForm } from '../LoginForm';
 import { AuthProvider } from '../../../contexts/AuthContext';
+import axios from 'axios';
 import type { Mock } from 'vitest';
 
-// Mock fetch for API calls
-global.fetch = vi.fn();
+// Mock axios for API calls
+vi.mock('axios', () => {
+  const mockPost = vi.fn();
+  return {
+    default: {
+      create: vi.fn(() => ({
+        post: mockPost,
+        get: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+        interceptors: {
+          request: { use: vi.fn(), eject: vi.fn(), clear: vi.fn() },
+          response: { use: vi.fn(), eject: vi.fn(), clear: vi.fn() },
+        },
+      })),
+      post: mockPost,
+      isAxiosError: vi.fn((error: unknown) => {
+        return error && typeof error === 'object' && 'isAxiosError' in error && error.isAxiosError === true;
+      }),
+    },
+  };
+});
 
-const mockFetch = global.fetch as Mock;
+// Access the mocked post function after mocking
+const mockedAxios = axios as unknown as { post: Mock; isAxiosError: Mock };
+const mockPost = mockedAxios.post;
 
 describe('LoginForm Component', () => {
   const mockOnSuccess = vi.fn();
@@ -34,7 +57,7 @@ describe('LoginForm Component', () => {
   beforeEach(() => {
     // Reset mocks before each test
     vi.clearAllMocks();
-    mockFetch.mockReset();
+    mockPost.mockReset();
     
     // Clear localStorage
     localStorage.clear();
@@ -116,13 +139,16 @@ describe('LoginForm Component', () => {
       renderLoginForm();
       
       const emailInput = screen.getByLabelText(/email/i);
+      const passwordInput = screen.getByLabelText(/password/i);
       const submitButton = screen.getByRole('button', { name: /login|sign in/i });
       
-      await user.type(emailInput, 'invalid-email');
+      // Use email without domain - should fail regex but pass type="email" HTML5 validation
+      await user.type(emailInput, 'invalid@domain');
+      await user.type(passwordInput, 'SomePassword123');
       await user.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText(/invalid.*email/i)).toBeInTheDocument();
+        expect(screen.getByText(/please enter a valid email address/i)).toBeInTheDocument();
       });
     });
 
@@ -146,10 +172,8 @@ describe('LoginForm Component', () => {
     it('should call API with correct credentials on submit', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+      mockPost.mockResolvedValueOnce({
+        data: {
           access_token: 'mock_access_token',
           token_type: 'bearer',
           expires_in: 900,
@@ -161,7 +185,7 @@ describe('LoginForm Component', () => {
             role: 'student',
             is_verified: true
           }
-        })
+        }
       });
       
       renderLoginForm();
@@ -175,18 +199,12 @@ describe('LoginForm Component', () => {
       await user.click(submitButton);
       
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('/auth/login'),
-          expect.objectContaining({
-            method: 'POST',
-            headers: expect.objectContaining({
-              'Content-Type': 'application/json'
-            }),
-            body: JSON.stringify({
-              email: 'student@university.edu.tr',
-              password: 'ValidPassword123!'
-            })
-          })
+        expect(mockPost).toHaveBeenCalledWith(
+          '/auth/login',
+          {
+            email: 'student@university.edu.tr',
+            password: 'ValidPassword123!'
+          }
         );
       });
     });
@@ -195,10 +213,8 @@ describe('LoginForm Component', () => {
       const user = userEvent.setup();
       const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+      mockPost.mockResolvedValueOnce({
+        data: {
           access_token: mockToken,
           token_type: 'bearer',
           expires_in: 900,
@@ -210,7 +226,7 @@ describe('LoginForm Component', () => {
             role: 'student',
             is_verified: true
           }
-        })
+        }
       });
       
       renderLoginForm();
@@ -236,10 +252,8 @@ describe('LoginForm Component', () => {
     it('should call onSuccess callback after successful login', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+      mockPost.mockResolvedValueOnce({
+        data: {
           access_token: 'mock_token',
           token_type: 'bearer',
           expires_in: 900,
@@ -251,7 +265,7 @@ describe('LoginForm Component', () => {
             role: 'student',
             is_verified: true
           }
-        })
+        }
       });
       
       renderLoginForm();
@@ -274,15 +288,17 @@ describe('LoginForm Component', () => {
     it('should display error message for 401 Unauthorized', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: async () => ({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'Invalid email or password'
+      mockPost.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 401,
+          data: {
+            error: {
+              code: 'UNAUTHORIZED',
+              message: 'Invalid email or password'
+            }
           }
-        })
+        }
       });
       
       renderLoginForm();
@@ -303,15 +319,17 @@ describe('LoginForm Component', () => {
     it('should display error message for 403 Forbidden (unverified email)', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 403,
-        json: async () => ({
-          error: {
-            code: 'EMAIL_NOT_VERIFIED',
-            message: 'Please verify your email before logging in'
+      mockPost.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 403,
+          data: {
+            error: {
+              code: 'EMAIL_NOT_VERIFIED',
+              message: 'Please verify your email before logging in'
+            }
           }
-        })
+        }
       });
       
       renderLoginForm();
@@ -332,7 +350,7 @@ describe('LoginForm Component', () => {
     it('should display generic error message for network errors', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      mockPost.mockRejectedValueOnce(new Error('Network error'));
       
       renderLoginForm();
       
@@ -352,15 +370,17 @@ describe('LoginForm Component', () => {
     it('should display error for 500 Internal Server Error', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: async () => ({
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'Internal server error'
+      mockPost.mockRejectedValueOnce({
+        isAxiosError: true,
+        response: {
+          status: 500,
+          data: {
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: 'Internal server error'
+            }
           }
-        })
+        }
       });
       
       renderLoginForm();
@@ -384,11 +404,9 @@ describe('LoginForm Component', () => {
       const user = userEvent.setup();
       
       // Mock slow API response
-      mockFetch.mockImplementation(() => 
+      mockPost.mockImplementation(() => 
         new Promise(resolve => setTimeout(() => resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          data: {
             access_token: 'mock_token',
             token_type: 'bearer',
             expires_in: 900,
@@ -400,7 +418,7 @@ describe('LoginForm Component', () => {
               role: 'student',
               is_verified: true
             }
-          })
+          }
         }), 1000))
       );
       
@@ -421,16 +439,14 @@ describe('LoginForm Component', () => {
     it('should disable submit button during login', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockImplementation(() => 
+      mockPost.mockImplementation(() => 
         new Promise(resolve => setTimeout(() => resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          data: {
             access_token: 'mock_token',
             token_type: 'bearer',
             expires_in: 900,
             user: { id: '123', email: 'test@test.edu.tr', first_name: 'T', last_name: 'S', role: 'student', is_verified: true }
-          })
+          }
         }), 1000))
       );
       
@@ -490,15 +506,13 @@ describe('LoginForm Component', () => {
     it('should accept keyboard navigation (Tab and Enter)', async () => {
       const user = userEvent.setup();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+      mockPost.mockResolvedValueOnce({
+        data: {
           access_token: 'mock_token',
           token_type: 'bearer',
           expires_in: 900,
           user: { id: '123', email: 'test@test.edu.tr', first_name: 'T', last_name: 'S', role: 'student', is_verified: true }
-        })
+        }
       });
       
       renderLoginForm();
@@ -524,7 +538,7 @@ describe('LoginForm Component', () => {
       await user.keyboard('{Enter}');
       
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalled();
+        expect(mockPost).toHaveBeenCalled();
       });
     });
   });

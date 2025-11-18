@@ -32,7 +32,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     if (!email) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Invalid email format';
+      newErrors.email = 'Please enter a valid email address';
     }
 
     // Password validation
@@ -74,15 +74,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         if (status === 401) {
           setErrors({ general: 'Invalid email or password' });
         } else if (status === 403) {
-          setErrors({ general: 'Please verify your email before logging in' });
+          setErrors({ general: 'Please verify your email address to continue' });
         } else if (status === 500) {
-          setErrors({ general: 'Server error. Please try again later.' });
+          setErrors({ general: 'Something went wrong. Please try again later.' });
         } else {
           setErrors({ general: errorData?.error?.message || 'An error occurred' });
         }
       } else {
         // Network or other errors
-        setErrors({ general: 'Network error. Please check your connection.' });
+        setErrors({ general: 'Network error occurred. Please check your connection.' });
       }
     } finally {
       setIsLoading(false);
@@ -99,7 +99,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           id="email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            // Clear errors when user starts typing
+            if (errors.email) {
+              setErrors(prev => ({ ...prev, email: undefined }));
+            }
+          }}
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           disabled={isLoading}
           autoComplete="email"
@@ -117,7 +123,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           id="password"
           type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            // Clear errors when user starts typing
+            if (errors.password) {
+              setErrors(prev => ({ ...prev, password: undefined }));
+            }
+          }}
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           disabled={isLoading}
           autoComplete="current-password"
