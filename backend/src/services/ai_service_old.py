@@ -1,12 +1,10 @@
 """
 AI Service for KAMPÜS+ Platform - RAG-based Conversational AI.
 
-REFACTORED for LangChain v1.0 LCEL (LangChain Expression Language).
-
 Features:
-- Modern LCEL chain composition for RAG pipeline
+- LangChain ConversationalRetrievalChain for context-aware Q&A
 - Hybrid retrieval from dual vector stores (official + user documents)
-- Turkish language support with ChatPromptTemplate
+- Turkish language support with custom prompt templates
 - Source citation and attribution
 - Anonymization preprocessing for student privacy
 - Context window management (last 5 exchanges)
@@ -19,16 +17,14 @@ Constitutional Requirements:
 """
 
 import logging
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from uuid import UUID
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.documents import Document
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from langchain_core.retrievers import BaseRetriever
-from langchain_core.runnables import RunnablePassthrough, RunnableSerializable
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.runnables import RunnablePassthrough
 from langchain_community.vectorstores import FAISS
 
 from src.core.config import settings
@@ -44,35 +40,48 @@ class AIService:
     # Context window: last 5 message exchanges
     CONTEXT_WINDOW_SIZE = 5
     
-    # Turkish prompt template
-    TURKISH_SYSTEM_PROMPT = """Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine akademik konularda yardımcı oluyorsun.
+    # Prompt template with Turkish support
+    TURKISH_QA_TEMPLATE = """Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine akademik konularda yardımcı oluyorsun.
 
 Bağlam Bilgisi:
 {context}
+
+Sohbet Geçmişi:
+{chat_history}
+
+Öğrenci Sorusu: {question}
 
 Yanıt Kuralları:
 1. SADECE verilen bağlam bilgisini kullan
 2. Eğer cevap bağlamda yoksa, bilmediğini söyle
 3. Türkçe ve anlaşılır şekilde yanıt ver
 4. Kaynak belirt (resmi doküman mı, öğrenci notu mu)
-5. Yanıtın sonunda kullandığın kaynakları listele"""
+5. Yanıtın sonunda kullandığın kaynakları listele
 
-    # English prompt template
-    ENGLISH_SYSTEM_PROMPT = """You are KAMPÜS+ AI Assistant. You help university students with academic questions.
+Yanıt:"""
+
+    ENGLISH_QA_TEMPLATE = """You are KAMPÜS+ AI Assistant. You help university students with academic questions.
 
 Context Information:
 {context}
+
+Chat History:
+{chat_history}
+
+Student Question: {question}
 
 Response Rules:
 1. ONLY use the provided context information
 2. If answer is not in context, say you don't know
 3. Respond clearly and helpfully
 4. Indicate source type (official document vs student note)
-5. List sources used at the end of your response"""
+5. List sources used at the end of your response
+
+Answer:"""
     
     def __init__(self, vector_service: Optional[VectorStoreService] = None):
         """
-        Initialize AI service with LangChain v1.0 LCEL components.
+        Initialize AI service with LangChain components.
         
         Args:
             vector_service: Optional vector store service instance.
@@ -94,58 +103,61 @@ Response Rules:
             openai_api_key=settings.openai_api_key
         )
         
-        # Current language (default Turkish)
-        self.current_language = "tr"
-        
-        logger.info("AIService initialized with LangChain v1.0 LCEL")
-    
-    def _get_prompt_template(self) -> ChatPromptTemplate:
-        """Get prompt template for current language."""
-        system_prompt = (
-            self.TURKISH_SYSTEM_PROMPT 
-            if self.current_language == "tr" 
-            else self.ENGLISH_SYSTEM_PROMPT
+        # Prompt template (Turkish by default)
+        self.qa_prompt = PromptTemplate(
+            template=self.TURKISH_QA_TEMPLATE,
+            input_variables=["context", "chat_history", "question"]
         )
         
-        return ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{question}")
-        ])
+        logger.info("AIService initialized with LangChain ConversationalRetrievalChain")
     
-    def _format_context_from_docs(self, docs: List[Document]) -> str:
-        """Format retrieved documents into context string."""
-        if not docs:
-            return "İlgili bilgi bulunamadı. / No relevant information found."
+    def create_conversation_chain(
+        self,
+        user_id: Optional[UUID] = None,
+        session_history: Optional[List[Dict[str, str]]] = None
+    ) -> ConversationalRetrievalChain:
+        """
+        Create a new conversation chain with memory.
         
-        context_parts = []
-        for i, doc in enumerate(docs, 1):
-            title = doc.metadata.get("title", "Untitled")
-            source_type = doc.metadata.get("source_type", "unknown")
-            content = doc.page_content
-            
-            context_parts.append(
-                f"[Kaynak {i} - {source_type}] {title}:\n{content}\n"
-            )
+        Args:
+            user_id: User ID for access control to user documents.
+            session_history: Previous conversation history to load.
         
-        return "\n".join(context_parts)
+        Returns:
+            Configured ConversationalRetrievalChain instance.
+        """
+        # Create hybrid retriever
+        retriever = self._create_hybrid_retriever(user_id)
+        
+        # Create memory with context window
+        memory = ConversationBufferWindowMemory(
+            k=self.CONTEXT_WINDOW_SIZE,
+            memory_key="chat_history",
+            return_messages=True,
+            output_key="answer"
+        )
+        
+        # Load existing history if provided
+        if session_history:
+            for exchange in session_history[-self.CONTEXT_WINDOW_SIZE:]:
+                memory.save_context(
+                    {"question": exchange.get("question", "")},
+                    {"answer": exchange.get("answer", "")}
+                )
+        
+        # Create conversation chain
+        chain = ConversationalRetrievalChain.from_llm(
+            llm=self.llm,
+            retriever=retriever,
+            memory=memory,
+            return_source_documents=True,
+            combine_docs_chain_kwargs={"prompt": self.qa_prompt},
+            verbose=False  # Set to True for debugging
+        )
+        
+        return chain
     
-    def _format_chat_history(self, history: List[Dict[str, str]]) -> List[BaseMessage]:
-        """Convert history dict list to LangChain message objects."""
-        messages = []
-        
-        # Only keep last N exchanges
-        recent_history = history[-self.CONTEXT_WINDOW_SIZE:] if history else []
-        
-        for exchange in recent_history:
-            if "question" in exchange:
-                messages.append(HumanMessage(content=exchange["question"]))
-            if "answer" in exchange:
-                messages.append(AIMessage(content=exchange["answer"]))
-        
-        return messages
-    
-    def _create_hybrid_retriever(self, user_id: Optional[UUID] = None) -> BaseRetriever:
+    def _create_hybrid_retriever(self, user_id: Optional[UUID] = None):
         """
         Create hybrid retriever that queries both vector stores.
         
@@ -155,27 +167,38 @@ Response Rules:
         Returns:
             Hybrid retriever combining official and user stores.
         """
+        # For now, we'll create a simple retriever
+        # In production, this should be a custom retriever that queries both stores
+        # and merges results with proper weighting
+        
+        # TODO: Implement proper hybrid retriever with:
+        # 1. Query both VDB_Official and VDB_User
+        # 2. Apply user_id filter to VDB_User results
+        # 3. Merge and re-rank results
+        # 4. Weight official documents higher than user documents
+        
+        # Placeholder: Return retriever for official store only
+        # This will be enhanced in T064
+        
+        from langchain_core.retrievers import BaseRetriever
+        
         class SimpleHybridRetriever(BaseRetriever):
-            """Simple retriever that searches official vector store.
-            
-            TODO (T064): Implement proper hybrid retrieval:
-            1. Query both VDB_Official and VDB_User
-            2. Apply user_id filter to VDB_User results
-            3. Merge and re-rank results
-            4. Weight official documents higher than user documents
-            """
-            vector_service: VectorStoreService
-            user_id: Optional[UUID]
-            k: int = 5
+            """Simple retriever that searches official vector store."""
             
             def __init__(self, vector_service: VectorStoreService, user_id: Optional[UUID], k: int = 5):
-                # Pydantic v2 style initialization
-                super().__init__(vector_service=vector_service, user_id=user_id, k=k)
+                super().__init__()
+                self.vector_service = vector_service
+                self.user_id = user_id
+                self.k = k
             
             def _get_relevant_documents(self, query: str) -> List[Document]:
                 """Retrieve relevant documents from vector stores."""
-                # Placeholder: Return empty list until FAISS integration complete
-                # TODO (T064): Implement with vector_service.search_official() and search_user()
+                # Search official store
+                official_results = []
+                # Note: This is simplified - actual implementation should use
+                # vector_service's search methods
+                
+                # For now, return empty list (will be implemented with proper FAISS integration)
                 return []
             
             async def _aget_relevant_documents(self, query: str) -> List[Document]:
@@ -187,40 +210,6 @@ Response Rules:
             user_id=user_id,
             k=settings.vector_search_k
         )
-    
-    def _create_rag_chain(
-        self,
-        user_id: Optional[UUID] = None
-    ) -> RunnableSerializable:
-        """
-        Create RAG chain using LCEL.
-        
-        Args:
-            user_id: User ID for access control.
-        
-        Returns:
-            Runnable RAG chain.
-        """
-        retriever = self._create_hybrid_retriever(user_id)
-        prompt = self._get_prompt_template()
-        
-        # LCEL chain composition
-        # Step 1: Retrieve documents
-        # Step 2: Format context from docs
-        # Step 3: Pass to LLM with prompt
-        # Step 4: Parse output
-        chain = (
-            {
-                "context": retriever | self._format_context_from_docs,
-                "question": RunnablePassthrough(),
-                "chat_history": RunnablePassthrough()
-            }
-            | prompt
-            | self.llm
-            | StrOutputParser()
-        )
-        
-        return chain
     
     async def query(
         self,
@@ -252,22 +241,15 @@ Response Rules:
                 question = self._anonymize_text(question)
                 logger.debug(f"Anonymized question for user {user_id}")
             
-            # Format chat history
-            chat_history = self._format_chat_history(session_history or [])
+            # Create conversation chain
+            chain = self.create_conversation_chain(user_id, session_history)
             
-            # Create RAG chain
-            chain = self._create_rag_chain(user_id)
+            # Query the chain
+            result = await chain.ainvoke({"question": question})
             
-            # Invoke chain with question and history
-            # Note: We need to retrieve docs separately to return them as sources
-            retriever = self._create_hybrid_retriever(user_id)
-            source_docs = await retriever.aget_relevant_documents(question)
-            
-            # Invoke chain
-            answer = await chain.ainvoke({
-                "question": question,
-                "chat_history": chat_history
-            })
+            # Extract answer and sources
+            answer = result.get("answer", "")
+            source_docs = result.get("source_documents", [])
             
             # Format sources
             formatted_sources = self._format_sources(source_docs)
@@ -330,7 +312,6 @@ Response Rules:
                     "document_id": metadata.get("document_id"),
                     "course_id": metadata.get("course_id"),
                     "upload_date": metadata.get("upload_date"),
-                    "user_id": metadata.get("user_id"),
                 }
             }
             
@@ -352,9 +333,17 @@ Response Rules:
         Returns:
             True if successful, False if language not supported.
         """
-        if language in ["tr", "en"]:
-            self.current_language = language
-            logger.info(f"Switched language to {language}")
+        if language == "tr":
+            self.qa_prompt = PromptTemplate(
+                template=self.TURKISH_QA_TEMPLATE,
+                input_variables=["context", "chat_history", "question"]
+            )
+            return True
+        elif language == "en":
+            self.qa_prompt = PromptTemplate(
+                template=self.ENGLISH_QA_TEMPLATE,
+                input_variables=["context", "chat_history", "question"]
+            )
             return True
         else:
             logger.warning(f"Unsupported language: {language}")
