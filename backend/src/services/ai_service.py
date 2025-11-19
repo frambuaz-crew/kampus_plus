@@ -198,14 +198,65 @@ Response Rules:
                 super().__init__(vector_service=vector_service, user_id=user_id, k=k)
             
             def _get_relevant_documents(self, query: str) -> List[Document]:
-                """Retrieve relevant documents from vector stores."""
-                # Placeholder: Return empty list until FAISS integration complete
-                # TODO (T064): Implement with vector_service.search_official() and search_user()
-                return []
+                """SYNC version - not used in async context."""
+                raise NotImplementedError("Use _aget_relevant_documents instead")
             
             async def _aget_relevant_documents(self, query: str) -> List[Document]:
-                """Async version of retrieval."""
-                return self._get_relevant_documents(query)
+                """
+                Retrieve relevant documents from vector stores (ASYNC VERSION).
+                
+                Queries both official and user vector stores, combines results.
+                """
+                # Search official store
+                official_results = await self.vector_service.search_official(query, k=self.k)
+                
+                # Search user store (if user_id provided)
+                user_results = []
+                if self.user_id:
+                    user_results = await self.vector_service.search_user(query, self.user_id, k=self.k)
+                
+                # Combine and convert to LangChain Documents
+                documents = []
+                
+                # Add official documents
+                for idx, distance in official_results:
+                    metadata = self.vector_service.official_metadata.get(idx, {})
+                    content = metadata.get("text", "")
+                    if content:  # Only add if content exists
+                        doc = Document(
+                            page_content=content,
+                            metadata={
+                                "source_type": "official",
+                                "title": metadata.get("title", "Official Document"),
+                                "distance": distance,
+                                "index_id": idx,
+                                **{k: v for k, v in metadata.items() if k != "text"}
+                            }
+                        )
+                        documents.append(doc)
+                
+                # Add user documents
+                for idx, distance in user_results:
+                    metadata = self.vector_service.user_metadata.get(idx, {})
+                    content = metadata.get("text", "")
+                    if content:  # Only add if content exists
+                        doc = Document(
+                            page_content=content,
+                            metadata={
+                                "source_type": "user",
+                                "title": metadata.get("title", "User Document"),
+                                "distance": distance,
+                                "index_id": idx,
+                                **{k: v for k, v in metadata.items() if k != "text"}
+                            }
+                        )
+                        documents.append(doc)
+                
+                # Sort by distance (lower is better)
+                documents.sort(key=lambda d: d.metadata.get("distance", float("inf")))
+                
+                # Return top k
+                return documents[:self.k]
         
         return SimpleHybridRetriever(
             vector_service=self.vector_service,
@@ -294,10 +345,9 @@ Response Rules:
             # Create RAG chain
             chain = self._create_rag_chain(user_id)
             
-            # Get relevant documents (SimpleHybridRetriever doesn't have async version)
+            # Get relevant documents (using async retriever)
             retriever = self._create_hybrid_retriever(user_id)
-            import asyncio
-            source_docs = await asyncio.to_thread(retriever._get_relevant_documents, question)
+            source_docs = await retriever._aget_relevant_documents(question)
             
             # Generate AI response with context
             answer = await chain.ainvoke({
