@@ -84,7 +84,7 @@ export const Dashboard: React.FC = () => {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <button 
-            onClick={() => navigate('/chat-test')}
+            onClick={() => navigate('/chat')}
             className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow text-left"
           >
             <div className="flex items-center space-x-4">

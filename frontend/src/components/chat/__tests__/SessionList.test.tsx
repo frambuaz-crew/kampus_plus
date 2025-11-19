@@ -3,9 +3,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionList } from '../SessionList';
 import axios from 'axios';
+import type { Mock } from 'vitest';
 
 vi.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedAxios = axios as typeof axios & {
+  get: Mock;
+  post: Mock;
+  delete: Mock;
+};
 
 describe('SessionList', () => {
   const mockSessions = [

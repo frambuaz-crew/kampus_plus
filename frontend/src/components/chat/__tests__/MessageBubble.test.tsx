@@ -156,7 +156,7 @@ describe('MessageBubble', () => {
     });
 
     it('should be expandable/collapsible', () => {
-      const { container } = render(
+      render(
         <MessageBubble
           role="assistant"
           content="Info..."

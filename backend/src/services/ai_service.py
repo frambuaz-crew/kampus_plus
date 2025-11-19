@@ -24,6 +24,7 @@ from typing import List, Dict, Optional, Any
 from uuid import UUID
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
@@ -81,24 +82,33 @@ Response Rules:
         """
         self.vector_service = vector_service or VectorStoreService()
         
-        # Initialize OpenAI LLM
-        self.llm = ChatOpenAI(
-            model=settings.openai_model,
-            temperature=settings.openai_temperature,
-            max_tokens=settings.openai_max_tokens,
-            openai_api_key=settings.openai_api_key
-        )
+        # Initialize LLM based on provider
+        if settings.ai_provider == "gemini":
+            self.llm = ChatGoogleGenerativeAI(
+                model=settings.gemini_model,
+                temperature=settings.gemini_temperature,
+                max_output_tokens=settings.gemini_max_tokens,
+                google_api_key=settings.google_api_key
+            )
+            logger.info(f"AIService initialized with Gemini ({settings.gemini_model})")
+        else:  # OpenAI
+            self.llm = ChatOpenAI(
+                model=settings.openai_model,
+                temperature=settings.openai_temperature,
+                max_tokens=settings.openai_max_tokens,
+                openai_api_key=settings.openai_api_key
+            )
+            logger.info(f"AIService initialized with OpenAI ({settings.openai_model})")
         
-        # Initialize embeddings (for retrieval)
+        # Initialize embeddings (for retrieval) - using OpenAI for now
+        # TODO: Switch to Gemini embeddings if needed
         self.embeddings = OpenAIEmbeddings(
             model=settings.openai_embedding_model,
             openai_api_key=settings.openai_api_key
-        )
+        ) if settings.openai_api_key else None
         
         # Current language (default Turkish)
         self.current_language = "tr"
-        
-        logger.info("AIService initialized with LangChain v1.0 LCEL")
     
     def _get_prompt_template(self) -> ChatPromptTemplate:
         """Get prompt template for current language."""
@@ -281,29 +291,22 @@ Response Rules:
             # Format chat history
             chat_history = self._format_chat_history(session_history or [])
             
-            # MOCK RESPONSE FOR TESTING (remove when OpenAI API key has quota)
-            # TODO: Replace with real AI service when API quota available
-            import random
-            mock_responses = [
-                "KAMPÜS+ platformu, üniversite öğrencilerine yapay zeka destekli öğrenme deneyimi sunan bir sistemdir. Platform, ders materyallerine kolay erişim, AI asistanı ile etkileşim ve kişiselleştirilmiş öğrenme olanakları sağlar.",
-                "Merhaba! Ben KAMPÜS+ AI Asistanınızım. Size ders içerikleri, sınavlar, ödevler ve üniversite kaynaklarıyla ilgili yardımcı olabilirim. Ne öğrenmek istersiniz?",
-                "Yapay zeka (AI), makinelerin insan benzeri görevleri yerine getirmesini sağlayan teknolojilerdir. Machine learning, deep learning ve natural language processing gibi alt dalları vardır.",
-                "Sorununuz hakkında size yardımcı olmaya hazırım. Lütfen daha spesifik bir soru sorun, böylece size en iyi şekilde yardımcı olabilirim."
-            ]
-            answer = random.choice(mock_responses)
-            source_docs = []
-            formatted_sources = []
-            
-            # REAL AI SERVICE CODE (commented out for testing)
             # Create RAG chain
-            # chain = self._create_rag_chain(user_id)
-            # retriever = self._create_hybrid_retriever(user_id)
-            # source_docs = retriever._get_relevant_documents(question)
-            # answer = await chain.ainvoke({
-            #     "question": question,
-            #     "chat_history": chat_history
-            # })
-            # formatted_sources = self._format_sources(source_docs)
+            chain = self._create_rag_chain(user_id)
+            
+            # Get relevant documents (SimpleHybridRetriever doesn't have async version)
+            retriever = self._create_hybrid_retriever(user_id)
+            import asyncio
+            source_docs = await asyncio.to_thread(retriever._get_relevant_documents, question)
+            
+            # Generate AI response with context
+            answer = await chain.ainvoke({
+                "question": question,
+                "chat_history": chat_history
+            })
+            
+            # Format sources for response
+            formatted_sources = self._format_sources(source_docs)
             
             return {
                 "answer": answer,
@@ -313,7 +316,9 @@ Response Rules:
             }
             
         except Exception as e:
+            import traceback
             logger.error(f"Error processing query for user {user_id}: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return {
                 "answer": "Üzgünüm, sorunu işlerken bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
                 "sources": [],

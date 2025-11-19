@@ -66,7 +66,7 @@ export const ChatTestPage: React.FC = () => {
             <p className="text-sm opacity-90">T066 Test - ChatInterface Component</p>
           </div>
           <div className="h-[600px]">
-            <ChatInterface sessionId={sessionId} />
+            <ChatInterface sessionId={Number(sessionId)} />
           </div>
         </div>
         <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded p-4">

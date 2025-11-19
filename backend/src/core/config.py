@@ -69,12 +69,21 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 7
     
+    # AI Provider Settings
+    ai_provider: str = "gemini"  # Options: "openai", "gemini"
+    
     # OpenAI
-    openai_api_key: str
+    openai_api_key: str = ""
     openai_model: str = "gpt-4"
     openai_embedding_model: str = "text-embedding-ada-002"
     openai_max_tokens: int = 2000
     openai_temperature: float = 0.7
+    
+    # Google Gemini
+    google_api_key: str = ""
+    gemini_model: str = "gemini-1.5-pro"
+    gemini_temperature: float = 0.7
+    gemini_max_tokens: int = 8192
     
     # AWS S3
     aws_access_key_id: str

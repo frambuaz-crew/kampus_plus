@@ -22,7 +22,7 @@ import type { ChatMessage, SendMessageResponse, Source } from '../../types/chat'
 import axios from 'axios';
 
 interface ChatInterfaceProps {
-  sessionId: number | null;
+  sessionId: string | null;
   initialMessages?: ChatMessage[];
   onMessageSent?: () => void;
 }
@@ -32,6 +32,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   initialMessages = [], 
   onMessageSent 
 }) => {
+  console.log('ChatInterface rendered with sessionId:', sessionId);
+  
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages.filter(msg => msg !== undefined));
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);

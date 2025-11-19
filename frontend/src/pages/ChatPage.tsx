@@ -16,7 +16,7 @@ interface Message {
 }
 
 interface Session {
-  id: number;
+  id: string;
   title: string;
   created_at: string;
   updated_at: string;
@@ -24,12 +24,48 @@ interface Session {
 }
 
 export const ChatPage: React.FC = () => {
-  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const sessionListRefreshRef = useRef<(() => void) | null>(null);
 
-  const handleSessionSelect = async (sessionId: number) => {
+  // Auto-create session on mount if no session exists
+  React.useEffect(() => {
+    console.log('ChatPage useEffect - initializing session...');
+    const initializeSession = async () => {
+      try {
+        // Check if there are existing sessions
+        console.log('Fetching existing sessions...');
+        const sessionsResponse = await apiClient.get('/chat/sessions');
+        const sessions = sessionsResponse.data;
+        console.log('Sessions fetched:', sessions);
+        
+        if (sessions && sessions.length > 0) {
+          // Load the most recent session
+          const latestSession = sessions[0];
+          console.log('Loading latest session:', latestSession.id);
+          await handleSessionSelect(latestSession.id);
+        } else {
+          // Create a new session if none exist
+          console.log('No sessions found, creating new...');
+          await handleNewChat();
+        }
+      } catch (err) {
+        console.error('Failed to initialize session:', err);
+        // Try to create a new session as fallback
+        await handleNewChat();
+      } finally {
+        console.log('Initialization complete, setting isInitializing to false');
+        setIsInitializing(false);
+      }
+    };
+    
+    initializeSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSessionSelect = async (sessionId: string) => {
     try {
       setError(null);
       const response = await apiClient.get(`/chat/sessions/${sessionId}`);
@@ -69,6 +105,14 @@ export const ChatPage: React.FC = () => {
       sessionListRefreshRef.current();
     }
   };
+
+  if (isInitializing) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-gray-500">Loading chat...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen grid grid-cols-[300px_1fr]">
