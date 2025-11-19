@@ -45,13 +45,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     if (initialMessages && initialMessages.length > 0) {
       setMessages(initialMessages.filter(msg => msg !== undefined));
+      setIsLoading(false);
+    } else if (sessionId) {
+      // Only load from API if no initialMessages provided
+      loadMessages();
+    } else {
+      setMessages([]);
+      setIsLoading(false);
     }
-  }, [initialMessages]);
-
-  // Load message history on mount
-  useEffect(() => {
-    loadMessages();
-  }, [sessionId]);
+  }, [initialMessages, sessionId]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -60,7 +62,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const loadMessages = async () => {
     if (!sessionId) {
-      setMessages([]);
+      // Don't clear messages if we have initialMessages
+      if (!initialMessages || initialMessages.length === 0) {
+        setMessages([]);
+      }
       setIsLoading(false);
       return;
     }
