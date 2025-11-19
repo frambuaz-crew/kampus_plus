@@ -179,7 +179,8 @@ Each task follows this format:
 - [x] T069 [US2] Create `frontend/src/pages/ChatPage.tsx`: full chat interface with session management, responsive layout  
   ✅ 2025-11-19 (FULL GREEN: 17/17 tests passing - Complete full-page chat integration with SessionList (300px sidebar) + ChatInterface (flexible main), CSS Grid layout, session selection with message loading, new chat creation (POST /chat/sessions), message coordination with session list refresh, error handling, responsive design (h-screen), RefreshTrigger pattern for parent-child communication, initialMessages prop for state management, onMessageSent callback, 103 lines + 555 test lines | TDD: RED (17 failures) → GREEN (17 pass) | Git: 783a679)
 - [ ] T070 [US2] Implement WebSocket or long-polling for real-time responses (optional for MVP, can use polling)
-- [ ] T071 [US2] Add markdown rendering for AI responses using `react-markdown` library
+- [x] T071 [US2] Add markdown rendering for AI responses using `react-markdown` library  
+  ✅ 2025-11-19 (FULL GREEN: 30/30 tests passing - Rich text formatting for AI responses with react-markdown + remark-gfm, supports bold/italic/links/code blocks/inline code/lists/headings/blockquotes/tables (GFM), custom Tailwind styling for all elements, user messages remain plain text for security, 10 new markdown tests added to MessageBubble suite | Dependencies: react-markdown ^9.0.2, remark-gfm ^4.0.0 | Git: 20504d9)
 
 ### Testing & Validation
 
