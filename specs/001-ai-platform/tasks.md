@@ -156,7 +156,7 @@ Each task follows this format:
 ### MANDATORY TESTS - Write FIRST
 
 - [x] T056 **[TEST]** [US2] Write unit tests for `backend/tests/unit/test_ai_service.py`: test RAG pipeline, source retrieval from VDB_Official, prompt template rendering, Turkish language handling ✅ 2025-11-19 (FULL GREEN: 28/28 tests passing - Refactored ai_service.py to LangChain v1.0 LCEL, modern RAG with ChatPromptTemplate, RunnablePassthrough chain composition, hybrid retriever (Pydantic v2), Turkish/English prompts, anonymization, context window management, source formatting, session tracking)
-- [ ] T057 **[TEST]** [US2] Write integration tests in `backend/tests/integration/test_chat_flow.py`: create session → send message → verify response format → check source citations → test context retention
+- [x] T057 **[TEST]** [US2] Write integration tests in `backend/tests/integration/test_chat_flow.py`: create session → send message → verify response format → check source citations → test context retention ✅ 2025-11-19 (FULL GREEN: 13/13 tests passing, 700+ lines - Session creation/listing/ownership✓, User/assistant message storage with sources✓, Conversation history retrieval✓, Context window (last N messages)✓, History formatting for AI service✓, Complete 2-exchange flow with mocked AI✓, Soft/hard delete with CASCADE✓, Error handling✓, Multi-user isolation✓)
 - [ ] T058 **[TEST]** [US2] Write frontend tests in `frontend/src/components/chat/__tests__/ChatInterface.test.jsx`: test message sending, response rendering, source citation display, loading states
 
 ### Backend Implementation
