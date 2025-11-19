@@ -15,6 +15,7 @@ from src.core.logging import RequestIDMiddleware, setup_logging
 from src.api.routes.health import router as health_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.courses import router as courses_router
+from src.api.routes.chat import router as chat_router
 from src.services import get_vector_service
 
 
@@ -132,6 +133,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(health_router)
 app.include_router(auth_router, prefix="/v1")
 app.include_router(courses_router, prefix="/v1")
+app.include_router(chat_router, prefix="/v1")
 
 
 @app.get("/")

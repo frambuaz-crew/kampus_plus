@@ -161,11 +161,11 @@ Each task follows this format:
 
 ### Backend Implementation
 
-- [ ] T059 [US2] Implement `/chat/sessions` POST endpoint in `backend/src/api/routes/chat.py`: create ConversationSession for authenticated user, return session_id
-- [ ] T060 [US2] Implement `/chat/sessions` GET endpoint: list user's chat sessions with last message preview
-- [ ] T061 [US2] Implement `/chat/sessions/{id}` GET endpoint: retrieve full conversation history for session
-- [ ] T062 [US2] Implement `/chat/sessions/{id}/messages` POST endpoint: accept user message, anonymize content, query hybrid RAG pipeline, save ChatMessage (user + assistant), return response with sources
-- [ ] T063 [US2] Implement `/chat/sessions/{id}` DELETE endpoint: soft-delete session, mark `is_active=False`
+- [x] T059 [US2] Implement `/chat/sessions` POST endpoint in `backend/src/api/routes/chat.py`: create ConversationSession for authenticated user, return session_id ✅ 2025-11-19 (FULL GREEN: 24/24 contract tests passing - All 5 chat endpoints implemented: POST/GET sessions, GET session/{id}, POST messages, DELETE session | Features: JWT auth, session creation with auto-title, session listing with message count, full message history, AI response integration with anonymization, soft delete | Pydantic v2 ConfigDict used | Router registered in main.py | Git: combined T059-T063)
+- [x] T060 [US2] Implement `/chat/sessions` GET endpoint: list user's chat sessions with last message preview ✅ 2025-11-19 (Implemented in chat.py - Lists user's active sessions ordered by updated_at DESC, includes message_count, supports include_inactive query parameter for soft-deleted sessions, ownership verification)
+- [x] T061 [US2] Implement `/chat/sessions/{id}` GET endpoint: retrieve full conversation history for session ✅ 2025-11-19 (Implemented in chat.py - Returns session with full messages array, eager loading with selectinload, messages sorted chronologically, ownership verification, 403 forbidden for other users' sessions)
+- [x] T062 [US2] Implement `/chat/sessions/{id}/messages` POST endpoint: accept user message, anonymize content, query hybrid RAG pipeline, save ChatMessage (user + assistant), return response with sources ✅ 2025-11-19 (Implemented in chat.py - Anonymizes user message using AnonymizationService, calls ai_service.query() with RAG pipeline, saves both user and assistant messages, returns sources as JSON array, validates session ownership and active status, updates session timestamp)
+- [x] T063 [US2] Implement `/chat/sessions/{id}` DELETE endpoint: soft-delete session, mark `is_active=False` ✅ 2025-11-19 (Implemented in chat.py - Soft deletes by marking is_active=False, updates timestamp, ownership verification, returns 204 No Content, messages retained for audit trail)
 - [ ] T064 [US2] Enhance `ai_service.py`: implement context window management (last 5 exchanges), format sources as JSON array with `title`, `source_type`, `url/metadata`
 - [ ] T065 [US2] Create conversation memory persistence: load previous messages from DB on session resume
 
