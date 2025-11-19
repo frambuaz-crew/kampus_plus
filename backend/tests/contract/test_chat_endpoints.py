@@ -346,6 +346,75 @@ class TestChatSessionEndpoints:
         assert len(assistant_msg["sources"]) == 1
         assert assistant_msg["sources"][0]["title"] == "Test Document"
 
+    async def test_send_message_with_conversation_history(
+        self, client: AsyncClient, auth_headers: dict, monkeypatch
+    ):
+        """Test that conversation history is loaded and passed to AI service (T064/T065)."""
+        # Create session
+        create_response = await client.post(
+            "/v1/chat/sessions",
+            json={"title": "History Test"},
+            headers=auth_headers
+        )
+        session_id = create_response.json()["id"]
+        
+        # Track calls to AI service to verify history is passed
+        ai_query_calls = []
+        
+        async def mock_ai_query_tracking(*args, **kwargs):
+            ai_query_calls.append(kwargs)
+            return {
+                "answer": f"Response {len(ai_query_calls)}",
+                "sources": []
+            }
+        
+        from src.services import ai_service
+        monkeypatch.setattr(ai_service.AIService, "query", mock_ai_query_tracking)
+        
+        # Send first message (no history yet)
+        response1 = await client.post(
+            f"/v1/chat/sessions/{session_id}/messages",
+            json={"content": "First question"},
+            headers=auth_headers
+        )
+        assert response1.status_code == 201
+        
+        # Verify first call had empty history
+        assert len(ai_query_calls) == 1
+        assert ai_query_calls[0].get("session_history", []) == []
+        
+        # Send second message (should include first exchange in history)
+        response2 = await client.post(
+            f"/v1/chat/sessions/{session_id}/messages",
+            json={"content": "Second question"},
+            headers=auth_headers
+        )
+        assert response2.status_code == 201
+        
+        # Verify second call had history from first exchange
+        assert len(ai_query_calls) == 2
+        history = ai_query_calls[1].get("session_history", [])
+        assert len(history) == 1
+        assert history[0]["question"] == "First question"
+        assert history[0]["answer"] == "Response 1"
+        
+        # Send third message (should include both previous exchanges)
+        response3 = await client.post(
+            f"/v1/chat/sessions/{session_id}/messages",
+            json={"content": "Third question"},
+            headers=auth_headers
+        )
+        assert response3.status_code == 201
+        
+        # Verify third call had history from both exchanges
+        assert len(ai_query_calls) == 3
+        history = ai_query_calls[2].get("session_history", [])
+        assert len(history) == 2
+        assert history[0]["question"] == "First question"
+        assert history[0]["answer"] == "Response 1"
+        assert history[1]["question"] == "Second question"
+        assert history[1]["answer"] == "Response 2"
+
     async def test_send_message_empty_content(
         self, client: AsyncClient, auth_headers: dict
     ):

@@ -131,10 +131,24 @@ Response Rules:
         return "\n".join(context_parts)
     
     def _format_chat_history(self, history: List[Dict[str, str]]) -> List[BaseMessage]:
-        """Convert history dict list to LangChain message objects."""
+        """
+        Convert conversation history to LangChain message objects (T064/T065).
+        
+        Implements context window management:
+        - Only keeps last CONTEXT_WINDOW_SIZE (5) exchanges
+        - Converts dict format to LangChain BaseMessage objects
+        - Maintains chronological order
+        
+        Args:
+            history: List of conversation exchanges with 'question' and 'answer' keys.
+                    Format: [{"question": "...", "answer": "..."}, ...]
+        
+        Returns:
+            List of LangChain BaseMessage objects (HumanMessage, AIMessage).
+        """
         messages = []
         
-        # Only keep last N exchanges
+        # Context window: only keep last N exchanges to prevent token overflow
         recent_history = history[-self.CONTEXT_WINDOW_SIZE:] if history else []
         
         for exchange in recent_history:
@@ -231,20 +245,31 @@ Response Rules:
         anonymize: bool = True
     ) -> Dict[str, Any]:
         """
-        Process a user query and return AI response with sources.
+        Process a user query and return AI response with sources (T064/T065).
+        
+        Features:
+        - Context window management: Uses last 5 message exchanges for continuity
+        - RAG pipeline: Retrieves relevant documents from vector stores
+        - Source attribution: Returns formatted source citations
+        - Privacy: Optionally anonymizes PII before LLM processing
         
         Args:
-            question: User's question.
-            user_id: User ID for access control.
-            session_id: Optional session ID for tracking.
-            session_history: Previous conversation history.
+            question: User's question (will be anonymized if anonymize=True).
+            user_id: User ID for access control and filtering.
+            session_id: Optional session ID for conversation tracking.
+            session_history: Previous conversation history as list of dicts.
+                            Format: [{"question": "...", "answer": "..."}, ...]
+                            Only last 5 exchanges will be used (context window).
             anonymize: Whether to anonymize the question (default True).
+                      Constitutional requirement for student data protection.
         
         Returns:
             Dictionary containing:
-                - answer: AI-generated answer
-                - sources: List of source documents used
-                - session_id: Session identifier
+                - answer: AI-generated answer (str)
+                - sources: List of source documents with title, source_type, 
+                          content_preview, and metadata (List[Dict])
+                - session_id: Session identifier (str)
+                - anonymized: Whether anonymization was applied (bool)
         """
         try:
             # Anonymize question if required (constitutional requirement)
@@ -309,28 +334,52 @@ Response Rules:
     
     def _format_sources(self, documents: List[Document]) -> List[Dict[str, Any]]:
         """
-        Format source documents for API response.
+        Format source documents for API response (T064).
+        
+        Returns JSON array with standardized source format:
+        - title: Document title
+        - source_type: Type of source (official_document, user_document, course_material)
+        - content_preview: First 200 chars of content
+        - metadata: Additional context (document_id, course_id, etc.)
         
         Args:
             documents: List of LangChain Document objects.
         
         Returns:
-            List of formatted source dictionaries.
+            List of formatted source dictionaries with title, source_type, 
+            content_preview, and metadata fields.
         """
         formatted = []
         
         for doc in documents:
             metadata = doc.metadata or {}
             
+            # Determine source type
+            source_type = metadata.get("source_type", "unknown")
+            if source_type == "unknown":
+                # Infer from metadata
+                if metadata.get("document_id"):
+                    source_type = "official_document"
+                elif metadata.get("user_id"):
+                    source_type = "user_document"
+                elif metadata.get("course_id"):
+                    source_type = "course_material"
+            
+            # Create preview (first 200 chars)
+            content = doc.page_content or ""
+            content_preview = content[:200] + "..." if len(content) > 200 else content
+            
             source = {
                 "title": metadata.get("title", "Untitled Document"),
-                "source_type": metadata.get("source_type", "unknown"),
-                "content_preview": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
+                "source_type": source_type,
+                "content_preview": content_preview,
                 "metadata": {
                     "document_id": metadata.get("document_id"),
                     "course_id": metadata.get("course_id"),
                     "upload_date": metadata.get("upload_date"),
-                    "user_id": metadata.get("user_id"),
+                    "user_id": str(metadata.get("user_id")) if metadata.get("user_id") else None,
+                    "page_number": metadata.get("page_number"),
+                    "chunk_index": metadata.get("chunk_index"),
                 }
             }
             

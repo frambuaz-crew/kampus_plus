@@ -376,12 +376,42 @@ async def send_message(
     await db.flush()  # Get message ID without committing
     
     try:
+        # Load conversation history for context (T065)
+        # Get previous messages from this session (excluding current user message)
+        history_query = (
+            select(ChatMessage)
+            .where(ChatMessage.session_id == session_id)
+            .where(ChatMessage.id != user_message.id)  # Exclude current message
+            .order_by(ChatMessage.created_at.asc())
+        )
+        history_result = await db.execute(history_query)
+        history_messages = history_result.scalars().all()
+        
+        # Format history for AI service (last N exchanges)
+        # Convert to list of dicts with question/answer pairs
+        session_history = []
+        i = 0
+        while i < len(history_messages):
+            msg = history_messages[i]
+            if msg.role == MessageRole.USER:
+                exchange = {"question": msg.content}
+                # Check if there's a corresponding assistant message
+                if i + 1 < len(history_messages) and history_messages[i + 1].role == MessageRole.ASSISTANT:
+                    exchange["answer"] = history_messages[i + 1].content
+                    i += 2
+                else:
+                    i += 1
+                session_history.append(exchange)
+            else:
+                i += 1
+        
         # Query AI service with RAG pipeline
-        # TODO: Load conversation history for context (T065)
         ai_response = await ai_service.query(
             question=anonymized_content,
             user_id=current_user.id,
-            session_id=str(session_id)
+            session_id=str(session_id),
+            session_history=session_history,
+            anonymize=False  # Already anonymized above
         )
         
         # Parse AI response
