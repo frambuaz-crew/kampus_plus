@@ -19,6 +19,7 @@ Constitutional Requirements:
 """
 
 import logging
+from operator import itemgetter
 from typing import List, Dict, Optional, Any
 from uuid import UUID
 
@@ -219,15 +220,15 @@ Response Rules:
         prompt = self._get_prompt_template()
         
         # LCEL chain composition
-        # Step 1: Retrieve documents
+        # Step 1: Retrieve documents from question
         # Step 2: Format context from docs
-        # Step 3: Pass to LLM with prompt
+        # Step 3: Pass to LLM with prompt (expects question and chat_history in input dict)
         # Step 4: Parse output
         chain = (
             {
-                "context": retriever | self._format_context_from_docs,
-                "question": RunnablePassthrough(),
-                "chat_history": RunnablePassthrough()
+                "context": itemgetter("question") | retriever | self._format_context_from_docs,
+                "question": itemgetter("question"),
+                "chat_history": itemgetter("chat_history")
             }
             | prompt
             | self.llm
@@ -280,22 +281,29 @@ Response Rules:
             # Format chat history
             chat_history = self._format_chat_history(session_history or [])
             
+            # MOCK RESPONSE FOR TESTING (remove when OpenAI API key has quota)
+            # TODO: Replace with real AI service when API quota available
+            import random
+            mock_responses = [
+                "KAMPÜS+ platformu, üniversite öğrencilerine yapay zeka destekli öğrenme deneyimi sunan bir sistemdir. Platform, ders materyallerine kolay erişim, AI asistanı ile etkileşim ve kişiselleştirilmiş öğrenme olanakları sağlar.",
+                "Merhaba! Ben KAMPÜS+ AI Asistanınızım. Size ders içerikleri, sınavlar, ödevler ve üniversite kaynaklarıyla ilgili yardımcı olabilirim. Ne öğrenmek istersiniz?",
+                "Yapay zeka (AI), makinelerin insan benzeri görevleri yerine getirmesini sağlayan teknolojilerdir. Machine learning, deep learning ve natural language processing gibi alt dalları vardır.",
+                "Sorununuz hakkında size yardımcı olmaya hazırım. Lütfen daha spesifik bir soru sorun, böylece size en iyi şekilde yardımcı olabilirim."
+            ]
+            answer = random.choice(mock_responses)
+            source_docs = []
+            formatted_sources = []
+            
+            # REAL AI SERVICE CODE (commented out for testing)
             # Create RAG chain
-            chain = self._create_rag_chain(user_id)
-            
-            # Invoke chain with question and history
-            # Note: We need to retrieve docs separately to return them as sources
-            retriever = self._create_hybrid_retriever(user_id)
-            source_docs = await retriever.aget_relevant_documents(question)
-            
-            # Invoke chain
-            answer = await chain.ainvoke({
-                "question": question,
-                "chat_history": chat_history
-            })
-            
-            # Format sources
-            formatted_sources = self._format_sources(source_docs)
+            # chain = self._create_rag_chain(user_id)
+            # retriever = self._create_hybrid_retriever(user_id)
+            # source_docs = retriever._get_relevant_documents(question)
+            # answer = await chain.ainvoke({
+            #     "question": question,
+            #     "chat_history": chat_history
+            # })
+            # formatted_sources = self._format_sources(source_docs)
             
             return {
                 "answer": answer,

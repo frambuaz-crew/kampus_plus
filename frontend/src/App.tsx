@@ -5,6 +5,7 @@ import { RegisterForm } from './components/auth/RegisterForm';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Dashboard } from './pages/Dashboard';
 import { InstructorDashboard } from './pages/InstructorDashboard';
+import { ChatTestPage } from './pages/ChatTestPage';
 import { AuthProvider } from './contexts/AuthContext';
 import './App.css';
 
@@ -31,6 +32,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="instructor">
                 <InstructorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat-test"
+            element={
+              <ProtectedRoute requiredRole="student">
+                <ChatTestPage />
               </ProtectedRoute>
             }
           />
