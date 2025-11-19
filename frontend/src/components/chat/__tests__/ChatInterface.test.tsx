@@ -121,7 +121,7 @@ describe('ChatInterface Component', () => {
   // Test: Component Rendering
   // ============================================================================
 
-  it('should render chat interface with empty state', () => {
+  it('should render chat interface with empty state', async () => {
     mockGet.mockResolvedValueOnce({ data: [] }); // No messages
 
     render(
@@ -130,12 +130,14 @@ describe('ChatInterface Component', () => {
       </AuthProvider>
     );
 
-    expect(screen.getByRole('textbox', { name: /message input/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /message input/i })).toBeInTheDocument();
+    });
     expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument();
     expect(screen.getByText(/no messages yet/i)).toBeInTheDocument();
   });
 
-  it('should render message input and send button', () => {
+  it('should render message input and send button', async () => {
     mockGet.mockResolvedValueOnce({ data: [] });
 
     render(
@@ -143,6 +145,10 @@ describe('ChatInterface Component', () => {
         <ChatInterface sessionId={mockSession.id} />
       </AuthProvider>
     );
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /message input/i })).toBeInTheDocument();
+    });
 
     const input = screen.getByRole('textbox', { name: /message input/i });
     const sendButton = screen.getByRole('button', { name: /send/i });
@@ -539,10 +545,20 @@ describe('ChatInterface Component', () => {
       })
       .mockResolvedValueOnce({
         data: {
-          id: 'msg-retry',
-          role: 'assistant',
-          content: 'Success after retry',
-          sources: [],
+          user_message: {
+            id: 'msg-user-retry',
+            role: 'user',
+            content: 'Retry',
+            created_at: new Date().toISOString(),
+            sources: null,
+          },
+          assistant_message: {
+            id: 'msg-retry',
+            role: 'assistant',
+            content: 'Success after retry',
+            created_at: new Date().toISOString(),
+            sources: [],
+          },
         },
       });
 
@@ -641,6 +657,6 @@ describe('ChatInterface Component', () => {
     });
 
     // Should show time (could be relative like "2 minutes ago" or absolute)
-    expect(screen.getByText(/\d{1,2}:\d{2}|ago|minutes/i)).toBeInTheDocument();
+    expect(screen.getByText(/\d{1,2}:\d{2}|ago|just now/i)).toBeInTheDocument();
   });
 });

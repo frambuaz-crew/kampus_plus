@@ -9,6 +9,10 @@
  */
 
 import '@testing-library/jest-dom'
+import { vi } from 'vitest'
+
+// Mock scrollIntoView (not available in jsdom)
+window.HTMLElement.prototype.scrollIntoView = vi.fn()
 
 // Suppress console errors/warnings in tests (optional)
 // Uncomment if tests become too noisy:
