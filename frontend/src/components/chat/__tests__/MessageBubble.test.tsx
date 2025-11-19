@@ -317,4 +317,157 @@ describe('MessageBubble', () => {
       expect(screen.queryByRole('button', { name: /sources/i })).not.toBeInTheDocument();
     });
   });
+
+  describe('Markdown Rendering (T071)', () => {
+    it('should render markdown bold text in assistant messages', () => {
+      render(
+        <MessageBubble
+          role="assistant"
+          content="This is **bold text** in the message"
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      const strongElement = screen.getByText('bold text');
+      expect(strongElement.tagName).toBe('STRONG');
+    });
+
+    it('should render markdown italic text in assistant messages', () => {
+      render(
+        <MessageBubble
+          role="assistant"
+          content="This is *italic text* in the message"
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      const emElement = screen.getByText('italic text');
+      expect(emElement.tagName).toBe('EM');
+    });
+
+    it('should render markdown links in assistant messages', () => {
+      render(
+        <MessageBubble
+          role="assistant"
+          content="Visit [Google](https://google.com) for more info"
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      const link = screen.getByRole('link', { name: /google/i });
+      expect(link).toHaveAttribute('href', 'https://google.com');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveClass('text-blue-600');
+    });
+
+    it('should render markdown code blocks in assistant messages', () => {
+      const content = `Here is code:\n\`\`\`python\nprint('hello')\n\`\`\``;
+      render(
+        <MessageBubble
+          role="assistant"
+          content={content}
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      const codeBlock = screen.getByText(/print\('hello'\)/);
+      expect(codeBlock.tagName).toBe('CODE');
+      expect(codeBlock).toHaveClass('block');
+    });
+
+    it('should render inline code in assistant messages', () => {
+      render(
+        <MessageBubble
+          role="assistant"
+          content="Use the `console.log()` function"
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      const inlineCode = screen.getByText('console.log()');
+      expect(inlineCode.tagName).toBe('CODE');
+      expect(inlineCode).toHaveClass('bg-gray-300');
+    });
+
+    it('should render markdown lists in assistant messages', () => {
+      const content = `Steps:\n- First step\n- Second step\n- Third step`;
+      render(
+        <MessageBubble
+          role="assistant"
+          content={content}
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      expect(screen.getByText('First step')).toBeInTheDocument();
+      expect(screen.getByText('Second step')).toBeInTheDocument();
+      expect(screen.getByText('Third step')).toBeInTheDocument();
+      
+      const list = screen.getByText('First step').closest('ul');
+      expect(list).toHaveClass('list-disc');
+    });
+
+    it('should render markdown headings in assistant messages', () => {
+      const content = `# Main Title\n## Subtitle\nSome content`;
+      render(
+        <MessageBubble
+          role="assistant"
+          content={content}
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      const h1 = screen.getByText('Main Title');
+      expect(h1.tagName).toBe('H1');
+      expect(h1).toHaveClass('text-xl', 'font-bold');
+
+      const h2 = screen.getByText('Subtitle');
+      expect(h2.tagName).toBe('H2');
+      expect(h2).toHaveClass('text-lg', 'font-bold');
+    });
+
+    it('should NOT render markdown in user messages', () => {
+      render(
+        <MessageBubble
+          role="user"
+          content="This is **not bold** text"
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      // User messages should render as plain text
+      expect(screen.getByText('This is **not bold** text')).toBeInTheDocument();
+      expect(screen.queryByText('not bold')).not.toBeInTheDocument();
+    });
+
+    it('should render markdown tables (GFM extension)', () => {
+      const content = `| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |`;
+      render(
+        <MessageBubble
+          role="assistant"
+          content={content}
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      expect(screen.getByText('Header 1')).toBeInTheDocument();
+      expect(screen.getByText('Cell 1')).toBeInTheDocument();
+      
+      const table = screen.getByText('Header 1').closest('table');
+      expect(table).toBeInTheDocument();
+    });
+
+    it('should render markdown blockquotes in assistant messages', () => {
+      render(
+        <MessageBubble
+          role="assistant"
+          content="> This is a quote\n> from multiple lines"
+          timestamp="2025-11-19T10:00:00Z"
+        />
+      );
+
+      const blockquote = screen.getByText(/This is a quote/).closest('blockquote');
+      expect(blockquote).toHaveClass('border-l-4', 'italic');
+    });
+  });
 });

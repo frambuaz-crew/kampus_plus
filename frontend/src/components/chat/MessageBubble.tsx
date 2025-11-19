@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Source {
   title: string;
@@ -57,7 +59,41 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ role, content, tim
             ? 'bg-blue-600 text-white rounded-tr-sm' 
             : 'bg-gray-200 text-gray-900 rounded-tl-sm'
         }`}>
-          {content}
+          {isUser ? (
+            content
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // Style links
+                a: ({ node, ...props }) => (
+                  <a {...props} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer" />
+                ),
+                // Style code blocks
+                code: ({ node, inline, ...props }: any) => 
+                  inline ? (
+                    <code {...props} className="bg-gray-300 px-1 rounded text-sm" />
+                  ) : (
+                    <code {...props} className="block bg-gray-300 p-2 rounded my-2 text-sm overflow-x-auto" />
+                  ),
+                // Style lists
+                ul: ({ node, ...props }) => <ul {...props} className="list-disc list-inside my-2" />,
+                ol: ({ node, ...props }) => <ol {...props} className="list-decimal list-inside my-2" />,
+                // Style headings
+                h1: ({ node, ...props }) => <h1 {...props} className="text-xl font-bold my-2" />,
+                h2: ({ node, ...props }) => <h2 {...props} className="text-lg font-bold my-2" />,
+                h3: ({ node, ...props }) => <h3 {...props} className="text-base font-bold my-1" />,
+                // Style paragraphs
+                p: ({ node, ...props }) => <p {...props} className="my-1" />,
+                // Style blockquotes
+                blockquote: ({ node, ...props }) => (
+                  <blockquote {...props} className="border-l-4 border-gray-400 pl-4 italic my-2" />
+                ),
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          )}
         </div>
 
         {/* Timestamp */}
