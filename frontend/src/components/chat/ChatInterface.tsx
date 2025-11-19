@@ -53,7 +53,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setMessages([]);
       setIsLoading(false);
     }
-  }, [initialMessages, sessionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]); // Only re-run when sessionId changes, not initialMessages
 
   // Auto-scroll to latest message
   useEffect(() => {
