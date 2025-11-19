@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/config';
 
 interface Session {
   id: number;
@@ -13,9 +13,10 @@ interface SessionListProps {
   currentSessionId: number | null;
   onSessionSelect: (sessionId: number) => void;
   onNewChat: () => void;
+  refreshTrigger?: (refreshFn: () => void) => void;
 }
 
-export const SessionList: React.FC<SessionListProps> = ({ currentSessionId, onSessionSelect, onNewChat }) => {
+export const SessionList: React.FC<SessionListProps> = ({ currentSessionId, onSessionSelect, onNewChat, refreshTrigger }) => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +25,7 @@ export const SessionList: React.FC<SessionListProps> = ({ currentSessionId, onSe
     setIsLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/chat/sessions', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiClient.get('/chat/sessions');
       
       // Sort by updated_at descending (most recent first)
       const sortedSessions = [...response.data].sort((a, b) => 
@@ -46,7 +42,12 @@ export const SessionList: React.FC<SessionListProps> = ({ currentSessionId, onSe
 
   useEffect(() => {
     fetchSessions();
-  }, []);
+    
+    // Expose refresh function to parent
+    if (refreshTrigger) {
+      refreshTrigger(fetchSessions);
+    }
+  }, [refreshTrigger]);
 
   const formatRelativeTime = (isoString: string): string => {
     const date = new Date(isoString);

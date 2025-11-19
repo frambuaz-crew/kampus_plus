@@ -22,11 +22,17 @@ import type { ChatMessage, SendMessageResponse, Source } from '../../types/chat'
 import axios from 'axios';
 
 interface ChatInterfaceProps {
-  sessionId: string;
+  sessionId: number | null;
+  initialMessages?: ChatMessage[];
+  onMessageSent?: () => void;
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
+  sessionId, 
+  initialMessages = [], 
+  onMessageSent 
+}) => {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages.filter(msg => msg !== undefined));
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -34,6 +40,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId }) => {
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync initialMessages with local state
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setMessages(initialMessages.filter(msg => msg !== undefined));
+    }
+  }, [initialMessages]);
 
   // Load message history on mount
   useEffect(() => {
@@ -46,6 +59,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId }) => {
   }, [messages]);
 
   const loadMessages = async () => {
+    if (!sessionId) {
+      setMessages([]);
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       setIsLoading(true);
       setError(null);
@@ -100,6 +119,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId }) => {
           response.data.assistant_message,
         ];
       });
+      
+      // Notify parent component (e.g., ChatPage to refresh session list)
+      if (onMessageSent) {
+        onMessageSent();
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
       
@@ -165,6 +189,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId }) => {
   };
 
   const renderMessage = (message: ChatMessage) => {
+    if (!message || !message.role) return null;
+    
     const isUser = message.role === 'user';
     const sourceId = `${message.id}-sources`;
 
@@ -239,7 +265,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId }) => {
           </div>
         ) : (
           <>
-            {messages.map(renderMessage)}
+            {messages.filter(msg => msg && msg.role).map(renderMessage)}
             {isSending && (
               <div data-role="assistant" className="mb-4 text-left">
                 <div className="inline-block bg-gray-100 text-gray-900 rounded-lg px-4 py-2">
