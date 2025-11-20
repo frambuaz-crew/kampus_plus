@@ -2,7 +2,7 @@
 
 This module provides:
 - Dual FAISS vector stores (official documents + user documents)
-- OpenAI embedding generation (text-embedding-3-small, 1536 dimensions)
+- Google Gemini embedding generation (text-embedding-004, 768 dimensions)
 - Similarity search with k=5 default
 - User access control (users can only search their own documents)
 - Index persistence to disk (data/vectors/)
@@ -20,7 +20,7 @@ from uuid import UUID
 
 import faiss
 import numpy as np
-from openai import AsyncOpenAI
+import google.generativeai as genai
 
 from src.core.config import get_settings
 
@@ -29,15 +29,17 @@ logger = logging.getLogger(__name__)
 
 
 class VectorStoreService:
-    """Service for managing FAISS vector stores and OpenAI embeddings."""
+    """Service for managing FAISS vector stores and Google Gemini embeddings."""
     
-    # OpenAI text-embedding-3-small dimension
-    EMBEDDING_DIMENSION = 1536
+    # Google Gemini text-embedding-004 dimension
+    EMBEDDING_DIMENSION = 768
     
     def __init__(self):
         """Initialize vector store service with dual FAISS indexes."""
         self.settings = get_settings()
-        self.openai_client = AsyncOpenAI(api_key=self.settings.openai_api_key)
+        
+        # Configure Google Gemini API
+        genai.configure(api_key=self.settings.google_api_key)
         
         # Initialize storage paths
         self.data_dir = Path(self.settings.vector_store_path)
@@ -123,25 +125,26 @@ class VectorStoreService:
     # ============================================================================
     
     async def generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding vector using OpenAI API.
+        """Generate embedding vector using Google Gemini API.
         
         Args:
             text: Text to embed.
         
         Returns:
-            List of 1536 floats representing the embedding.
+            List of 768 floats representing the embedding.
         
         Example:
             >>> embedding = await service.generate_embedding("Sample text")
             >>> len(embedding)
-            1536
+            768
         """
         try:
-            response = await self.openai_client.embeddings.create(
-                model="text-embedding-3-small",
-                input=text
+            result = genai.embed_content(
+                model="models/text-embedding-004",
+                content=text,
+                task_type="retrieval_document"
             )
-            embedding = response.data[0].embedding
+            embedding = result['embedding']
             return embedding
         except Exception as e:
             logger.error(f"Failed to generate embedding: {e}")
@@ -154,7 +157,7 @@ class VectorStoreService:
             texts: List of texts to embed.
         
         Returns:
-            List of embeddings (each is 1536 floats).
+            List of embeddings (each is 768 floats).
         
         Example:
             >>> embeddings = await service.generate_embeddings_batch(["Text 1", "Text 2"])
@@ -165,11 +168,15 @@ class VectorStoreService:
             return []
         
         try:
-            response = await self.openai_client.embeddings.create(
-                model="text-embedding-3-small",
-                input=texts
-            )
-            embeddings = [item.embedding for item in response.data]
+            # Gemini batch embedding
+            embeddings = []
+            for text in texts:
+                result = genai.embed_content(
+                    model="models/text-embedding-004",
+                    content=text,
+                    task_type="retrieval_document"
+                )
+                embeddings.append(result['embedding'])
             return embeddings
         except Exception as e:
             logger.error(f"Failed to generate batch embeddings: {e}")
