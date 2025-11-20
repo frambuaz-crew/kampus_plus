@@ -51,9 +51,10 @@
 
 ### Backend
 - **Framework**: FastAPI (Python 3.11+)
-- **Database**: PostgreSQL 15+
-- **Vector Store**: FAISS (dual databases)
-- **AI**: LangChain + OpenAI GPT-4
+- **Database**: PostgreSQL 15+ / SQLite (dev)
+- **Vector Store**: FAISS (dual databases - 768 dims)
+- **AI**: LangChain + Google Gemini 2.5 Flash
+- **Embeddings**: Google text-embedding-004
 - **Scheduler**: APScheduler
 - **Storage**: AWS S3
 - **Testing**: pytest, pytest-asyncio
