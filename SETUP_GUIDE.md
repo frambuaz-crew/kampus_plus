@@ -1,208 +1,119 @@
-# 🚀 Kampus Plus - Geliştirici Kurulum Rehberi
+# 🚀 Kampus Plus - Kurulum Rehberi
 
 Bu rehber, projeyi kendi bilgisayarınızda çalıştırmak için gereken tüm adımları içerir.
 
 ## 📋 Gereksinimler
 
-Kuruluma başlamadan önce aşağıdaki yazılımların yüklü olduğundan emin olun:
-
-- **Git** (versiyon kontrol)
-- **Python 3.11+** (backend için)
-- **Node.js 18+** ve **npm** (frontend için)
-- **Google Gemini API Key** (AI chatbot için)
+- **Python 3.11+** (backend)
+- **Node.js 18+** ve npm (frontend)
+- **Google Gemini API Key** ([buradan alın](https://makersuite.google.com/app/apikey))
 
 ---
 
-## 🔧 Adım 1: Projeyi Klonlama
+## ⚡ Hızlı Kurulum (5 Dakika)
+
+### 1️⃣ Projeyi Klonla
 
 ```bash
-# Projeyi klonla
-git clone https://github.com/YOUR_USERNAME/kampus_plus.git
-cd kampus_plus
-
-# Develop branch'ine geç
-git checkout develop
-```
-
----
-
-## � Alternatif: Docker ile Kurulum (Önerilen - Daha Kolay!)
-
-Docker kullanarak tüm projeyi tek komutla çalıştırabilirsiniz:
-
-### Gereksinimler
-- Docker Desktop (https://www.docker.com/products/docker-desktop)
-
-### Kurulum
-
-```bash
-# 1. Projeyi klonla
-git clone https://github.com/YOUR_USERNAME/kampus_plus.git
+git clone https://github.com/frambuaz-crew/kampus_plus.git
 cd kampus_plus
 git checkout develop
-
-# 2. .env dosyasını hazırla
-Copy-Item .env.example backend\.env  # Windows
-# veya
-cp .env.example backend/.env  # macOS/Linux
-
-# 3. backend/.env dosyasında GOOGLE_API_KEY'i güncelle
-# (Yukarıdaki "API Key Nasıl Alınır" bölümüne bakın)
-
-# 4. Docker ile başlat
-docker-compose up -d
-
-# 5. Database migration'ları çalıştır
-docker-compose exec backend alembic upgrade head
-
-# 6. Test kullanıcısı oluştur
-docker-compose exec backend python scripts/create_instructor.py
-
-# 7. Vektör veritabanını doldur
-docker-compose exec backend python scripts/populate_vectors.py
 ```
 
-✅ **Tamamlandı!**
-- Backend: http://localhost:8000
-- Frontend: http://localhost:5173
-- Database: PostgreSQL (Docker container'da)
 
-### Docker Komutları
-
-```bash
-# Container'ları başlat
-docker-compose up -d
-
-# Container'ları durdur
-docker-compose down
-
-# Logları izle
-docker-compose logs -f
-
-# Backend container'a gir
-docker-compose exec backend bash
-
-# Database'i sıfırla
-docker-compose down -v  # Dikkat: Tüm verileri siler!
-docker-compose up -d
-```
-
----
-
-## 🐍 Manuel Kurulum (Docker Kullanmadan)
-
-Docker kullanmak istemiyorsanız, aşağıdaki adımları takip edin:
-
-### 2.1. Virtual Environment Oluşturma
+### 2️⃣ Backend Kurulumu
 
 ```bash
 cd backend
 
-# Windows için:
+# Virtual environment oluştur ve aktifleştir
 python -m venv venv
+
+# Windows:
 .\venv\Scripts\Activate.ps1
 
-# macOS/Linux için:
-python3 -m venv venv
+# macOS/Linux:
 source venv/bin/activate
-```
 
-### 2.2. Python Paketlerini Yükleme
-
-```bash
+# Paketleri yükle
 pip install -r requirements.txt
 ```
 
-### 2.3. Environment Variables Ayarlama
-
-**Kolay Yöntem** (Önerilen):
+### 3️⃣ Environment Variables (.env) Ayarla
 
 ```bash
-# .env.example dosyasını backend/.env olarak kopyala
-Copy-Item .env.example backend\.env  # Windows
-# veya
-cp .env.example backend/.env  # macOS/Linux
+# .env.example dosyasını kopyala
+copy .env.example .env  # Windows
+cp .env.example .env    # macOS/Linux
 ```
 
-Sonra `backend/.env` dosyasını açın ve **sadece şu satırı değiştirin**:
+`backend/.env` dosyasını aç ve **sadece şu satırı değiştir**:
 
 ```env
-GOOGLE_API_KEY=your-gemini-api-key-here  # ← Buraya kendi API key'inizi yazın
+GOOGLE_API_KEY=buraya-kendi-api-keyini-yapistir
 ```
 
-> **API Key Nasıl Alınır?**
-> 1. https://makersuite.google.com/app/apikey adresine gidin
-> 2. "Create API Key" butonuna tıklayın
-> 3. Oluşan key'i kopyalayın
-> 4. `.env` dosyasına yapıştırın
+> 💡 **API Key Nasıl Alınır?**
+> 1. https://makersuite.google.com/app/apikey adresine git
+> 2. "Create API Key" butonuna tıkla
+> 3. Oluşan key'i kopyala ve .env dosyasına yapıştır
 
-> **💡 Not:** Diğer ayarlar development için hazır! JWT_SECRET_KEY development için yeterli, production'da değiştirilecek.
-
-### 2.4. Veritabanını Oluşturma
+### 4️⃣ Veritabanını Hazırla
 
 ```bash
-# Alembic migration'ları çalıştır
-alembic upgrade head
-```
+# Migration'ları çalıştır
+python -m alembic upgrade head
 
-### 2.5. Test Kullanıcıları Oluşturma
-
-```bash
-# Seed data script'ini çalıştır (eğer varsa)
+# Test kullanıcıları oluştur
 python scripts/seed_data.py
-
-# VEYA manuel olarak instructor hesabı oluştur
-python scripts/create_instructor.py
 ```
 
-**Varsayılan Kullanıcılar:**
-- 📧 `instructor@gidatarim.edu.tr` / 🔑 `instructor123!` (Instructor)
-- 📧 `emre.kayacan@ogr.gidatarim.edu.tr` / 🔑 `test123!` (Student)
+**Oluşturulan Test Kullanıcıları:**
 
-### 2.6. Vektör Veritabanını Doldurma
+| Email | Şifre | Rol |
+|-------|-------|-----|
+| `student1@university.edu.tr` | `Student123!` | Öğrenci |
+| `student2@university.edu.tr` | `Student123!` | Öğrenci |
+| `instructor@university.edu.tr` | `Instructor123!` | Eğitmen |
+| `admin@university.edu.tr` | `Admin123!` | Admin |
+
+### 5️⃣ Backend'i Başlat
 
 ```bash
-# Ders bilgilerini vektör veritabanına ekle
-python scripts/populate_vectors.py
+python -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### 2.7. Backend'i Başlatma
-
-```bash
-uvicorn src.main:app --reload
-```
-
-✅ Backend şu adreste çalışacak: http://localhost:8000
+✅ Backend çalışıyor: **http://127.0.0.1:8000**
 
 ---
 
-## ⚛️ Adım 3: Frontend Kurulumu
-
-Yeni bir terminal açın:
+### 6️⃣ Frontend Kurulumu (Yeni Terminal)
 
 ```bash
 cd frontend
 
-# Node paketlerini yükle
+# .env dosyasını kopyala
+copy .env.example .env  # Windows
+cp .env.example .env    # macOS/Linux
+
+# Paketleri yükle
 npm install
 
 # Frontend'i başlat
 npm run dev
 ```
 
-✅ Frontend şu adreste çalışacak: http://localhost:5173
+✅ Frontend çalışıyor: **http://localhost:5173**
 
 ---
 
-## 🧪 Adım 4: Test Etme
+## 🧪 Test Et
 
-1. **Frontend'e git:** http://localhost:5173
-2. **Giriş yap:**
-   - Email: `instructor@gidatarim.edu.tr`
-   - Şifre: `instructor123!`
-3. **AI Chatbot'u test et:**
-   - "MAT101 sınavı ne zaman?" gibi bir soru sor
-   - Cevap alabiliyorsanız her şey çalışıyor! 🎉
+1. Tarayıcıda **http://localhost:5173** adresine git
+2. Yukarıdaki tablodaki kullanıcılardan biriyle giriş yap
+3. AI chatbot'a bir soru sor: "Merhaba!"
+
+Cevap alıyorsan, **her şey çalışıyor!** 🎉
 
 ---
 
@@ -224,22 +135,40 @@ npm install
 
 # Veritabanı migration'larını çalıştır
 cd ../backend
-alembic upgrade head
+python -m alembic upgrade head
+```
+
+
+## 🐛 Sık Karşılaşılan Sorunlar
+
+### ❌ Backend'e bağlanamıyorum
+
+**Kontrol Et:**
+- Backend terminali çalışıyor mu?
+- `http://127.0.0.1:8000` adresine git → JSON yanıt görmelisin
+- `backend/.env` dosyasında `GOOGLE_API_KEY` doğru mu?
+
+**Çözüm:**
+```bash
+# Backend'i yeniden başlat
+cd backend
+python -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ---
 
-## 🐛 Sık Karşılaşılan Sorunlar
-
-### Problem: "ModuleNotFoundError: No module named 'google.generativeai'"
+### ❌ ModuleNotFoundError: No module named 'langchain_google_genai'
 
 **Çözüm:**
 ```bash
 cd backend
-pip install google-generativeai
+# Virtual environment aktif mi kontrol et
+pip install -r requirements.txt
 ```
 
-### Problem: "FAISS index file not found"
+---
+
+### ❌ FAISS index file not found
 
 **Çözüm:**
 ```bash
@@ -247,27 +176,54 @@ cd backend
 python scripts/populate_vectors.py
 ```
 
-### Problem: "Database locked" hatası
+---
+
+### ❌ Database locked / Alembic hatası
 
 **Çözüm:**
 ```bash
+cd backend
 # Backend'i durdur (Ctrl+C)
-# SQLite DB dosyasını sil
-rm kampus_plus_dev.db  # macOS/Linux
-Remove-Item kampus_plus_dev.db  # Windows
 
-# Migration'ları tekrar çalıştır
-alembic upgrade head
-python scripts/create_instructor.py
-python scripts/populate_vectors.py
+# SQLite dosyasını sil
+Remove-Item kampus_plus_dev.db  # Windows
+rm kampus_plus_dev.db           # macOS/Linux
+
+# Yeniden oluştur
+python -m alembic upgrade head
+python scripts/seed_data.py
 ```
 
-### Problem: Frontend'de CORS hatası
+---
+
+### ❌ Frontend CORS hatası / Network Error
+
+**Kontrol Et:**
+1. Backend çalışıyor mu? (`http://127.0.0.1:8000`)
+2. `frontend/.env` dosyası var mı?
 
 **Çözüm:**
-`.env` dosyasında `CORS_ORIGINS` ayarını kontrol edin:
-```env
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+```bash
+cd frontend
+# .env dosyasını kontrol et
+cat .env  # macOS/Linux
+type .env # Windows
+
+# Doğru içerik:
+# VITE_API_URL=http://127.0.0.1:8000/v1
+
+# Frontend'i yeniden başlat
+npm run dev
+```
+
+---
+
+### ❌ "alembic: command not found"
+
+**Çözüm:**
+```bash
+# Her zaman python -m kullan
+python -m alembic upgrade head
 ```
 
 ---
@@ -278,56 +234,97 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 kampus_plus/
 ├── backend/
 │   ├── src/
-│   │   ├── api/          # API routes
-│   │   ├── core/         # Config, security, database
-│   │   ├── models/       # SQLAlchemy models
-│   │   └── services/     # Business logic
-│   ├── scripts/          # Utility scripts
-│   ├── data/vectors/     # FAISS vector store
-│   ├── alembic/          # Database migrations
-│   └── requirements.txt  # Python dependencies
+│   │   ├── api/routes/      # API endpoints
+│   │   ├── core/            # Config, security, database
+│   │   ├── models/          # SQLAlchemy models
+│   │   └── services/        # Business logic
+│   ├── scripts/             # Utility scripts (seed, populate)
+│   ├── data/vectors/        # FAISS vector stores
+│   ├── alembic/versions/    # Database migrations
+│   ├── .env.example         # Environment variables template
+│   └── requirements.txt     # Python dependencies
 ├── frontend/
 │   ├── src/
-│   │   ├── components/   # React components
-│   │   ├── pages/        # Page components
-│   │   └── services/     # API services
-│   └── package.json      # Node dependencies
-└── SETUP_GUIDE.md        # Bu dosya
+│   │   ├── components/      # React components
+│   │   ├── pages/           # Page components
+│   │   ├── contexts/        # React contexts (Auth)
+│   │   └── api/             # API client (axios)
+│   ├── .env.example         # Frontend env template
+│   └── package.json         # Node dependencies
+├── .gitignore               # Ignored files (.env, venv, *.db)
+└── SETUP_GUIDE.md           # Bu dosya
 ```
 
 ---
 
 ## 🤝 Geliştirme Workflow'u
 
-1. **Yeni feature için branch oluştur:**
-   ```bash
-   git checkout -b feature/yeni-ozellik
-   ```
+### Yeni Feature Eklemek
 
-2. **Değişiklikleri yap ve commit et:**
-   ```bash
-   git add .
-   git commit -m "feat: yeni özellik eklendi"
-   ```
+```bash
+# 1. Yeni branch oluştur
+git checkout -b feature/yeni-ozellik
 
-3. **Push et:**
-   ```bash
-   git push origin feature/yeni-ozellik
-   ```
+# 2. Değişikliklerini yap
 
-4. **Pull Request oluştur** (GitHub'da)
+# 3. Commit et
+git add .
+git commit -m "feat: yeni özellik eklendi"
+
+# 4. Push et
+git push origin feature/yeni-ozellik
+
+# 5. GitHub'da Pull Request oluştur
+```
+
+### Commit Mesaj Formatı
+
+```
+feat: yeni özellik eklendi
+fix: bug düzeltildi
+docs: dokümantasyon güncellendi
+style: kod formatı düzenlendi
+refactor: kod yeniden yapılandırıldı
+test: test eklendi
+chore: konfigürasyon değişti
+```
+
+---
+
+## 🔒 Güvenlik Notları
+
+### ⚠️ GitHub'a Pushlamamanız Gerekenler:
+
+- ✅ `.env` dosyaları (`.gitignore`'da)
+- ✅ `venv/` klasörü (`.gitignore`'da)
+- ✅ `*.db` dosyaları (`.gitignore`'da)
+- ✅ `node_modules/` (`.gitignore`'da)
+- ✅ API keys, şifreler
+
+### ✅ GitHub'a Pushlanması Gerekenler:
+
+- `.env.example` dosyaları (hassas bilgi içermez)
+- Kaynak kodlar
+- Migration dosyaları
+- Dokümantasyon
 
 ---
 
 ## 📞 Yardım
 
-Sorun yaşarsanız:
-1. Bu rehberi tekrar okuyun
-2. GitHub Issues'a bakın
-3. Takım liderinize sorun
+**Sorun mu yaşıyorsun?**
+
+1. Bu rehberi tekrar oku
+2. "Sık Karşılaşılan Sorunlar" bölümüne bak
+3. GitHub Issues'a bak: https://github.com/frambuaz-crew/kampus_plus/issues
+4. Takım liderine sor
 
 ---
 
 ## 🎉 Başarılar!
 
-Artık projeyi kendi bilgisayarınızda çalıştırabilirsiniz. İyi kodlamalar! 🚀
+Artık projeyi kendi bilgisayarında çalıştırabilirsin. İyi kodlamalar! 🚀
+
+---
+
+**Son Güncelleme:** 30 Kasım 2025

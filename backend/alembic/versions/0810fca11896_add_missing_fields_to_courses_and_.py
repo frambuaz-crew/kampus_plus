@@ -21,6 +21,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Add missing fields to courses, official_documents, and user_documents tables."""
     
+    bind = op.get_bind()
+    dialect = bind.dialect.name
+    
     # ========================================================================
     # 1. Add missing fields to COURSES table
     # ========================================================================
@@ -37,24 +40,35 @@ def upgrade() -> None:
     op.add_column('official_documents', sa.Column('sync_job_id', sa.UUID(), nullable=True))
     op.add_column('official_documents', sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False))
     
-    # Add foreign key for sync_job_id
-    op.create_foreign_key(
-        'fk_official_documents_sync_job_id',
-        'official_documents',
-        'sync_jobs',
-        ['sync_job_id'],
-        ['id'],
-        ondelete='SET NULL'
-    )
+    # Add foreign key for sync_job_id (only for PostgreSQL - SQLite requires batch mode)
+    if dialect == 'postgresql':
+        op.create_foreign_key(
+            'fk_official_documents_sync_job_id',
+            'official_documents',
+            'sync_jobs',
+            ['sync_job_id'],
+            ['id'],
+            ondelete='SET NULL'
+        )
     
     # Add unique constraint for (source_system, source_id)
-    op.create_index(
-        'ix_official_documents_source_system_source_id',
-        'official_documents',
-        ['source_system', 'source_id'],
-        unique=True,
-        postgresql_where=sa.text('source_id IS NOT NULL')
-    )
+    # PostgreSQL supports partial indexes, SQLite doesn't
+    if dialect == 'postgresql':
+        op.create_index(
+            'ix_official_documents_source_system_source_id',
+            'official_documents',
+            ['source_system', 'source_id'],
+            unique=True,
+            postgresql_where=sa.text('source_id IS NOT NULL')
+        )
+    else:
+        # SQLite: create regular unique index
+        op.create_index(
+            'ix_official_documents_source_system_source_id',
+            'official_documents',
+            ['source_system', 'source_id'],
+            unique=True
+        )
     
     # Add index for is_active
     op.create_index('ix_official_documents_is_active', 'official_documents', ['is_active'])
@@ -67,16 +81,29 @@ def upgrade() -> None:
     op.add_column('user_documents', sa.Column('page_count', sa.Integer(), nullable=True))
     
     # Rename upload_at to uploaded_at for consistency with spec
-    op.alter_column('user_documents', 'upload_at', new_column_name='uploaded_at')
+    if dialect == 'sqlite':
+        # SQLite requires batch mode for column renames
+        with op.batch_alter_table('user_documents') as batch_op:
+            batch_op.alter_column('upload_at', new_column_name='uploaded_at')
+    else:
+        op.alter_column('user_documents', 'upload_at', new_column_name='uploaded_at')
 
 
 def downgrade() -> None:
     """Remove added fields from courses, official_documents, and user_documents tables."""
     
+    bind = op.get_bind()
+    dialect = bind.dialect.name
+    
     # ========================================================================
     # 1. Remove fields from USER_DOCUMENTS table
     # ========================================================================
-    op.alter_column('user_documents', 'uploaded_at', new_column_name='upload_at')
+    if dialect == 'sqlite':
+        with op.batch_alter_table('user_documents') as batch_op:
+            batch_op.alter_column('uploaded_at', new_column_name='upload_at')
+    else:
+        op.alter_column('user_documents', 'uploaded_at', new_column_name='upload_at')
+    
     op.drop_column('user_documents', 'page_count')
     op.drop_column('user_documents', 'error_message')
     op.drop_column('user_documents', 's3_bucket')
@@ -86,7 +113,10 @@ def downgrade() -> None:
     # ========================================================================
     op.drop_index('ix_official_documents_is_active', table_name='official_documents')
     op.drop_index('ix_official_documents_source_system_source_id', table_name='official_documents')
-    op.drop_constraint('fk_official_documents_sync_job_id', 'official_documents', type_='foreignkey')
+    
+    if dialect == 'postgresql':
+        op.drop_constraint('fk_official_documents_sync_job_id', 'official_documents', type_='foreignkey')
+    
     op.drop_column('official_documents', 'is_active')
     op.drop_column('official_documents', 'sync_job_id')
     op.drop_column('official_documents', 'document_type')

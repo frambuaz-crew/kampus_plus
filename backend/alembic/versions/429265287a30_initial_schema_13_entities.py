@@ -222,18 +222,21 @@ def upgrade() -> None:
     op.create_index('ix_forum_posts_thread_id', 'forum_posts', ['thread_id'])
     op.create_index('ix_forum_posts_created_at', 'forum_posts', ['created_at'])
     
-    # Full-text search index for forum posts
-    op.execute("""
-        ALTER TABLE forum_posts ADD COLUMN search_vector tsvector;
-    """)
-    op.execute("""
-        CREATE INDEX ix_forum_posts_search_vector ON forum_posts USING gin(search_vector);
-    """)
-    op.execute("""
-        CREATE TRIGGER forum_posts_search_vector_update BEFORE INSERT OR UPDATE
-        ON forum_posts FOR EACH ROW EXECUTE FUNCTION
-        tsvector_update_trigger(search_vector, 'pg_catalog.turkish', title, content);
-    """)
+    # Full-text search index for forum posts (PostgreSQL only)
+    # Skip for SQLite as it doesn't support tsvector/gin indexes
+    bind = op.get_bind()
+    if bind.dialect.name == 'postgresql':
+        op.execute("""
+            ALTER TABLE forum_posts ADD COLUMN search_vector tsvector;
+        """)
+        op.execute("""
+            CREATE INDEX ix_forum_posts_search_vector ON forum_posts USING gin(search_vector);
+        """)
+        op.execute("""
+            CREATE TRIGGER forum_posts_search_vector_update BEFORE INSERT OR UPDATE
+            ON forum_posts FOR EACH ROW EXECUTE FUNCTION
+            tsvector_update_trigger(search_vector, 'pg_catalog.turkish', title, content);
+        """)
     
     # ========================================================================
     # 11. AnonymousMapping Table
