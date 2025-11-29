@@ -11,7 +11,7 @@ All password operations use bcrypt with cost factor ≥12.
 All tokens use JWT with HS256 signature.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 from uuid import UUID, uuid4
 
@@ -178,9 +178,7 @@ class AuthService:
             id=uuid4(),
             user_id=user.id,
             token_hash=hash_password(refresh_token_str),  # Hash for security
-            expires_at=datetime.now(timezone.utc).replace(
-                day=datetime.now(timezone.utc).day + self.settings.jwt_refresh_token_expire_days
-            ),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=self.settings.jwt_refresh_token_expire_days),
             is_revoked=False,
             created_at=datetime.now(timezone.utc),
         )
