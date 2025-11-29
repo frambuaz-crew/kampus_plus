@@ -10,12 +10,12 @@ Endpoints:
 All endpoints require authentication and integrate with AI RAG pipeline.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -54,6 +54,13 @@ class CreateSessionResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_active: bool
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, dt: datetime) -> datetime:
+        """Convert UTC to Turkey time (UTC+3)."""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone(timedelta(hours=3)))
 
 
 class SessionListItem(BaseModel):
@@ -66,6 +73,13 @@ class SessionListItem(BaseModel):
     updated_at: datetime
     is_active: bool
     message_count: int = 0
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, dt: datetime) -> datetime:
+        """Convert UTC to Turkey time (UTC+3)."""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone(timedelta(hours=3)))
 
 
 class MessageSource(BaseModel):
@@ -86,6 +100,13 @@ class MessageResponse(BaseModel):
     content: str
     created_at: datetime
     sources: Optional[List[MessageSource]] = None
+    
+    @field_serializer('created_at')
+    def serialize_datetime(self, dt: datetime) -> datetime:
+        """Convert UTC to Turkey time (UTC+3)."""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone(timedelta(hours=3)))
 
 
 class SendMessageRequest(BaseModel):
@@ -109,6 +130,13 @@ class SessionDetailResponse(BaseModel):
     updated_at: datetime
     is_active: bool
     messages: List[MessageResponse]
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, dt: datetime) -> datetime:
+        """Convert UTC to Turkey time (UTC+3)."""
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone(timedelta(hours=3)))
 
 
 # ============================================================================

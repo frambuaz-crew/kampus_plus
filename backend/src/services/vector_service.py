@@ -223,13 +223,19 @@ class VectorStoreService:
         # Add to FAISS index
         self.vdb_official.add(vectors)
         
-        # Calculate assigned IDs
-        assigned_ids = list(range(start_index, start_index + len(texts)))
+        # Calculate assigned IDs based on current size
+        assigned_ids = list(range(current_size, current_size + len(texts)))
         
-        # Store metadata
+        # Store metadata with text
         if metadata:
-            for idx, meta in zip(assigned_ids, metadata):
-                self.official_metadata[idx] = meta
+            for idx, meta, text in zip(assigned_ids, metadata, texts):
+                # Ensure text is in metadata
+                meta_with_text = {**meta, "text": text}
+                self.official_metadata[idx] = meta_with_text
+        else:
+            # Store just the text
+            for idx, text in zip(assigned_ids, texts):
+                self.official_metadata[idx] = {"text": text}
         
         # Auto-save indexes after adding vectors
         self.save_indexes()
