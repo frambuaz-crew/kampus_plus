@@ -26,7 +26,72 @@ git checkout develop
 
 ---
 
-## 🐍 Adım 2: Backend Kurulumu
+## � Alternatif: Docker ile Kurulum (Önerilen - Daha Kolay!)
+
+Docker kullanarak tüm projeyi tek komutla çalıştırabilirsiniz:
+
+### Gereksinimler
+- Docker Desktop (https://www.docker.com/products/docker-desktop)
+
+### Kurulum
+
+```bash
+# 1. Projeyi klonla
+git clone https://github.com/YOUR_USERNAME/kampus_plus.git
+cd kampus_plus
+git checkout develop
+
+# 2. .env dosyasını hazırla
+Copy-Item .env.example backend\.env  # Windows
+# veya
+cp .env.example backend/.env  # macOS/Linux
+
+# 3. backend/.env dosyasında GOOGLE_API_KEY'i güncelle
+# (Yukarıdaki "API Key Nasıl Alınır" bölümüne bakın)
+
+# 4. Docker ile başlat
+docker-compose up -d
+
+# 5. Database migration'ları çalıştır
+docker-compose exec backend alembic upgrade head
+
+# 6. Test kullanıcısı oluştur
+docker-compose exec backend python scripts/create_instructor.py
+
+# 7. Vektör veritabanını doldur
+docker-compose exec backend python scripts/populate_vectors.py
+```
+
+✅ **Tamamlandı!**
+- Backend: http://localhost:8000
+- Frontend: http://localhost:5173
+- Database: PostgreSQL (Docker container'da)
+
+### Docker Komutları
+
+```bash
+# Container'ları başlat
+docker-compose up -d
+
+# Container'ları durdur
+docker-compose down
+
+# Logları izle
+docker-compose logs -f
+
+# Backend container'a gir
+docker-compose exec backend bash
+
+# Database'i sıfırla
+docker-compose down -v  # Dikkat: Tüm verileri siler!
+docker-compose up -d
+```
+
+---
+
+## 🐍 Manuel Kurulum (Docker Kullanmadan)
+
+Docker kullanmak istemiyorsanız, aşağıdaki adımları takip edin:
 
 ### 2.1. Virtual Environment Oluşturma
 
