@@ -50,55 +50,28 @@ pip install -r requirements.txt
 
 ### 2.3. Environment Variables Ayarlama
 
-Backend klasöründe `.env` dosyası oluşturun:
+**Kolay Yöntem** (Önerilen):
 
 ```bash
-# .env dosyası oluştur
-New-Item -Path .env -ItemType File  # Windows
+# .env.example dosyasını backend/.env olarak kopyala
+Copy-Item .env.example backend\.env  # Windows
 # veya
-touch .env  # macOS/Linux
+cp .env.example backend/.env  # macOS/Linux
 ```
 
-`.env` dosyasına aşağıdaki içeriği ekleyin:
+Sonra `backend/.env` dosyasını açın ve **sadece şu satırı değiştirin**:
 
 ```env
-# Database
-DATABASE_URL=sqlite+aiosqlite:///./kampus_plus_dev.db
-
-# JWT Settings
-JWT_SECRET_KEY=your-super-secret-key-change-this-in-production
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# AI Provider (gemini or openai)
-AI_PROVIDER=gemini
-
-# Google Gemini API
-GOOGLE_API_KEY=your-gemini-api-key-here
-GEMINI_MODEL=gemini-1.5-flash
-GEMINI_TEMPERATURE=0.7
-GEMINI_MAX_TOKENS=2048
-
-# OpenAI API (opsiyonel, eğer OpenAI kullanacaksanız)
-OPENAI_API_KEY=your-openai-api-key-here
-OPENAI_MODEL=gpt-4
-OPENAI_TEMPERATURE=0.7
-OPENAI_MAX_TOKENS=2048
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-
-# Vector Store
-VECTOR_STORE_PATH=data/vectors
-VECTOR_SEARCH_K=5
-
-# CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
-
-# Environment
-ENVIRONMENT=development
+GOOGLE_API_KEY=your-gemini-api-key-here  # ← Buraya kendi API key'inizi yazın
 ```
 
-> **ÖNEMLİ:** `GOOGLE_API_KEY` için kendi API anahtarınızı alın: https://makersuite.google.com/app/apikey
+> **API Key Nasıl Alınır?**
+> 1. https://makersuite.google.com/app/apikey adresine gidin
+> 2. "Create API Key" butonuna tıklayın
+> 3. Oluşan key'i kopyalayın
+> 4. `.env` dosyasına yapıştırın
+
+> **💡 Not:** Diğer ayarlar development için hazır! JWT_SECRET_KEY development için yeterli, production'da değiştirilecek.
 
 ### 2.4. Veritabanını Oluşturma
 
