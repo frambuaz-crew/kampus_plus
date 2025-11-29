@@ -86,6 +86,12 @@ coverage/
 backend/data/vectors/*.index
 backend/data/vectors/*.pkl
 
+# Database Files (Development)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
 # AWS / Secrets
 *.pem
 *.key
