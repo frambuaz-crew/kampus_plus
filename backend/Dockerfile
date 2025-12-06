@@ -45,6 +45,7 @@ COPY --from=builder /root/.local /home/kampus/.local
 COPY --chown=kampus:kampus src ./src
 COPY --chown=kampus:kampus alembic ./alembic
 COPY --chown=kampus:kampus scripts ./scripts
+COPY --chown=kampus:kampus data ./data
 COPY --chown=kampus:kampus alembic.ini .
 COPY --chown=kampus:kampus pytest.ini .
 
