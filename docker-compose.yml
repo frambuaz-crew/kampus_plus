@@ -22,8 +22,9 @@ services:
       # Source code - hot reload için
       - ./backend/src:/app/src:ro
       - ./backend/alembic:/app/alembic:ro
-      # Data - persist edilmeli
-      - backend_data:/app/data
+      # Data - bind mount for vector metadata access
+      - ./backend/data:/app/data
+      # DB - persist edilmeli
       - backend_db:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -77,8 +78,6 @@ services:
 # Volumes (Data Persistence)
 # ============================================================================
 volumes:
-  backend_data:
-    driver: local
   backend_db:
     driver: local
   frontend_node_modules:
