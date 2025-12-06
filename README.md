@@ -1,19 +1,42 @@
-# KAMPÜS+ AI-Powered Hybrid Intelligence Platform
+# 🎓 KAMPÜS+ AI-Powered Hybrid Intelligence Platform
 
-🎓 **Üniversiteler için AI destekli hibrit bilgi platformu** - Resmi akademik veriler (UZEM, duyurular, ders programları) ile kullanıcı tarafından oluşturulan içeriği (notlar, tartışmalar) birleştiren yapay zeka asistanı.
+**Üniversiteler için AI destekli hibrit bilgi platformu** - Resmi akademik veriler ile kullanıcı içeriğini birleştiren yapay zeka asistanı.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://react.dev/)
+
+---
+
+## ⚡ Quick Start
+
+**2 dakikada başla:**
+
+```bash
+git clone https://github.com/frambuaz-crew/kampus_plus.git
+cd kampus_plus
+git checkout develop
+
+# .env dosyalarını ayarla (backend ve frontend)
+# Sadece GOOGLE_API_KEY değiştirilmeli
+
+docker-compose up --build
+```
+
+✅ **Hazır!**
+- Frontend: http://localhost:5173
+- Backend: http://localhost:8000
+
+📖 **Detaylı kurulum:** [QUICK_START.md](./QUICK_START.md) | [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+
+---
 
 ## 🚀 Proje Durumu
 
-- **Branch**: `001-ai-platform`
-- **Tarih**: 14 Kasım 2025
-- **Durum**: 🔨 Planning Complete - Development Starting
-
-### Tamamlanan Fazlar
-
-- ✅ **Faz 0**: Teknik araştırma (15 mimari karar)
-- ✅ **Faz 1**: Tasarım (veri modeli, API sözleşmeleri, dokümantasyon)
-- ✅ **Faz 2**: Görev planlaması (217 görev, TDD yaklaşımı)
-- ⏭️ **Faz 3**: Implementation başlıyor...
+- **Sürüm**: 0.1.0
+- **Branch**: `develop`
+- **Durum**: 🚧 Active Development
 
 ## 🎯 Temel Özellikler
 

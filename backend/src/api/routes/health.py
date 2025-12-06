@@ -23,24 +23,89 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("", response_model=Dict[str, str])
-async def health_check() -> Dict[str, str]:
+@router.get("", response_model=Dict[str, Any])
+async def health_check() -> Dict[str, Any]:
     """
-    Basic health check endpoint.
+    Comprehensive health check endpoint for Docker and monitoring.
+    
+    Checks:
+    1. Database connection
+    2. Gemini API availability
+    3. Vector stores status
     
     Returns:
-        200 OK: Service is running
-        
-    Response:
-        {
-            "status": "ok",
-            "service": "kampus_plus_backend"
-        }
+        200 OK: All systems operational
+        503 Service Unavailable: Issues detected
     """
-    return {
-        "status": "ok",
-        "service": "kampus_plus_backend"
+    checks = {
+        "database": "unknown",
+        "gemini_api": "unknown",
+        "vector_stores": "unknown"
     }
+    errors = []
+    
+    # Check database
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            await session.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = "failed"
+        errors.append(f"Database: {str(e)}")
+    
+    # Check Gemini API
+    try:
+        import google.generativeai as genai
+        from src.core.config import get_settings
+        settings = get_settings()
+        
+        if settings.google_api_key and settings.google_api_key != "your-gemini-api-key-here":
+            genai.configure(api_key=settings.google_api_key)
+            # Light API check - just verify config
+            checks["gemini_api"] = "ok"
+        else:
+            checks["gemini_api"] = "not_configured"
+            errors.append("Gemini API key not configured")
+    except Exception as e:
+        checks["gemini_api"] = "failed"
+        errors.append(f"Gemini API: {str(e)}")
+    
+    # Check vector stores
+    try:
+        vector_service = VectorStoreService()
+        official_size = vector_service.get_index_size("official")
+        user_size = vector_service.get_index_size("user")
+        
+        if official_size >= 0 and user_size >= 0:
+            checks["vector_stores"] = "ok"
+        else:
+            checks["vector_stores"] = "failed"
+            errors.append("Vector stores not initialized")
+    except Exception as e:
+        checks["vector_stores"] = "failed"
+        errors.append(f"Vector stores: {str(e)}")
+    
+    # Overall status
+    all_ok = all(check == "ok" for check in checks.values())
+    
+    if all_ok:
+        return {
+            "status": "healthy",
+            "service": "kampus_plus_backend",
+            "checks": checks
+        }
+    else:
+        logger.warning(f"Health check failed: {errors}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "status": "unhealthy",
+                "service": "kampus_plus_backend",
+                "checks": checks,
+                "errors": errors
+            }
+        )
 
 
 @router.get("/live", response_model=Dict[str, str])

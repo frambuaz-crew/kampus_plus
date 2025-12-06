@@ -1,90 +1,92 @@
-services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: kampus-postgres
-    environment:
-      POSTGRES_DB: kampus_plus
-      POSTGRES_USER: kampus_user
-      POSTGRES_PASSWORD: kampus_dev_password_2024
-      POSTGRES_HOST_AUTH_METHOD: trust
-    ports:
-      - "5433:5432"  # Using 5433 on host since 5432 is already in use
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kampus_user -d kampus_plus"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - kampus-network
+version: '3.9'
 
-  # Backend API
+services:
+  # ============================================================================
+  # Backend API (FastAPI)
+  # ============================================================================
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: kampus-backend
-    depends_on:
-      postgres:
-        condition: service_healthy
-      clamav:
-        condition: service_healthy
     env_file:
       - ./backend/.env
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - CLAMAV_HOST=clamav
-      - CLAMAV_PORT=3310
+      # SQLite kullanıyoruz (PostgreSQL yerine basitlik için)
+      - DATABASE_URL=sqlite+aiosqlite:///./kampus_plus.db
+      - ENVIRONMENT=development
+      - DEBUG=true
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
-      - ./backend/data/vectors:/app/data/vectors
-    networks:
-      - kampus-network
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # ClamAV Antivirus (for malware scanning)
-  clamav:
-    image: clamav/clamav:latest
-    container_name: kampus-clamav
-    ports:
-      - "3310:3310"
-    volumes:
-      - clamav_data:/var/lib/clamav
+      # Source code - hot reload için
+      - ./backend/src:/app/src:ro
+      - ./backend/alembic:/app/alembic:ro
+      # Data - persist edilmeli
+      - backend_data:/app/data
+      - backend_db:/app
     healthcheck:
-      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
-      interval: 60s
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 300s  # ClamAV needs time to download virus definitions
+      start_period: 40s
     networks:
       - kampus-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo '🚀 Starting Kampus+ Backend...' &&
+        python -m alembic upgrade head &&
+        python scripts/seed_data.py &&
+        python scripts/populate_vectors.py &&
+        uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+      "
 
-  # Frontend (will be added later)
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: kampus-frontend
-  #   ports:
-  #     - "3000:3000"
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   networks:
-  #     - kampus-network
+  # ============================================================================
+  # Frontend (React + Vite)
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: kampus-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_API_URL=http://localhost:8000/v1
+      - NODE_ENV=development
+    ports:
+      - "5173:5173"
+    volumes:
+      # Source code - hot reload için
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      # node_modules'u container'da tut (hız için)
+      - frontend_node_modules:/app/node_modules
+    networks:
+      - kampus-network
+    restart: unless-stopped
+    command: npm run dev -- --host 0.0.0.0
 
+# ============================================================================
+# Volumes (Data Persistence)
+# ============================================================================
 volumes:
-  postgres_data:
+  backend_data:
     driver: local
-  clamav_data:
+  backend_db:
+    driver: local
+  frontend_node_modules:
     driver: local
 
+# ============================================================================
+# Networks
+# ============================================================================
 networks:
   kampus-network:
     driver: bridge

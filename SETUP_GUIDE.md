@@ -1,18 +1,30 @@
 # 🚀 Kampus Plus - Kurulum Rehberi
 
-Bu rehber, projeyi kendi bilgisayarınızda çalıştırmak için gereken tüm adımları içerir.
+Projeyi kendi bilgisayarında çalıştırmak için **2 yöntem** var:
 
-## 📋 Gereksinimler
-
-- **Python 3.11+** (backend)
-- **Node.js 18+** ve npm (frontend)
-- **Google Gemini API Key** ([buradan alın](https://makersuite.google.com/app/apikey))
+1. 🐳 **Docker** (Önerilen - 2 dakika)
+2. 🛠️ **Manuel Kurulum** (5 dakika)
 
 ---
 
-## ⚡ Hızlı Kurulum (5 Dakika)
+## 📋 Gereksinimler
 
-### 1️⃣ Projeyi Klonla
+### Docker Yöntemi (Önerilen)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) (Windows/Mac/Linux)
+- **Google Gemini API Key** ([buradan al](https://makersuite.google.com/app/apikey))
+
+### Manuel Yöntem
+- **Python 3.11+**
+- **Node.js 18+** ve npm
+- **Google Gemini API Key**
+
+---
+
+## 🐳 Yöntem 1: Docker ile Kurulum (ÖNERİLEN)
+
+Tüm takım aynı ortamda çalışır, sürüm karmaşası yok! ✨
+
+### Adım 1: Projeyi Klonla
 
 ```bash
 git clone https://github.com/frambuaz-crew/kampus_plus.git
@@ -20,29 +32,11 @@ cd kampus_plus
 git checkout develop
 ```
 
-
-### 2️⃣ Backend Kurulumu
+### Adım 2: .env Dosyasını Ayarla
 
 ```bash
+# Backend .env dosyasını kopyala
 cd backend
-
-# Virtual environment oluştur ve aktifleştir
-python -m venv venv
-
-# Windows:
-.\venv\Scripts\Activate.ps1
-
-# macOS/Linux:
-source venv/bin/activate
-
-# Paketleri yükle
-pip install -r requirements.txt
-```
-
-### 3️⃣ Environment Variables (.env) Ayarla
-
-```bash
-# .env.example dosyasını kopyala
 copy .env.example .env  # Windows
 cp .env.example .env    # macOS/Linux
 ```
@@ -54,45 +48,124 @@ GOOGLE_API_KEY=buraya-kendi-api-keyini-yapistir
 ```
 
 > 💡 **API Key Nasıl Alınır?**
-> 1. https://makersuite.google.com/app/apikey adresine git
-> 2. "Create API Key" butonuna tıkla
-> 3. Oluşan key'i kopyala ve .env dosyasına yapıştır
-
-### 4️⃣ Veritabanını Hazırla
+> 1. https://makersuite.google.com/app/apikey → "Create API Key"
+> 2. Oluşan key'i kopyala ve yapıştır
 
 ```bash
-# Migration'ları çalıştır
-python -m alembic upgrade head
-
-# Test kullanıcıları oluştur
-python scripts/seed_data.py
+# Frontend .env dosyasını kopyala (root dizine dön)
+cd ..
+cd frontend
+copy .env.example .env  # Windows
+cp .env.example .env    # macOS/Linux
+cd ..
 ```
 
-**Oluşturulan Test Kullanıcıları:**
+### Adım 3: Docker ile Başlat
+
+```bash
+# Tüm servisleri başlat (backend + frontend)
+docker-compose up --build
+```
+
+**İlk çalıştırmada:**
+- Docker image'lar indirilecek (~2-3 dakika)
+- Paketler yüklenecek
+- Veritabanı oluşturulacak
+- Test kullanıcıları eklenecek
+
+**✅ Hazır!**
+- Backend: http://localhost:8000
+- Frontend: http://localhost:5173
+- API Docs: http://localhost:8000/docs
+
+**Test Kullanıcıları:**
 
 | Email | Şifre | Rol |
 |-------|-------|-----|
 | `student1@university.edu.tr` | `Student123!` | Öğrenci |
-| `student2@university.edu.tr` | `Student123!` | Öğrenci |
 | `instructor@university.edu.tr` | `Instructor123!` | Eğitmen |
-| `admin@university.edu.tr` | `Admin123!` | Admin |
 
-### 5️⃣ Backend'i Başlat
+### Adım 4: Test Et
 
-```bash
-python -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
-```
+1. http://localhost:5173 aç
+2. Yukarıdaki kullanıcılardan biriyle giriş yap
+3. AI chatbot'a "Merhaba!" yaz
 
-✅ Backend çalışıyor: **http://127.0.0.1:8000**
+Cevap alıyorsan **tamamdır!** 🎉
 
 ---
 
-### 6️⃣ Frontend Kurulumu (Yeni Terminal)
+### Docker Komutları
+
+```bash
+# Servisleri başlat
+docker-compose up
+
+# Arka planda çalıştır
+docker-compose up -d
+
+# Logları izle
+docker-compose logs -f
+
+# Durdur
+docker-compose down
+
+# Sıfırdan başla (veritabanı dahil)
+docker-compose down -v
+docker-compose up --build
+```
+
+---
+
+## 🛠️ Yöntem 2: Manuel Kurulum
+
+Docker kullanmadan geliştirme yapmak istersen:
+
+### 1️⃣ Projeyi Klonla
+
+```bash
+git clone https://github.com/frambuaz-crew/kampus_plus.git
+cd kampus_plus
+git checkout develop
+```
+
+### 2️⃣ Backend Kurulumu
+
+```bash
+cd backend
+
+# Virtual environment oluştur
+python -m venv venv
+
+# Aktifleştir
+.\venv\Scripts\Activate.ps1  # Windows
+source venv/bin/activate      # macOS/Linux
+
+# Paketleri yükle
+pip install -r requirements.txt
+
+# .env dosyasını ayarla
+copy .env.example .env        # Windows
+cp .env.example .env          # macOS/Linux
+# .env dosyasında GOOGLE_API_KEY'i düzenle
+
+# Veritabanını hazırla
+python -m alembic upgrade head
+python scripts/seed_data.py
+python scripts/populate_vectors.py
+
+# Backend'i başlat
+python -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+✅ Backend: http://127.0.0.1:8000
+
+### 3️⃣ Frontend Kurulumu (Yeni Terminal)
 
 ```bash
 cd frontend
 
-# .env dosyasını kopyala
+# .env dosyasını ayarla
 copy .env.example .env  # Windows
 cp .env.example .env    # macOS/Linux
 
@@ -103,66 +176,126 @@ npm install
 npm run dev
 ```
 
-✅ Frontend çalışıyor: **http://localhost:5173**
+✅ Frontend: http://localhost:5173
 
 ---
 
-## 🧪 Test Et
+## 💡 Geliştirme İpuçları
 
-1. Tarayıcıda **http://localhost:5173** adresine git
-2. Yukarıdaki tablodaki kullanıcılardan biriyle giriş yap
-3. AI chatbot'a bir soru sor: "Merhaba!"
+### Backend Testleri
+```bash
+cd backend
+pytest                    # Tüm testler
+pytest tests/unit        # Sadece unit testler
+pytest -v --cov         # Coverage ile
+```
 
-Cevap alıyorsan, **her şey çalışıyor!** 🎉
+### Frontend Testleri
+```bash
+cd frontend
+npm test                 # Test modu
+npm run test:coverage   # Coverage ile
+```
+
+### Database Migration
+```bash
+cd backend
+python -m alembic upgrade head    # Migration uygula
+python -m alembic revision -m "description"  # Yeni migration
+```
+
+### Health Check
+```bash
+# Backend sağlık kontrolü
+curl http://localhost:8000/health
+
+# Detaylı kontrol
+curl http://localhost:8000/health/ready
+```
 
 ---
 
 ## 🔄 Güncellemeleri Çekme
 
-Projeye yeni özellikler eklendiğinde:
-
+### Docker Kullanıyorsan
 ```bash
-# En son değişiklikleri çek
+git pull origin develop
+docker-compose down
+docker-compose up --build
+```
+
+### Manuel Kurulum
+```bash
+# Değişiklikleri çek
 git pull origin develop
 
-# Backend paketlerini güncelle
+# Backend güncelle
 cd backend
 pip install -r requirements.txt
+python -m alembic upgrade head
 
-# Frontend paketlerini güncelle
+# Frontend güncelle
 cd ../frontend
 npm install
-
-# Veritabanı migration'larını çalıştır
-cd ../backend
-python -m alembic upgrade head
+```
 ```
 
 
 ## 🐛 Sık Karşılaşılan Sorunlar
 
-### ❌ Backend'e bağlanamıyorum
+### ❌ Docker: "Cannot connect to the Docker daemon"
 
-**Kontrol Et:**
-- Backend terminali çalışıyor mu?
-- `http://127.0.0.1:8000` adresine git → JSON yanıt görmelisin
-- `backend/.env` dosyasında `GOOGLE_API_KEY` doğru mu?
+**Çözüm:**
+1. Docker Desktop'ı aç ve çalıştır
+2. Docker Engine'in çalıştığını kontrol et
+3. `docker-compose up` komutunu tekrar dene
+
+---
+
+### ❌ Docker: "port is already allocated"
 
 **Çözüm:**
 ```bash
-# Backend'i yeniden başlat
-cd backend
-python -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
+# 8000 veya 5173 portunu kullanan process'i bul
+netstat -ano | findstr :8000   # Windows
+lsof -i :8000                  # macOS/Linux
+
+# Process'i sonlandır veya docker-compose.yml'de portu değiştir
 ```
 
 ---
 
-### ❌ ModuleNotFoundError: No module named 'langchain_google_genai'
+### ❌ Backend Health Check Failed
+
+**Kontrol Et:**
+```bash
+# Health endpoint'i kontrol et
+curl http://localhost:8000/health
+```
+
+**Olası Sorunlar:**
+- ✅ Database bağlantısı
+- ✅ Gemini API key doğru mu
+- ✅ Vector stores oluşturulmuş mu
+
+**Çözüm:**
+```bash
+docker-compose exec backend python scripts/populate_vectors.py
+docker-compose restart backend
+```
+
+---
+
+### ❌ ModuleNotFoundError (Manuel Kurulum)
 
 **Çözüm:**
 ```bash
 cd backend
-# Virtual environment aktif mi kontrol et
+# Virtual environment aktif mi?
+.\venv\Scripts\Activate.ps1  # Windows
+source venv/bin/activate      # macOS/Linux
+
+# Paketleri yeniden yükle
 pip install -r requirements.txt
 ```
 
