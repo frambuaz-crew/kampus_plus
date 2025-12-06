@@ -23,8 +23,7 @@ from operator import itemgetter
 from typing import List, Dict, Optional, Any
 from uuid import UUID
 
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
@@ -82,30 +81,20 @@ Response Rules:
         """
         self.vector_service = vector_service or VectorStoreService()
         
-        # Initialize LLM based on provider
-        if settings.ai_provider == "gemini":
-            self.llm = ChatGoogleGenerativeAI(
-                model=settings.gemini_model,
-                temperature=settings.gemini_temperature,
-                max_output_tokens=settings.gemini_max_tokens,
-                google_api_key=settings.google_api_key
-            )
-            logger.info(f"AIService initialized with Gemini ({settings.gemini_model})")
-        else:  # OpenAI
-            self.llm = ChatOpenAI(
-                model=settings.openai_model,
-                temperature=settings.openai_temperature,
-                max_tokens=settings.openai_max_tokens,
-                openai_api_key=settings.openai_api_key
-            )
-            logger.info(f"AIService initialized with OpenAI ({settings.openai_model})")
+        # Initialize LLM with Gemini
+        self.llm = ChatGoogleGenerativeAI(
+            model=settings.gemini_model,
+            temperature=settings.gemini_temperature,
+            max_output_tokens=settings.gemini_max_tokens,
+            google_api_key=settings.google_api_key
+        )
+        logger.info(f"AIService initialized with Gemini ({settings.gemini_model})")
         
-        # Initialize embeddings (for retrieval) - using OpenAI for now
-        # TODO: Switch to Gemini embeddings if needed
-        self.embeddings = OpenAIEmbeddings(
-            model=settings.openai_embedding_model,
-            openai_api_key=settings.openai_api_key
-        ) if settings.openai_api_key else None
+        # Initialize embeddings with Gemini
+        self.embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=settings.google_api_key
+        )
         
         # Current language (default Turkish)
         self.current_language = "tr"
