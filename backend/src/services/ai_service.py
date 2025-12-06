@@ -86,7 +86,8 @@ Response Rules:
             model=settings.gemini_model,
             temperature=settings.gemini_temperature,
             max_output_tokens=settings.gemini_max_tokens,
-            google_api_key=settings.google_api_key
+            google_api_key=settings.google_api_key,
+            convert_system_message_to_human=True  # Gemini doesn't support SystemMessage
         )
         logger.info(f"AIService initialized with Gemini ({settings.gemini_model})")
         
