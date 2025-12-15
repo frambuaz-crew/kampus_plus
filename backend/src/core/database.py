@@ -34,17 +34,27 @@ def get_engine() -> AsyncEngine:
     
     if engine is None:
         settings = get_settings()
+        database_url = settings.get_database_url()
         
-        # Create async engine with connection pool
-        engine = create_async_engine(
-            settings.get_database_url(),
-            echo=settings.debug,  # Log SQL queries in debug mode
-            pool_size=10,  # Max connections in pool
-            max_overflow=20,  # Max additional connections beyond pool_size
-            pool_timeout=30,  # Seconds to wait for connection
-            pool_recycle=3600,  # Recycle connections after 1 hour
-            pool_pre_ping=True,  # Test connection health before use
-        )
+        # SQLite doesn't support connection pooling, configure accordingly
+        if database_url.startswith("sqlite"):
+            engine = create_async_engine(
+                database_url,
+                echo=settings.debug,
+                # SQLite-specific: No pool parameters
+                connect_args={"check_same_thread": False}
+            )
+        else:
+            # PostgreSQL/other databases: Use connection pooling
+            engine = create_async_engine(
+                database_url,
+                echo=settings.debug,
+                pool_size=10,
+                max_overflow=20,
+                pool_timeout=30,
+                pool_recycle=3600,
+                pool_pre_ping=True,
+            )
     
     return engine
 

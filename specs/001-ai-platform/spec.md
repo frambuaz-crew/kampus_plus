@@ -146,7 +146,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 - **FR-005**: System MUST sync official data from UZEM (course content, syllabi, materials)
 - **FR-006**: System MUST sync university-wide announcements from official sources
 - **FR-007**: System MUST sync course schedules including times, locations, and instructor assignments
-- **FR-008**: System MUST store official data separately from user-generated content with clear provenance tracking
+- **FR-008**: System MUST store official data separately from user-generated content with clear provenance tracking (JSON metadata: `source_system`, `sync_timestamp`, `authority_level` where official=1.0, user=0.7, forum=0.3)
 - **FR-009**: System MUST handle sync failures gracefully with retry logic and error logging
 
 **AI Chatbot & Query System**
@@ -154,7 +154,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 - **FR-011**: System MUST retrieve relevant information from official data sources based on user queries
 - **FR-012**: System MUST retrieve relevant information from user's personal uploaded documents based on queries
 - **FR-013**: System MUST cite sources in AI responses, distinguishing between official and user-generated content
-- **FR-014**: System MUST maintain conversation context across multiple queries in a session
+- **FR-014**: System MUST maintain conversation context across multiple queries in a session (context window: last 5 message exchanges, ~2500 tokens)
 - **FR-015**: System MUST respect data access permissions (students cannot access others' private documents)
 
 **Document Upload & Processing**
@@ -182,9 +182,9 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 **Data Privacy & Security**
 - **FR-032**: System MUST anonymize student data before any AI processing as per constitutional AI ethics requirements
 - **FR-033**: System MUST NOT persist LLM prompt logs as per constitutional requirements
-- **FR-034**: System MUST encrypt sensitive data at rest (user documents, credentials)
+- **FR-034**: System MUST encrypt sensitive data at rest using AES-256-GCM for documents/files and Argon2id (in addition to bcrypt) for password hashing where enhanced security is required
 - **FR-035**: System MUST enforce HTTPS for all connections
-- **FR-036**: System MUST implement rate limiting: 100 requests/minute per authenticated user, 10 AI queries/minute per user, 1000 requests/minute per IP address
+- **FR-036**: System MUST implement rate limiting with burst allowances: 100 req/min per user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200)
 
 **Performance Requirements**
 - **FR-037**: AI-powered query endpoints (chatbot, document search) MUST respond within 5 seconds at p95 percentile
@@ -212,7 +212,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 
 - **SC-001**: Students can find answers to common university information queries (schedules, announcements, course content) in under 30 seconds, compared to 5+ minutes of navigating multiple systems
 - **SC-002**: System supports 500 concurrent users during peak times (class registration, exam periods) without query response time exceeding 5 seconds
-- **SC-003**: 80% of student queries receive relevant answers with proper source citations without requiring query refinement
+- **SC-003**: 80% of student queries receive relevant answers with proper source citations without requiring query refinement (measured by: user satisfaction score ≥4/5 OR query retry rate <20% OR explicit positive feedback)
 - **SC-004**: Student engagement with the platform averages 10+ queries per user per week, indicating value delivery
 - **SC-005**: Upload and processing of personal documents (up to 10MB PDFs) completes within 2 minutes
 - **SC-006**: Anonymous forum maintains active participation with 70% of students viewing discussions and 30% contributing content
