@@ -40,8 +40,8 @@ def mock_vector_service():
 @pytest.fixture
 def ai_service(mock_vector_service):
     """Create AIService instance with mocked dependencies."""
-    with patch('src.services.ai_service.ChatOpenAI'), \
-         patch('src.services.ai_service.OpenAIEmbeddings'):
+    with patch('src.services.ai_service.ChatGoogleGenerativeAI'), \
+         patch('src.services.ai_service.GoogleGenerativeAIEmbeddings'):
         service = AIService(vector_service=mock_vector_service)
         return service
 
@@ -116,8 +116,8 @@ def test_ai_service_initialization(ai_service):
 
 def test_ai_service_default_context_window():
     """Test context window size is set to 5 exchanges."""
-    with patch('src.services.ai_service.ChatOpenAI'), \
-         patch('src.services.ai_service.OpenAIEmbeddings'):
+    with patch('src.services.ai_service.ChatGoogleGenerativeAI'), \
+         patch('src.services.ai_service.GoogleGenerativeAIEmbeddings'):
         service = AIService()
         assert service.CONTEXT_WINDOW_SIZE == 5
 
@@ -155,7 +155,7 @@ async def test_query_basic_functionality(ai_service, sample_user_id, sample_docu
     
     # Mock retriever to return sample documents
     mock_retriever = AsyncMock()
-    mock_retriever.aget_relevant_documents = AsyncMock(return_value=sample_documents[:2])
+    mock_retriever._aget_relevant_documents = AsyncMock(return_value=sample_documents[:2])
     
     with patch.object(ai_service, '_create_rag_chain', return_value=mock_chain), \
          patch.object(ai_service, '_create_hybrid_retriever', return_value=mock_retriever):
@@ -411,12 +411,13 @@ def test_create_hybrid_retriever_without_user(ai_service):
     assert retriever.user_id is None
 
 
-def test_hybrid_retriever_placeholder_implementation(ai_service, sample_user_id):
+@pytest.mark.asyncio
+async def test_hybrid_retriever_placeholder_implementation(ai_service, sample_user_id):
     """Test hybrid retriever placeholder returns empty results."""
     retriever = ai_service._create_hybrid_retriever(user_id=sample_user_id)
     
     # Current placeholder returns empty list
-    results = retriever._get_relevant_documents("test query")
+    results = await retriever._aget_relevant_documents("test query")
     assert results == []
     
     # TODO: Update this test when T064 implements proper hybrid retrieval
@@ -464,8 +465,8 @@ def test_format_chat_history_correct_types(ai_service, sample_session_history):
 
 def test_ai_service_uses_vector_service(mock_vector_service):
     """Test AIService integrates with VectorStoreService."""
-    with patch('src.services.ai_service.ChatOpenAI'), \
-         patch('src.services.ai_service.OpenAIEmbeddings'):
+    with patch('src.services.ai_service.ChatGoogleGenerativeAI'), \
+         patch('src.services.ai_service.GoogleGenerativeAIEmbeddings'):
         service = AIService(vector_service=mock_vector_service)
         
         assert service.vector_service is mock_vector_service
@@ -473,8 +474,8 @@ def test_ai_service_uses_vector_service(mock_vector_service):
 
 def test_ai_service_creates_default_vector_service():
     """Test AIService creates VectorStoreService if not provided."""
-    with patch('src.services.ai_service.ChatOpenAI'), \
-         patch('src.services.ai_service.OpenAIEmbeddings'), \
+    with patch('src.services.ai_service.ChatGoogleGenerativeAI'), \
+         patch('src.services.ai_service.GoogleGenerativeAIEmbeddings'), \
          patch('src.services.ai_service.VectorStoreService') as mock_vs_class:
         
         service = AIService()
