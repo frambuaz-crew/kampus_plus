@@ -102,7 +102,7 @@ Represents students, instructors, and administrators in the system.
 
 **Validation Rules:**
 - `email` MUST match pattern `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-- `email` MUST be from university domain (validated during registration)
+- `email` MUST be from university domain (validated during registration via ALLOWED_EMAIL_DOMAINS config: `["university.edu.tr", "*.university.edu.tr"]` - supports wildcards for subdomains)
 - `password_hash` MUST be bcrypt with cost factor ≥12
 - `role` MUST be one of: `student`, `instructor`, `admin`
 - `first_name` and `last_name` MUST be 2-100 characters
@@ -336,7 +336,9 @@ Stores metadata about vectors in FAISS indexes (actual vectors in FAISS).
 | document_type | ENUM | NOT NULL | `official`, `user` |
 | chunk_text | TEXT | NOT NULL | Original text chunk |
 | chunk_index | INTEGER | NOT NULL | Chunk position in document |
-| embedding_model | VARCHAR(100) | NOT NULL | Model used (e.g., "text-embedding-ada-002") |
+| embedding_model | VARCHAR(100) | NOT NULL | Model identifier (e.g., "text-embedding-004", "text-embedding-3-small") |
+| model_provider | VARCHAR(50) | NOT NULL | Provider name ("google", "openai") |
+| embedding_dimension | INTEGER | NOT NULL | Vector dimensionality (768 for Gemini, 1536 for OpenAI) |
 | created_at | TIMESTAMP | NOT NULL | Creation timestamp |
 
 **Validation Rules:**
@@ -346,6 +348,8 @@ Stores metadata about vectors in FAISS indexes (actual vectors in FAISS).
 - `vector_store` = `user` IF document_type = `user`
 - `faiss_index` MUST be unique within each vector_store
 - `chunk_index` starts at 0 for each document
+- `embedding_dimension` MUST be 768 (Gemini text-embedding-004) or 1536 (OpenAI text-embedding-3-small)
+- `embedding_model` + `model_provider` combination MUST be valid: ("text-embedding-004", "google") OR ("text-embedding-3-small", "openai")
 
 **Relationships:**
 - VectorEmbedding references one OfficialDocument or UserDocument (polymorphic)

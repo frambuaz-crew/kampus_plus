@@ -341,8 +341,8 @@ Each task follows this format:
 
 ### MANDATORY TESTS - Write FIRST
 
-- [ ] T135 **[TEST]** [US6] Write integration tests in `backend/tests/integration/test_instructor_flow.py`: login as instructor → view courses → access analytics → verify anonymization → upload document → verify students can access
-- [ ] T136 **[TEST]** [US6] Write frontend tests in `frontend/src/components/instructor/__tests__/CourseAnalytics.test.jsx`: test analytics chart rendering, time period selection, anonymized data display
+- [ ] T135 **[TEST]** [US6] Write integration tests in `backend/tests/integration/test_instructor_flow.py`: login as instructor → view courses → access analytics → verify anonymization → upload document → verify students can access. **Analytics tests MUST include**: ChatMessage aggregation by course_id (query count per topic), verify student identities are anonymized in results, test time period filtering (7d/30d/90d), validate response structure matches AnalyticsResponse schema
+- [ ] T136 **[TEST]** [US6] Write frontend tests in `frontend/src/components/instructor/__tests__/CourseAnalytics.test.jsx`: test analytics chart rendering with real aggregated data (query frequency over time, top 10 topics), time period selection (7d/30d/90d buttons), anonymized data display (no student names/emails visible), loading states, empty state when no data, error handling for failed API calls
 
 ### Backend Implementation
 
@@ -395,6 +395,7 @@ Each task follows this format:
 ### API Contract Testing
 
 - [ ] T164 **[TEST]** Validate all endpoints against OpenAPI schema in `backend/tests/contract/test_openapi_compliance.py`
+- [ ] T164.5 **[TEST]** Verify X-Request-ID header presence in all API responses: test random sampling of endpoints (auth, chat, documents, health), assert header exists and matches UUID format, verify tracing through multi-hop requests (FR-039)
 - [ ] T165 **[TEST]** Test all error responses (400, 401, 403, 404, 409, 429) match OpenAPI spec
 - [ ] T166 **[TEST]** Test rate limiting on critical endpoints (login, chat, upload)
 
@@ -463,7 +464,8 @@ Each task follows this format:
 ### Backend Polish
 
 - [ ] T205 [P] Implement input validation: use Pydantic models for all request bodies, validate email formats, file types
-- [ ] T206 [P] Implement rate limiting: 100 requests/minute per user on API endpoints, 10 requests/minute on AI chat
+- [ ] T206 [P] Implement rate limiting middleware: install slowapi library, configure Redis backend, define rate limit decorators for different endpoint tiers
+- [ ] T206.5 **[IMPLEMENTATION]** [P] Apply rate limiting to endpoints per FR-035: 100 req/min per authenticated user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200) - use `@limiter.limit()` decorators on auth, chat, document routes
 - [ ] T207 [P] Implement database query optimization: add indexes on frequently queried fields (user.email, course.code, document.user_id)
 - [ ] T208 Add request timeout handling: 30s timeout on external API calls (OpenAI, UZEM)
 - [ ] T209 Add graceful shutdown handling: finish processing requests before container shutdown

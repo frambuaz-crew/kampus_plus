@@ -160,7 +160,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 **Document Upload & Processing**
 - **FR-016**: System MUST allow students to upload PDF documents for personal knowledge base creation
 - **FR-017**: System MUST enforce file size limits (25MB maximum for PDF uploads)
-- **FR-018**: System MUST validate uploaded files for security using ClamAV malware scanning (synchronous during upload) and file type verification
+- **FR-018**: System MUST validate uploaded files for security using ClamAV malware scanning (synchronous during upload via clamd socket on port 3310) and file type verification. Infected files MUST be rejected with HTTP 400 error before S3 upload, quarantined for admin review, and logged to AuditLog with threat details
 - **FR-019**: System MUST process uploaded PDFs into searchable vector representations
 - **FR-020**: System MUST store user-uploaded documents securely with encryption at rest
 - **FR-021**: System MUST allow users to delete their uploaded documents
@@ -170,7 +170,7 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 - **FR-023**: System MUST generate unique anonymous identifiers that cannot be traced to real identities by other students
 - **FR-024**: System MUST maintain a secure mapping between anonymous identifiers and real users for moderation purposes
 - **FR-025**: System MUST allow searching and browsing forum discussions
-- **FR-026**: System MUST enable the AI to reference forum discussions as supplementary sources (with lower authority than official content)
+- **FR-026**: System MUST enable the AI to reference forum discussions as supplementary sources with authority ranking: Official Documents (1.0) > User Documents (0.7) > Forum Posts (0.3)
 - **FR-027**: System MUST provide moderation capabilities to flag and remove inappropriate content
 
 **Instructor Panel**
@@ -180,20 +180,19 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 - **FR-031**: System MUST prevent instructors from accessing individual student private documents or identifiable query histories
 
 **Data Privacy & Security**
-- **FR-032**: System MUST anonymize student data before any AI processing as per constitutional AI ethics requirements
-- **FR-033**: System MUST NOT persist LLM prompt logs as per constitutional requirements
-- **FR-034**: System MUST encrypt sensitive data at rest using AES-256-GCM for documents/files and Argon2id (in addition to bcrypt) for password hashing where enhanced security is required
-- **FR-035**: System MUST enforce HTTPS for all connections
-- **FR-036**: System MUST implement rate limiting with burst allowances: 100 req/min per user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200)
+- **FR-032**: System MUST comply with AI Ethics & Privacy principles defined in project constitution (Section IV: anonymization before AI processing, no prompt log persistence)
+- **FR-033**: System MUST encrypt sensitive data at rest using AES-256-GCM for documents/files and Argon2id (in addition to bcrypt) for password hashing where enhanced security is required
+- **FR-034**: System MUST enforce HTTPS for all connections
+- **FR-035**: System MUST implement rate limiting with burst allowances: 100 req/min per user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200)
 
 **Performance Requirements**
-- **FR-037**: AI-powered query endpoints (chatbot, document search) MUST respond within 5 seconds at p95 percentile
-- **FR-038**: Non-AI API endpoints (authentication, profile, file listing) MUST respond within 200ms at p95 percentile
+- **FR-036**: AI-powered query endpoints (chatbot, document search) MUST respond within 5 seconds at p95 percentile
+- **FR-037**: Non-AI API endpoints (authentication, profile, file listing) MUST respond within 200ms at p95 percentile
 
 **Observability Requirements**
-- **FR-039**: System MUST implement structured JSON logging for all application events
-- **FR-040**: System MUST track request IDs across all API calls for distributed tracing
-- **FR-041**: System MUST filter sensitive data (passwords, tokens, PII) from logs before persistence
+- **FR-038**: System MUST implement structured JSON logging for all application events
+- **FR-039**: System MUST track request IDs across all API calls for distributed tracing
+- **FR-040**: System MUST filter sensitive data (passwords, tokens, PII) from logs before persistence
 
 ### Key Entities
 
