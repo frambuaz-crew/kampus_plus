@@ -232,8 +232,9 @@ Each task follows this format:
 - [ ] T080 [US3] Implement `/documents/{id}` GET endpoint: retrieve document metadata
 - [ ] T081 [US3] Implement `/documents/{id}/download` GET endpoint: generate pre-signed S3 URL (15-minute expiry), return URL for client download
 - [ ] T082 [US3] Implement `/documents/{id}` DELETE endpoint: soft-delete UserDocument, remove from S3, delete associated VectorEmbeddings
-- [ ] T083 [US3] Create background task in `pdf_service.py`: process_document(doc_id) → download from S3 → extract text → chunk → generate embeddings → add to VDB_Social → update `processing_status=completed`
-- [ ] T084 [US3] Integrate processing task with upload endpoint: trigger async processing after S3 upload
+- [ ] T083 [US3] Create background task in `pdf_service.py`: process_document(doc_id) → download from S3 → extract text → chunk → generate embeddings → add to VDB_Social → update status (PENDING → PROCESSING → COMPLETED on success OR → FAILED on error). Log errors with structured JSON (document_id, error_type, message, stack_trace)
+- [ ] T083b [US3] **[RESILIENCE]** Implement retry logic for failed PDF processing: 3 automatic retry attempts with exponential backoff (1min, 5min, 15min). If all retries fail, set `processing_status=failed` with `error_message` field. Add 'Retry Processing' button in DocumentList UI for manual reprocessing of failed documents
+- [ ] T084 [US3] Integrate processing task with upload endpoint: trigger async processing after S3 upload (using asyncio background task)
 
 ### Frontend Implementation
 

@@ -63,6 +63,7 @@ backend/package*.json  # Backend is Python-only, no Node.js files
 coverage/
 *.lcov
 .nyc_output
+test_output.txt
 
 # Environment Variables
 .env

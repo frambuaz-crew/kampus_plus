@@ -162,8 +162,9 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 - **FR-017**: System MUST enforce file size limits (25MB maximum for PDF uploads)
 - **FR-018**: System MUST validate uploaded files for security using ClamAV malware scanning (synchronous during upload via clamd socket on port 3310) and file type verification. Infected files MUST be rejected with HTTP 400 error before S3 upload, quarantined for admin review, and logged to AuditLog with threat details
 - **FR-019**: System MUST process uploaded PDFs into searchable vector representations
-- **FR-020**: System MUST store user-uploaded documents securely with encryption at rest
+- **FR-020**: System MUST store user-uploaded documents securely with encryption at rest (S3 bucket encryption with SSE-S3 AES-256 or SSE-KMS)
 - **FR-021**: System MUST allow users to delete their uploaded documents
+- **FR-021b**: System MUST enforce per-user storage quota (500MB default, configurable via environment variable). Reject uploads exceeding quota with HTTP 413 Payload Too Large and clear error message showing current usage
 
 **Anonymous Forum**
 - **FR-022**: System MUST allow authenticated students to create anonymous forum posts and replies
