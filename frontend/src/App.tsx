@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { InstructorDashboard } from './pages/InstructorDashboard';
 import { ChatTestPage } from './pages/ChatTestPage';
 import { ChatPage } from './pages/ChatPage';
+import DocumentsPage from './pages/DocumentsPage';
 import { AuthProvider } from './contexts/AuthContext';
 import './App.css';
 
@@ -49,6 +50,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="student">
                 <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <ProtectedRoute requiredRole="student">
+                <DocumentsPage />
               </ProtectedRoute>
             }
           />

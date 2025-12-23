@@ -31,7 +31,7 @@ Use two separate FAISS vector stores:
 
 ### Implementation Details
 - FAISS index type: IndexFlatL2 for accuracy (can upgrade to IndexIVFFlat for performance if needed)
-- Embedding model: OpenAI text-embedding-ada-002 (1536 dimensions)
+- Embedding model: Google Gemini text-embedding-004 (768 dimensions)
 - Chunk size: 512 tokens with 50-token overlap for context preservation
 - Persistence: Both indexes serialized to disk, backed up to S3 daily
 
@@ -40,7 +40,7 @@ Use two separate FAISS vector stores:
 ## 2. LangChain for RAG Pipeline
 
 ### Decision
-Use LangChain as the orchestration framework for the Retrieval-Augmented Generation (RAG) pipeline, integrating with OpenAI GPT-4 for generation.
+Use LangChain as the orchestration framework for the Retrieval-Augmented Generation (RAG) pipeline, integrating with Google Gemini (gemini-2.0-flash-exp) for generation.
 
 ### Rationale
 1. **Abstraction**: LangChain provides clean abstractions for vector stores, LLMs, and chains

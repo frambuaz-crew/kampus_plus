@@ -27,18 +27,40 @@ interface MyCoursesResponse {
   courses: Course[];
 }
 
+interface DocumentStats {
+  total_documents: number;
+  pending_documents: number;
+  processing_documents: number;
+  completed_documents: number;
+  failed_documents: number;
+  total_storage_used: number;
+  storage_quota: number;
+  storage_usage_percent: number;
+}
+
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [documentStats, setDocumentStats] = useState<DocumentStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchData = async () => {
       try {
-        const response = await apiClient.get<MyCoursesResponse>('/courses/my-courses');
-        setCourses(response.data.courses);
+        // Fetch courses
+        const coursesResponse = await apiClient.get<MyCoursesResponse>('/courses/my-courses');
+        setCourses(coursesResponse.data.courses);
+        
+        // Fetch document stats
+        try {
+          const statsResponse = await apiClient.get<DocumentStats>('/documents/stats');
+          setDocumentStats(statsResponse.data);
+        } catch (statsErr) {
+          console.error('Error fetching document stats:', statsErr);
+          // Don't fail the whole page if stats fail
+        }
       } catch (err) {
         setError('Failed to load courses');
         console.error('Error fetching courses:', err);
@@ -47,7 +69,7 @@ export const Dashboard: React.FC = () => {
       }
     };
 
-    fetchCourses();
+    fetchData();
   }, []);
 
   return (
@@ -98,7 +120,10 @@ export const Dashboard: React.FC = () => {
             </div>
           </button>
 
-          <button className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-left">
+          <button 
+            onClick={() => navigate('/documents')}
+            className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-left"
+          >
             <div className="flex items-center space-x-4">
               <div className="text-4xl">📄</div>
               <div>
@@ -112,6 +137,79 @@ export const Dashboard: React.FC = () => {
             </div>
           </button>
         </div>
+
+        {/* Document Statistics - T088 */}
+        {documentStats && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                📊 Document Storage
+              </h2>
+              <button
+                onClick={() => navigate('/documents')}
+                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+              >
+                View All →
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900">
+                  {documentStats.total_documents}
+                </div>
+                <div className="text-xs text-gray-600 mt-1">Total Files</div>
+              </div>
+              
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-700">
+                  {documentStats.completed_documents}
+                </div>
+                <div className="text-xs text-gray-600 mt-1">Completed</div>
+              </div>
+              
+              <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-700">
+                  {documentStats.processing_documents + documentStats.pending_documents}
+                </div>
+                <div className="text-xs text-gray-600 mt-1">Processing</div>
+              </div>
+              
+              <div className="text-center p-3 bg-red-50 rounded-lg">
+                <div className="text-2xl font-bold text-red-700">
+                  {documentStats.failed_documents}
+                </div>
+                <div className="text-xs text-gray-600 mt-1">Failed</div>
+              </div>
+            </div>
+
+            {/* Storage Usage Bar */}
+            <div>
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Storage Used</span>
+                <span>
+                  {(documentStats.total_storage_used / (1024 * 1024)).toFixed(2)} MB / 
+                  {' '}{(documentStats.storage_quota / (1024 * 1024)).toFixed(0)} MB
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    documentStats.storage_usage_percent >= 90
+                      ? 'bg-red-500'
+                      : documentStats.storage_usage_percent >= 75
+                      ? 'bg-yellow-500'
+                      : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(documentStats.storage_usage_percent, 100)}%` }}
+                />
+              </div>
+              <div className="text-right text-xs text-gray-500 mt-1">
+                {documentStats.storage_usage_percent.toFixed(1)}% used
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Enrolled Courses */}
         <div className="bg-white rounded-lg shadow-md p-6">

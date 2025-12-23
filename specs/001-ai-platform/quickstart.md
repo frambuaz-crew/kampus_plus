@@ -61,10 +61,10 @@ JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# OpenAI API
-OPENAI_API_KEY=<your-openai-api-key>
-OPENAI_MODEL=gpt-4-turbo
-OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
+# Google Gemini API
+GEMINI_API_KEY=<your-gemini-api-key>
+GEMINI_MODEL=gemini-2.0-flash-exp
+GEMINI_EMBEDDING_MODEL=text-embedding-004
 
 # AWS S3
 AWS_ACCESS_KEY_ID=<your-aws-access-key>

@@ -554,6 +554,70 @@ async def delete_document(
 
 
 # ============================================================================
+# T088: GET /documents/stats - Document Statistics
+# ============================================================================
+
+@router.get("/stats", status_code=200, response_model=dict)
+async def get_document_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get document statistics for current user.
+
+    Response:
+    - 200 OK: {
+        total_documents: int,
+        pending_documents: int,
+        processing_documents: int,
+        completed_documents: int,
+        failed_documents: int,
+        total_storage_used: int (bytes),
+        storage_quota: int (bytes),
+        storage_usage_percent: float
+      }
+    """
+    try:
+        # Count documents by status
+        result = await db.execute(
+            select(UserDocument).where(
+                (UserDocument.user_id == current_user.id) & 
+                (UserDocument.is_deleted == False)
+            )
+        )
+        documents = result.scalars().all()
+        
+        total_documents = len(documents)
+        pending = sum(1 for doc in documents if doc.processing_status == "pending")
+        processing = sum(1 for doc in documents if doc.processing_status == "processing")
+        completed = sum(1 for doc in documents if doc.processing_status == "completed")
+        failed = sum(1 for doc in documents if doc.processing_status == "failed")
+        
+        # Calculate storage usage
+        total_storage_used = await get_user_storage_usage(db, current_user.id)
+        storage_quota = DEFAULT_STORAGE_QUOTA
+        storage_usage_percent = (total_storage_used / storage_quota * 100) if storage_quota > 0 else 0
+        
+        return {
+            "total_documents": total_documents,
+            "pending_documents": pending,
+            "processing_documents": processing,
+            "completed_documents": completed,
+            "failed_documents": failed,
+            "total_storage_used": total_storage_used,
+            "storage_quota": storage_quota,
+            "storage_usage_percent": round(storage_usage_percent, 2)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching document stats: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch document statistics."
+        )
+
+
+# ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 

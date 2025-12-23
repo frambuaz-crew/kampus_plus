@@ -238,10 +238,10 @@ Each task follows this format:
 
 ### Frontend Implementation
 
-- [ ] T085 [P] [US3] Create `frontend/src/components/documents/UploadForm.jsx`: file input, drag-and-drop zone, size validation, progress bar during upload
-- [ ] T086 [P] [US3] Create `frontend/src/components/documents/DocumentList.jsx`: table/grid showing uploaded documents, status badges (pending/processing/completed/failed), download and delete buttons
-- [ ] T087 [US3] Create `frontend/src/pages/DocumentsPage.jsx`: full document management interface with upload form and document list
-- [ ] T088 [US3] Add document count and storage usage display to dashboard
+- [x] T085 [P] [US3] Create `frontend/src/components/documents/UploadForm.tsx`: file input, drag-and-drop zone, size validation, progress bar during upload ✅ 2025-12-23 (GREEN: Full featured upload component with drag-drop, file validation, progress tracking, error handling, accessibility support | 341 lines + CSS | Commit: TBD)
+- [x] T086 [P] [US3] Create `frontend/src/components/documents/DocumentList.tsx`: table/grid showing uploaded documents, status badges (pending/processing/completed/failed), download and delete buttons ✅ 2025-12-23 (GREEN: Responsive table with status badges, download/delete actions, empty/loading/error states | 318 lines + CSS | Commit: TBD)
+- [x] T087 [US3] Create `frontend/src/pages/DocumentsPage.tsx`: full document management interface with upload form and document list ✅ 2025-12-23 (GREEN: Complete document management page with routing, auto-refresh on upload/delete | 104 lines + CSS | Added to App.tsx routing, dashboard navigation link | Commit: TBD)
+- [x] T088 [US3] Add document count and storage usage display to dashboard ✅ 2025-12-23 (GREEN: GET /documents/stats endpoint implemented in backend | Dashboard stats card with document counts, storage usage bar, color-coded warnings | Commit: TBD)
 
 ### Testing & Validation
 
