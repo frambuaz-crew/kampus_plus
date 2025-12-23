@@ -4,9 +4,10 @@ PDF Processing Service for KAMPÜS+ AI Platform.
 Handles:
 - Text extraction from PDF files (PyPDF2 primary, pdfplumber fallback)
 - Text chunking with token-based segmentation (512 tokens, 50 token overlap)
-- OpenAI embedding generation for chunks
 - Security validation (magic bytes, size limits)
 - Performance optimization (batching, async operations)
+
+Note: Embedding generation is now handled by VectorStoreService (Google Gemini)
 
 Constitutional Requirements:
 - Must handle Turkish UTF-8 characters correctly
@@ -23,7 +24,6 @@ import asyncio
 import PyPDF2
 import pdfplumber
 import tiktoken
-from openai import AsyncOpenAI
 
 from src.core.config import settings
 
@@ -36,12 +36,8 @@ class PDFService:
     # Quality threshold for PyPDF2 extraction (characters per page)
     PYPDF2_QUALITY_THRESHOLD = 100
     
-    # OpenAI batch size for embedding generation
-    EMBEDDING_BATCH_SIZE = 100
-    
     def __init__(self):
-        """Initialize PDF service with OpenAI client and tokenizer."""
-        self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        """Initialize PDF service with tokenizer."""
         self.encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
         self.chunk_size = settings.pdf_chunk_size
         self.chunk_overlap = settings.pdf_chunk_overlap
@@ -213,57 +209,24 @@ class PDFService:
         
         return chunks
     
+    # ============================================================================
+    # DEPRECATED: Embedding generation moved to VectorStoreService (Gemini)
+    # ============================================================================
+    
     async def generate_embeddings_for_chunks(
         self, 
         chunks: List[str]
     ) -> List[List[float]]:
         """
-        Generate OpenAI embeddings for text chunks with batching.
+        DEPRECATED: Use VectorStoreService.generate_embeddings_batch() instead.
         
-        Args:
-            chunks: List of text chunks
-            
-        Returns:
-            List of embedding vectors (1536 dimensions each)
+        This method is kept for backward compatibility but should not be used.
+        Embedding generation is now handled by VectorStoreService using Google Gemini.
         """
-        if not chunks:
-            return []
-        
-        all_embeddings = []
-        
-        # Process in batches to avoid API limits
-        for i in range(0, len(chunks), self.EMBEDDING_BATCH_SIZE):
-            batch = chunks[i:i + self.EMBEDDING_BATCH_SIZE]
-            
-            try:
-                batch_embeddings = await self._call_openai_embeddings(batch)
-                all_embeddings.extend(batch_embeddings)
-            except Exception as e:
-                logger.error(f"Failed to generate embeddings for batch {i}: {e}")
-                raise
-        
-        return all_embeddings
-    
-    async def _call_openai_embeddings(
-        self, 
-        texts: List[str]
-    ) -> List[List[float]]:
-        """
-        Call OpenAI API to generate embeddings.
-        
-        Args:
-            texts: List of text strings
-            
-        Returns:
-            List of embedding vectors
-        """
-        response = await self.openai_client.embeddings.create(
-            model=settings.openai_embedding_model,
-            input=texts
+        raise NotImplementedError(
+            "Embedding generation moved to VectorStoreService. "
+            "Use vector_service.generate_embeddings_batch(chunks) instead."
         )
-        
-        embeddings = [item.embedding for item in response.data]
-        return embeddings
     
     async def process_pdf(
         self, 
@@ -271,53 +234,16 @@ class PDFService:
         include_metadata: bool = True
     ) -> Dict[str, Any]:
         """
-        Complete PDF processing pipeline: extract → chunk → embed.
+        DEPRECATED: Use extract_text() and chunk_text() separately.
         
-        Args:
-            file_content: Raw PDF file bytes
-            include_metadata: Whether to include PDF metadata in result
-            
-        Returns:
-            Dictionary containing:
-                - chunks: List of (text, embedding) tuples
-                - page_count: Number of pages in PDF
-                - metadata: Sanitized PDF metadata (if include_metadata=True)
+        Complete PDF processing is now handled by background tasks
+        that use VectorStoreService for embeddings.
         """
-        # Extract text
-        logger.info("Extracting text from PDF")
-        text = self.extract_text(file_content)
-        
-        if not text or not text.strip():
-            raise ValueError("No text could be extracted from PDF")
-        
-        # Chunk text
-        logger.info("Chunking text into segments")
-        chunks = self.chunk_text(text)
-        logger.info(f"Created {len(chunks)} chunks")
-        
-        # Generate embeddings
-        logger.info("Generating embeddings for chunks")
-        embeddings = await self.generate_embeddings_for_chunks(chunks)
-        
-        # Get page count and metadata
-        pdf_file = io.BytesIO(file_content)
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        page_count = len(pdf_reader.pages)
-        
-        result = {
-            "chunks": [
-                {"text": chunk, "embedding": embedding}
-                for chunk, embedding in zip(chunks, embeddings)
-            ],
-            "page_count": page_count,
-            "chunk_count": len(chunks)
-        }
-        
-        # Include sanitized metadata if requested
-        if include_metadata and pdf_reader.metadata:
-            result["metadata"] = self._sanitize_metadata(pdf_reader.metadata)
-        
-        return result
+        raise NotImplementedError(
+            "Complete PDF processing moved to background tasks. "
+            "Use extract_text() and chunk_text() separately, "
+            "then VectorStoreService for embeddings."
+        )
     
     def _sanitize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, str]:
         """
