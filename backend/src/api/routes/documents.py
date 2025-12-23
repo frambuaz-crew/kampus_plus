@@ -27,7 +27,6 @@ from fastapi import (
     File,
     Form,
     status,
-    BackgroundTasks,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +41,7 @@ from src.services.s3_service import S3Service
 from src.services.pdf_service import PDFService
 from src.services.vector_service import VectorService
 from src.services.malware_service import MalwareService
+from src.api.routes.tasks import enqueue_document_processing
 
 # Initialize router
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -68,7 +68,6 @@ async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    background_tasks: BackgroundTasks = None,
 ):
     """
     Upload PDF document for personal knowledge base.
@@ -191,15 +190,16 @@ async def upload_document(
         await db.refresh(user_document)
         logger.info(f"UserDocument created: {user_document.id} for user {current_user.id}")
 
-        # Validation 7: Queue background processing job
-        if background_tasks:
-            background_tasks.add_task(
-                process_document_async,
-                document_id=str(user_document.id),
-                user_id=str(current_user.id),
-                s3_key=s3_key
-            )
-            logger.info(f"Background processing job queued for document {user_document.id}")
+        # Validation 7: Queue background processing job (T083 with T083b retry)
+        await enqueue_document_processing(
+            session=db,
+            document_id=user_document.id,
+            user_id=current_user.id,
+            s3_key=s3_key,
+            s3_bucket=settings.AWS_S3_BUCKET,
+            with_retry=True  # Enable T083b retry logic
+        )
+        logger.info(f"Background processing job queued for document {user_document.id}")
 
         return {
             "document_id": str(user_document.id),
@@ -556,46 +556,3 @@ async def get_user_storage_usage(db: AsyncSession, user_id: UUID) -> int:
     )
     documents = result.scalars().all()
     return sum(doc.file_size for doc in documents)
-
-
-async def process_document_async(
-    document_id: str,
-    user_id: str,
-    s3_key: str,
-) -> None:
-    """
-    Background task: Process PDF document.
-
-    Workflow:
-    1. Download from S3
-    2. Extract text (PyPDF2 primary, pdfplumber fallback)
-    3. Chunk into 512-token segments with 50-token overlap
-    4. Generate embeddings using Gemini text-embedding-004
-    5. Store in VDB_Social (user namespace)
-    6. Update UserDocument processing_status
-    7. Handle errors with retry logic (T083b)
-
-    Status progression:
-    - pending → processing → completed (or failed)
-
-    This function is called as a background task after successful S3 upload.
-    It updates the database with processing results.
-    """
-    try:
-        # TODO: Implement background processing (T083)
-        # Steps:
-        # 1. Update status to "processing"
-        # 2. Download file from S3
-        # 3. Extract and chunk
-        # 4. Generate embeddings
-        # 5. Store in vector DB
-        # 6. Update status to "completed"
-        # 7. Handle errors → status "failed" with error_message
-        pass
-
-    except Exception as e:
-        logger.error(
-            f"Error processing document {document_id}: {str(e)}",
-            exc_info=True
-        )
-        # TODO: Update DB with error status and retry logic (T083b)
