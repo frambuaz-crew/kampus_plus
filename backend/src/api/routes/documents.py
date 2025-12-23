@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
 from src.core.database import get_db
-from src.core.security import get_current_user
+from src.api.dependencies import get_current_user
 from src.models.user import User
 from src.models.document import UserDocument, VectorEmbedding
 from src.core.config import settings
@@ -45,10 +45,21 @@ from src.services.vector_service import VectorStoreService
 router = APIRouter(prefix="/documents", tags=["documents"])
 logger = logging.getLogger(__name__)
 
-# Service instances
-s3_service = S3Service()
-pdf_service = PDFService()
-vector_service = VectorStoreService()
+# Service instances - lazy initialization to avoid import-time errors
+s3_service = None
+pdf_service = None
+vector_service = None
+
+def get_services():
+    """Lazy initialization of services."""
+    global s3_service, pdf_service, vector_service
+    if s3_service is None:
+        s3_service = S3Service()
+    if pdf_service is None:
+        pdf_service = PDFService()
+    if vector_service is None:
+        vector_service = VectorStoreService()
+    return s3_service, pdf_service, vector_service
 
 # Constants
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
@@ -88,6 +99,9 @@ async def upload_document(
     7. Background job: Queue PDF processing task
     """
     try:
+        # Lazy load services
+        s3_svc, pdf_svc, vector_svc = get_services()
+        
         # Validation 1: File type
         if file.content_type not in ALLOWED_CONTENT_TYPES:
             logger.warning(
@@ -148,7 +162,7 @@ async def upload_document(
         s3_key = f"uploads/{current_user.id}/{document_id}.pdf"
         
         try:
-            s3_result = await s3_service.upload_file(
+            s3_result = await s3_svc.upload_file(
                 file_content,
                 s3_key,
                 content_type="application/pdf",
@@ -403,6 +417,9 @@ async def download_document(
     Authorization:
     - User can only download their own documents (ACL check)
     """
+    # Lazy load services
+    s3_svc, _, _ = get_services()
+    
     try:
         result = await db.execute(
             select(UserDocument).where(UserDocument.id == UUID(document_id))
@@ -426,7 +443,7 @@ async def download_document(
             )
 
         # Generate pre-signed URL (15 minutes expiry)
-        presigned_url = await s3_service.generate_presigned_url(
+        presigned_url = await s3_svc.generate_presigned_url(
             document.s3_key,
             expiration=900  # 15 minutes
         )
