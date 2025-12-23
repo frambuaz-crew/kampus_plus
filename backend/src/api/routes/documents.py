@@ -17,7 +17,8 @@ import logging
 import asyncio
 from typing import Optional
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
+from io import BytesIO
 
 from fastapi import (
     APIRouter,
@@ -144,7 +145,7 @@ async def upload_document(
 
         # Validation 4: Storage quota
         current_usage = await get_user_storage_usage(db, current_user.id)
-        quota = settings.get("STORAGE_QUOTA_MB", 500) * 1024 * 1024
+        quota = DEFAULT_STORAGE_QUOTA
         
         if current_usage + file_size > quota:
             available = quota - current_usage
@@ -158,19 +159,18 @@ async def upload_document(
 
         # Validation 5: S3 Upload
         # Generate S3 key: uploads/{user_id}/{document_id}.pdf
-        document_id = str(UUID(version=4))
-        s3_key = f"uploads/{current_user.id}/{document_id}.pdf"
+        document_id = str(uuid4())
+        document_uuid = UUID(document_id)
         
         try:
-            s3_result = await s3_svc.upload_file(
-                file_content,
-                s3_key,
-                content_type="application/pdf",
-                metadata={
-                    "user_id": str(current_user.id),
-                    "original_filename": file.filename,
-                    "upload_timestamp": datetime.utcnow().isoformat()
-                }
+            # Convert bytes to BytesIO for S3 upload
+            file_obj = BytesIO(file_content)
+            s3_key = await s3_svc.upload_file(
+                file_obj,
+                current_user.id,
+                document_uuid,
+                file.filename,
+                content_type="application/pdf"
             )
             logger.info(f"S3 upload successful: {s3_key}")
         except Exception as e:
@@ -182,7 +182,7 @@ async def upload_document(
 
         # Validation 6: Create UserDocument record
         user_document = UserDocument(
-            id=UUID(document_id),
+            id=document_uuid,
             user_id=current_user.id,
             filename=file.filename,
             s3_key=s3_key,
@@ -298,7 +298,6 @@ async def list_documents(
                     "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
                     "processed_at": doc.processed_at.isoformat() if doc.processed_at else None,
                     "page_count": doc.page_count,
-                    "chunk_count": doc.chunk_count,
                     "error_message": doc.error_message
                 }
                 for doc in documents
@@ -315,6 +314,70 @@ async def list_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve documents."
+        )
+
+
+# ============================================================================
+# T088: GET /documents/stats - Document Statistics
+# ============================================================================
+
+@router.get("/stats", status_code=200, response_model=dict)
+async def get_document_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get document statistics for current user.
+
+    Response:
+    - 200 OK: {
+        total_documents: int,
+        pending_documents: int,
+        processing_documents: int,
+        completed_documents: int,
+        failed_documents: int,
+        total_storage_used: int (bytes),
+        storage_quota: int (bytes),
+        storage_usage_percent: float
+      }
+    """
+    try:
+        # Count documents by status
+        result = await db.execute(
+            select(UserDocument).where(
+                (UserDocument.user_id == current_user.id) & 
+                (UserDocument.is_deleted == False)
+            )
+        )
+        documents = result.scalars().all()
+        
+        total_documents = len(documents)
+        pending = sum(1 for doc in documents if doc.processing_status == "pending")
+        processing = sum(1 for doc in documents if doc.processing_status == "processing")
+        completed = sum(1 for doc in documents if doc.processing_status == "completed")
+        failed = sum(1 for doc in documents if doc.processing_status == "failed")
+        
+        # Calculate storage usage
+        total_storage_used = await get_user_storage_usage(db, current_user.id)
+        storage_quota = DEFAULT_STORAGE_QUOTA
+        storage_usage_percent = (total_storage_used / storage_quota * 100) if storage_quota > 0 else 0
+        
+        return {
+            "total_documents": total_documents,
+            "pending_documents": pending,
+            "processing_documents": processing,
+            "completed_documents": completed,
+            "failed_documents": failed,
+            "total_storage_used": total_storage_used,
+            "storage_quota": storage_quota,
+            "storage_usage_percent": round(storage_usage_percent, 2)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching document stats: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch document statistics."
         )
 
 
@@ -553,68 +616,7 @@ async def delete_document(
         )
 
 
-# ============================================================================
-# T088: GET /documents/stats - Document Statistics
-# ============================================================================
 
-@router.get("/stats", status_code=200, response_model=dict)
-async def get_document_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Get document statistics for current user.
-
-    Response:
-    - 200 OK: {
-        total_documents: int,
-        pending_documents: int,
-        processing_documents: int,
-        completed_documents: int,
-        failed_documents: int,
-        total_storage_used: int (bytes),
-        storage_quota: int (bytes),
-        storage_usage_percent: float
-      }
-    """
-    try:
-        # Count documents by status
-        result = await db.execute(
-            select(UserDocument).where(
-                (UserDocument.user_id == current_user.id) & 
-                (UserDocument.is_deleted == False)
-            )
-        )
-        documents = result.scalars().all()
-        
-        total_documents = len(documents)
-        pending = sum(1 for doc in documents if doc.processing_status == "pending")
-        processing = sum(1 for doc in documents if doc.processing_status == "processing")
-        completed = sum(1 for doc in documents if doc.processing_status == "completed")
-        failed = sum(1 for doc in documents if doc.processing_status == "failed")
-        
-        # Calculate storage usage
-        total_storage_used = await get_user_storage_usage(db, current_user.id)
-        storage_quota = DEFAULT_STORAGE_QUOTA
-        storage_usage_percent = (total_storage_used / storage_quota * 100) if storage_quota > 0 else 0
-        
-        return {
-            "total_documents": total_documents,
-            "pending_documents": pending,
-            "processing_documents": processing,
-            "completed_documents": completed,
-            "failed_documents": failed,
-            "total_storage_used": total_storage_used,
-            "storage_quota": storage_quota,
-            "storage_usage_percent": round(storage_usage_percent, 2)
-        }
-        
-    except Exception as e:
-        logger.error(f"Error fetching document stats: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch document statistics."
-        )
 
 
 # ============================================================================

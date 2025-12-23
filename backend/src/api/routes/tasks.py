@@ -76,7 +76,7 @@ async def process_document_async(
         
         # 1. Download PDF from S3
         logger.debug(f"Downloading PDF from S3: s3://{s3_bucket}/{s3_key}")
-        file_content = await s3_service.download_file(s3_key, s3_bucket)
+        file_content = await s3_service.download_file(s3_key)
         
         if not file_content:
             raise ValueError("Failed to download PDF from S3")

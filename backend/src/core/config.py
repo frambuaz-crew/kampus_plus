@@ -3,7 +3,7 @@ Configuration management using Pydantic Settings.
 Loads environment variables from .env file.
 """
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     aws_secret_access_key: str
     aws_region: str = "eu-central-1"
     aws_s3_bucket: str
+    aws_s3_endpoint_url: Optional[str] = None  # For MinIO/LocalStack
     s3_presigned_url_expiry_seconds: int = 900
     
     # FAISS Vector Store

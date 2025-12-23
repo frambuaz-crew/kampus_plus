@@ -174,7 +174,12 @@ class UserDocument(Base):
     processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
     # Soft Delete
-    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, 
+        server_default=text("0"), 
+        default=False,
+        nullable=False
+    )
     
     # Relationships
     user = relationship("User", back_populates="user_documents")

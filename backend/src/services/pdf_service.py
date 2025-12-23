@@ -199,30 +199,33 @@ class PDFService:
         chunk_size = chunk_size if chunk_size is not None else self.chunk_size
         overlap = overlap if overlap is not None else self.chunk_overlap
         
-        # Tokenize the entire text
-        tokens = self.encoding.encode(text)
+        # Simple word-based chunking (approximate tokens: ~1.3 words per token)
+        # This avoids tiktoken SSL timeout issues during background processing
+        words = text.split()
+        approx_words_per_chunk = int(chunk_size * 1.3)
+        approx_overlap_words = int(overlap * 1.3)
         
         # If text is shorter than chunk size, return as single chunk
-        if len(tokens) <= chunk_size:
+        if len(words) <= approx_words_per_chunk:
             return [text]
         
         chunks = []
         start_idx = 0
         
-        while start_idx < len(tokens):
-            # Get chunk tokens
-            end_idx = min(start_idx + chunk_size, len(tokens))
-            chunk_tokens = tokens[start_idx:end_idx]
+        while start_idx < len(words):
+            # Get chunk words
+            end_idx = min(start_idx + approx_words_per_chunk, len(words))
+            chunk_words = words[start_idx:end_idx]
             
-            # Decode back to text
-            chunk_text = self.encoding.decode(chunk_tokens)
+            # Join back to text
+            chunk_text = " ".join(chunk_words)
             chunks.append(chunk_text)
             
             # Move start position with overlap
-            start_idx = end_idx - overlap
+            start_idx = end_idx - approx_overlap_words
             
             # Prevent infinite loop if we're at the end
-            if end_idx >= len(tokens):
+            if end_idx >= len(words):
                 break
         
         return chunks

@@ -26,19 +26,45 @@ class S3Service:
         """Initialize S3 service with AWS credentials."""
         settings = get_settings()
         
-        # Create boto3 S3 client
-        self.s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key,
-            region_name=settings.aws_region,
-            config=Config(signature_version="s3v4"),
-        )
+        # Create boto3 S3 client with optional endpoint URL (for MinIO/LocalStack)
+        client_kwargs = {
+            "service_name": "s3",
+            "aws_access_key_id": settings.aws_access_key_id,
+            "aws_secret_access_key": settings.aws_secret_access_key,
+            "region_name": settings.aws_region,
+            "config": Config(signature_version="s3v4"),
+        }
+        
+        if settings.aws_s3_endpoint_url:
+            client_kwargs["endpoint_url"] = settings.aws_s3_endpoint_url
+        
+        self.s3_client = boto3.client(**client_kwargs)
         
         self.bucket_name = settings.aws_s3_bucket
         self.presigned_url_expiry = settings.s3_presigned_url_expiry_seconds
+        self.endpoint_url = settings.aws_s3_endpoint_url
         
-        print(f"✅ S3 client initialized: bucket={self.bucket_name}, region={settings.aws_region}")
+        print(f"✅ S3 client initialized: bucket={self.bucket_name}, region={settings.aws_region}, endpoint={self.endpoint_url or 'AWS'}")
+        
+        # Auto-create bucket if using MinIO/LocalStack
+        if self.endpoint_url:
+            self._ensure_bucket_exists()
+    
+    def _ensure_bucket_exists(self):
+        """Create bucket if it doesn't exist (for MinIO/LocalStack)."""
+        try:
+            self.s3_client.head_bucket(Bucket=self.bucket_name)
+            print(f"✅ Bucket '{self.bucket_name}' exists")
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code")
+            if error_code == "404":
+                try:
+                    self.s3_client.create_bucket(Bucket=self.bucket_name)
+                    print(f"✅ Created bucket '{self.bucket_name}'")
+                except ClientError as create_error:
+                    print(f"❌ Failed to create bucket: {create_error}")
+            else:
+                print(f"❌ Error checking bucket: {e}")
     
     def _generate_s3_key(self, user_id: UUID, document_id: UUID, filename: str) -> str:
         """Generate S3 object key with user-specific prefix.
@@ -85,7 +111,7 @@ class S3Service:
         s3_key = self._generate_s3_key(user_id, document_id, filename)
         
         try:
-            # Upload file with metadata
+            # Upload file with metadata (exclude filename to avoid non-ASCII issues)
             self.s3_client.upload_fileobj(
                 file,
                 self.bucket_name,
@@ -95,7 +121,6 @@ class S3Service:
                     "Metadata": {
                         "user_id": str(user_id),
                         "document_id": str(document_id),
-                        "original_filename": filename,
                         "uploaded_at": datetime.utcnow().isoformat(),
                     },
                 },
