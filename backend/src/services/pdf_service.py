@@ -38,9 +38,27 @@ class PDFService:
     
     def __init__(self):
         """Initialize PDF service with tokenizer."""
-        self.encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+        self._encoding = None  # Lazy load to avoid download during initialization
         self.chunk_size = settings.pdf_chunk_size
         self.chunk_overlap = settings.pdf_chunk_overlap
+    
+    @property
+    def encoding(self):
+        """Lazy load tiktoken encoding."""
+        if self._encoding is None:
+            try:
+                self._encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+            except Exception as e:
+                logger.error(f"Failed to load tiktoken encoding: {e}")
+                # Fallback to cl100k_base encoding
+                try:
+                    self._encoding = tiktoken.get_encoding("cl100k_base")
+                except Exception:
+                    raise RuntimeError(
+                        "Could not load tiktoken encoding. Please check internet connection "
+                        "or pre-download encoding files."
+                    )
+        return self._encoding
     
     def validate_pdf(
         self, 
