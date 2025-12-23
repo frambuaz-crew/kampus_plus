@@ -186,7 +186,7 @@ async def upload_document(
             user_id=current_user.id,
             filename=file.filename,
             s3_key=s3_key,
-            s3_bucket=settings.AWS_S3_BUCKET,
+            s3_bucket=settings.aws_s3_bucket,
             file_size=file_size,
             content_type="application/pdf",
             processing_status="pending",
@@ -207,7 +207,7 @@ async def upload_document(
                 document_id=user_document.id,
                 user_id=current_user.id,
                 s3_key=s3_key,
-                s3_bucket=settings.AWS_S3_BUCKET
+                s3_bucket=settings.aws_s3_bucket
             )
         )
         logger.info(f"Background processing job queued for document {user_document.id}")
