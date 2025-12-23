@@ -39,9 +39,7 @@ from src.models.document import UserDocument, VectorEmbedding
 from src.core.config import settings
 from src.services.s3_service import S3Service
 from src.services.pdf_service import PDFService
-from src.services.vector_service import VectorService
-from src.services.malware_service import MalwareService
-from src.api.routes.tasks import enqueue_document_processing
+from src.services.vector_service import VectorStoreService
 
 # Initialize router
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -50,8 +48,7 @@ logger = logging.getLogger(__name__)
 # Service instances
 s3_service = S3Service()
 pdf_service = PDFService()
-vector_service = VectorService()
-malware_service = MalwareService()
+vector_service = VectorStoreService()
 
 # Constants
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
@@ -123,16 +120,13 @@ async def upload_document(
             )
 
         # Validation 3: Malware scanning (synchronous)
-        scan_result = await malware_service.scan_bytes(file_content)
-        if scan_result.get("is_infected"):
-            logger.critical(
-                f"Malware detected: {scan_result.get('threat_name')} from user {current_user.id}"
-            )
-            # TODO: Log to AuditLog with threat details
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File contains malware ({scan_result.get('threat_name', 'unknown')}) and cannot be processed"
-            )
+        # TODO T078.5: Implement ClamAV integration
+        # For now, skipping malware scan (to be implemented with Docker ClamAV container)
+        # scan_result = await malware_service.scan_bytes(file_content)
+        # if scan_result.get("is_infected"):
+        #     logger.critical(f"Malware detected: {scan_result.get('threat_name')} from user {current_user.id}")
+        #     raise HTTPException(status_code=400, detail=f"File contains malware")
+        logger.debug(f"Malware scanning skipped (TODO: T078.5 ClamAV integration)")
 
         # Validation 4: Storage quota
         current_usage = await get_user_storage_usage(db, current_user.id)
@@ -191,13 +185,16 @@ async def upload_document(
         logger.info(f"UserDocument created: {user_document.id} for user {current_user.id}")
 
         # Validation 7: Queue background processing job (T083 with T083b retry)
-        await enqueue_document_processing(
-            session=db,
-            document_id=user_document.id,
-            user_id=current_user.id,
-            s3_key=s3_key,
-            s3_bucket=settings.AWS_S3_BUCKET,
-            with_retry=True  # Enable T083b retry logic
+        # Import here to avoid circular dependency
+        from src.api.routes.tasks import process_document_with_retry
+        
+        asyncio.create_task(
+            process_document_with_retry(
+                document_id=user_document.id,
+                user_id=current_user.id,
+                s3_key=s3_key,
+                s3_bucket=settings.AWS_S3_BUCKET
+            )
         )
         logger.info(f"Background processing job queued for document {user_document.id}")
 

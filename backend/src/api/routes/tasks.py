@@ -22,8 +22,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.core.database import get_async_session
-from src.models.conversation import UserDocument
+from src.core.database import get_session_factory
+from src.models.document import UserDocument
 from src.services.pdf_service import PDFService
 from src.services.vector_service import VectorStoreService
 from src.services.s3_service import S3Service
@@ -66,11 +66,9 @@ async def process_document_async(
     Raises:
         Exceptions are caught and logged; status updated to "failed"
     """
-    session = None
+    session_factory = get_session_factory()
+    
     try:
-        # Get async database session
-        session = get_async_session()
-        
         logger.info(
             f"Starting background processing for document {document_id} "
             f"(user={user_id}, s3_key={s3_key})"
@@ -146,26 +144,25 @@ async def process_document_async(
         # 7. Update UserDocument in database
         logger.debug(f"Updating UserDocument status to 'completed'")
         
-        async with session.begin():
-            # Query document
-            stmt = select(UserDocument).where(
-                UserDocument.id == document_id,
-                UserDocument.user_id == user_id
-            )
-            result = await session.execute(stmt)
-            document = result.scalar_one_or_none()
-            
-            if not document:
-                raise ValueError(f"Document {document_id} not found for user {user_id}")
-            
-            # Update status and metadata
-            document.processing_status = "completed"
-            document.processed_at = datetime.utcnow()
-            document.page_count = page_count
-            document.chunk_count = len(chunks)
-            document.error_message = None
-            
-            await session.flush()
+        async with session_factory() as session:
+            async with session.begin():
+                # Query document
+                stmt = select(UserDocument).where(
+                    UserDocument.id == document_id,
+                    UserDocument.user_id == user_id
+                )
+                result = await session.execute(stmt)
+                document = result.scalar_one_or_none()
+                
+                if not document:
+                    raise ValueError(f"Document {document_id} not found for user {user_id}")
+                
+                # Update status and metadata
+                document.processing_status = "completed"
+                document.processed_at = datetime.utcnow()
+                document.page_count = page_count
+                document.chunk_count = len(chunks)
+                document.error_message = None
         
         logger.info(
             f"Successfully processed document {document_id}: "
@@ -180,8 +177,8 @@ async def process_document_async(
         )
         
         # Update document status to "failed"
-        if session:
-            try:
+        try:
+            async with session_factory() as session:
                 async with session.begin():
                     stmt = select(UserDocument).where(
                         UserDocument.id == document_id,
@@ -193,21 +190,15 @@ async def process_document_async(
                     if document:
                         document.processing_status = "failed"
                         document.error_message = str(e)[:500]  # Truncate to 500 chars
-                        await session.flush()
                         
                         logger.warning(
                             f"Updated document {document_id} status to 'failed': {str(e)[:100]}"
                         )
-            except Exception as db_error:
-                logger.error(
-                    f"Failed to update document status to failed: {db_error}",
-                    exc_info=True
-                )
-    
-    finally:
-        # Clean up session
-        if session:
-            await session.close()
+        except Exception as db_error:
+            logger.error(
+                f"Failed to update document status to failed: {db_error}",
+                exc_info=True
+            )
 
 
 async def process_document_with_retry(
@@ -288,31 +279,27 @@ async def process_document_with_retry(
                 )
                 
                 # Update final status to "failed"
-                session = None
                 try:
-                    session = get_async_session()
-                    async with session.begin():
-                        stmt = select(UserDocument).where(
-                            UserDocument.id == document_id,
-                            UserDocument.user_id == user_id
-                        )
-                        result = await session.execute(stmt)
-                        document = result.scalar_one_or_none()
-                        
-                        if document:
-                            document.processing_status = "failed"
-                            document.error_message = (
-                                f"Processing failed after {max_retries + 1} attempts: {str(e)[:400]}"
+                    session_factory = get_session_factory()
+                    async with session_factory() as session:
+                        async with session.begin():
+                            stmt = select(UserDocument).where(
+                                UserDocument.id == document_id,
+                                UserDocument.user_id == user_id
                             )
-                            await session.flush()
+                            result = await session.execute(stmt)
+                            document = result.scalar_one_or_none()
+                            
+                            if document:
+                                document.processing_status = "failed"
+                                document.error_message = (
+                                    f"Processing failed after {max_retries + 1} attempts: {str(e)[:400]}"
+                                )
                 except Exception as db_error:
                     logger.error(
                         f"Failed to update final status for document {document_id}: {db_error}",
                         exc_info=True
                     )
-                finally:
-                    if session:
-                        await session.close()
                 
                 # Re-raise to allow upstream error handling
                 raise
