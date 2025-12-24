@@ -10,7 +10,7 @@ import { ThreadList } from '../components/forum/ThreadList';
 import { ThreadView } from '../components/forum/ThreadView';
 import { NewThreadForm } from '../components/forum/NewThreadForm';
 import { SearchBar } from '../components/forum/SearchBar';
-import type { ThreadListItem, ThreadWithReplies, SearchResult } from '../../types/forum';
+import type { ThreadListItem, ThreadWithReplies, SearchResult } from '../types/forum';
 
 export const ForumPage: React.FC = () => {
   const [view, setView] = useState<'list' | 'thread' | 'new' | 'search'>('list');

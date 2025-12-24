@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { ThreadWithReplies, ForumPost } from '../../types/forum';
+import type { ThreadWithReplies, ForumPost } from '../../types/forum';
 import { ReplyForm } from './ReplyForm';
 import { formatDistanceToNow } from 'date-fns';
 

@@ -32,7 +32,7 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
     }
 
     try {
-      await onSubmit(title.trim() || null, content.trim());
+      await onSubmit(title.trim() || '', content.trim());
       setTitle('');
       setContent('');
     } catch (err) {

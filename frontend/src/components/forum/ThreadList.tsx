@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { ThreadListItem } from '../../types/forum';
+import type { ThreadListItem } from '../../types/forum';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ThreadListProps {
