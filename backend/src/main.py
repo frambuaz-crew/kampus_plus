@@ -17,6 +17,7 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.courses import router as courses_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.documents import router as documents_router
+from src.api.routes.forum import router as forum_router
 from src.services import get_vector_service
 
 
@@ -136,6 +137,7 @@ app.include_router(auth_router, prefix="/v1")
 app.include_router(courses_router, prefix="/v1")
 app.include_router(chat_router, prefix="/v1")
 app.include_router(documents_router, prefix="/v1")
+app.include_router(forum_router, prefix="/v1")
 
 
 @app.get("/")
