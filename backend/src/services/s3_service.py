@@ -7,6 +7,7 @@ This module provides AWS S3 integration for:
 - Managing bucket structure with user-specific prefixes
 """
 
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import BinaryIO, Optional
@@ -17,6 +18,8 @@ from botocore.client import Config
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from src.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class S3Service:
