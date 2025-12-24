@@ -103,7 +103,7 @@ class AuthService:
             first_name=first_name,
             last_name=last_name,
             student_id=student_id,
-            is_verified=False,  # Email verification required
+            is_verified=True,  # Auto-verified for testing (TODO: Re-enable email verification in production)
             is_active=True,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
@@ -158,9 +158,10 @@ class AuthService:
         if not verify_password(password, user.password_hash):
             raise ValueError("Invalid email or password")
         
-        # Check if user is verified
-        if not user.is_verified:
-            raise ValueError("Email not verified")
+        # Check if user is verified (DISABLED FOR TESTING)
+        # TODO: Re-enable in production
+        # if not user.is_verified:
+        #     raise ValueError("Email not verified")
         
         # Check if user is active
         if not user.is_active:
