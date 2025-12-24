@@ -19,9 +19,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Source code - hot reload için
-      - ./backend/src:/app/src:ro
-      - ./backend/alembic:/app/alembic:ro
+      # Source code - hot reload için (rw for development)
+      - ./backend/src:/app/src
+      - ./backend/alembic:/app/alembic
       # Data - bind mount for vector metadata access
       - ./backend/data:/app/data
       # DB - persist edilmeli
@@ -62,11 +62,11 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      # Source code - hot reload için
-      - ./frontend/src:/app/src:ro
-      - ./frontend/public:/app/public:ro
-      - ./frontend/index.html:/app/index.html:ro
-      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      # Source code - hot reload için (rw for development)
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
       # node_modules'u container'da tut (hız için)
       - frontend_node_modules:/app/node_modules
     networks:
