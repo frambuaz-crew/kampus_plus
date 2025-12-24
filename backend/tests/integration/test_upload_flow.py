@@ -33,7 +33,7 @@ from src.core.config import settings
 from src.main import app
 from src.models.user import User
 from src.models.document import UserDocument, VectorEmbedding
-from src.core.database import Base
+from src.models.base import Base
 
 
 # ============================================================================
@@ -107,9 +107,21 @@ async def test_users(db_session):
 
 
 @pytest.fixture
-def client():
-    """FastAPI test client."""
-    return TestClient(app)
+def client(test_users):
+    """FastAPI test client with auth dependency override."""
+    from src.api.dependencies import get_current_user
+    
+    # Override get_current_user to return test user
+    def override_get_current_user():
+        return test_users["student_1"]
+    
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    
+    test_client = TestClient(app)
+    yield test_client
+    
+    # Clear overrides
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -118,9 +130,13 @@ def mock_s3_service():
     with patch("src.api.routes.documents.S3Service") as mock:
         instance = MagicMock()
         
-        # Mock upload method
+        # Mock upload method - returns S3 key string
         async def mock_upload(*args, **kwargs):
-            return {"bucket": settings.AWS_S3_BUCKET, "key": args[1] if len(args) > 1 else "test.pdf"}
+            # args: (file, user_id, document_id, filename, content_type)
+            # S3 key format: uploads/{user_id}/{document_id}.pdf
+            user_id = args[1] if len(args) > 1 else "user_id"
+            document_id = args[2] if len(args) > 2 else "doc_id"
+            return f"uploads/{user_id}/{document_id}.pdf"
         
         instance.upload_file = AsyncMock(side_effect=mock_upload)
         instance.generate_presigned_url = MagicMock(return_value="https://s3.example.com/presigned-url")
@@ -133,7 +149,7 @@ def mock_s3_service():
 @pytest.fixture
 def mock_vector_service():
     """Mock vector database service."""
-    with patch("src.api.routes.documents.VectorService") as mock:
+    with patch("src.services.vector_service.VectorStoreService") as mock:
         instance = MagicMock()
         instance.add_embedding = AsyncMock(return_value="fake_vector_id")
         instance.search = AsyncMock(return_value=[
@@ -208,7 +224,7 @@ async def test_pdf_upload_success_creates_document_in_db(
     
     # Execute
     response = client.post(
-        "/documents",
+        "/v1/documents",
         files={"file": pdf_file},
         headers=headers
     )
@@ -240,7 +256,7 @@ async def test_pdf_upload_validates_file_size_limit(client, test_users):
     
     # Execute
     response = client.post(
-        "/documents",
+        "/v1/documents",
         files={"file": large_file},
         headers=headers
     )
@@ -269,7 +285,7 @@ async def test_pdf_upload_validates_file_type(client, test_users):
     
     # Execute
     response = client.post(
-        "/documents",
+        "/v1/documents",
         files={"file": text_file},
         headers=headers
     )
@@ -310,7 +326,7 @@ async def test_pdf_upload_malware_scanning_with_infected_file(
         
         # Execute
         response = client.post(
-            "/documents",
+            "/v1/documents",
             files={"file": pdf_file},
             headers=headers
         )
@@ -340,7 +356,7 @@ async def test_pdf_upload_stores_correct_s3_key_format(
     
     # Execute
     response = client.post(
-        "/documents",
+        "/v1/documents",
         files={"file": pdf_file},
         headers=headers
     )
@@ -382,7 +398,7 @@ async def test_background_processing_job_created_after_upload(
         
         headers = {"Authorization": "Bearer fake_jwt_token"}
         response = client.post(
-            "/documents",
+            "/v1/documents",
             files={"file": pdf_file},
             headers=headers
         )
@@ -418,7 +434,7 @@ async def test_processing_status_transitions_during_lifecycle(
     
     # Upload
     upload_response = client.post(
-        "/documents",
+        "/v1/documents",
         files={"file": pdf_file},
         headers=headers
     )
@@ -430,7 +446,7 @@ async def test_processing_status_transitions_during_lifecycle(
     with patch("src.models.document.UserDocument.processing_status", "completed"):
         # Simulate completed processing
         status_response = client.get(
-            f"/documents/{document_id}",
+            f"/v1/documents/{document_id}",
             headers=headers
         )
     
@@ -463,7 +479,7 @@ async def test_vectorized_document_queryable_by_ai(
     
     # Upload document
     upload_response = client.post(
-        "/documents",
+        "/v1/documents",
         files={"file": pdf_file},
         headers=headers
     )
@@ -551,7 +567,7 @@ async def test_student_cannot_access_other_students_documents(
         user_id=test_users["student_1"].id,
         filename="student1_notes.pdf",
         s3_key="uploads/student1_id/doc123.pdf",
-        s3_bucket=settings.AWS_S3_BUCKET,
+        s3_bucket=settings.aws_s3_bucket,
         file_size=1024000,
         mime_type="application/pdf",
         processing_status="completed"
@@ -564,7 +580,7 @@ async def test_student_cannot_access_other_students_documents(
     headers_s2 = {"Authorization": "Bearer student2_jwt_token"}
     
     response = client.get(
-        f"/documents/{document_s1.id}",
+        f"/v1/documents/{document_s1.id}",
         headers=headers_s2
     )
     
@@ -588,7 +604,7 @@ async def test_student_cannot_download_other_students_documents(
     headers_s2 = {"Authorization": "Bearer student2_jwt_token"}
     
     response = client.get(
-        "/documents/student1_doc_id/download",
+        "/v1/documents/student1_doc_id/download",
         headers=headers_s2
     )
     
@@ -666,7 +682,7 @@ async def test_student_storage_quota_500mb_default(
         
         headers = {"Authorization": "Bearer fake_jwt_token"}
         response = client.post(
-            "/documents",
+            "/v1/documents",
             files={"file": pdf_file},
             headers=headers
         )
@@ -722,7 +738,7 @@ async def test_s3_upload_failure_returns_error_to_user(
         
         headers = {"Authorization": "Bearer fake_jwt_token"}
         response = client.post(
-            "/documents",
+            "/v1/documents",
             files={"file": pdf_file},
             headers=headers
         )
@@ -787,7 +803,7 @@ async def test_upload_endpoint_requires_authentication(client):
     
     # No headers = no auth
     response = client.post(
-        "/documents",
+        "/v1/documents",
         files={"file": pdf_file}
     )
     

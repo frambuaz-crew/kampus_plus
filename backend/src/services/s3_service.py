@@ -44,7 +44,7 @@ class S3Service:
         self.presigned_url_expiry = settings.s3_presigned_url_expiry_seconds
         self.endpoint_url = settings.aws_s3_endpoint_url
         
-        print(f"✅ S3 client initialized: bucket={self.bucket_name}, region={settings.aws_region}, endpoint={self.endpoint_url or 'AWS'}")
+        logger.info(f"S3 client initialized: bucket={self.bucket_name}, region={settings.aws_region}, endpoint={self.endpoint_url or 'AWS'}")
         
         # Auto-create bucket if using MinIO/LocalStack
         if self.endpoint_url:
