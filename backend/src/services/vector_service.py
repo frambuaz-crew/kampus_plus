@@ -62,6 +62,14 @@ class VectorStoreService:
         # In production, this should be backed by database
         self.official_metadata: Dict[int, Dict] = {}
         self.user_metadata: Dict[int, Dict] = {}
+        self.social_metadata: Dict[int, Dict] = {}  # Forum posts metadata
+        
+        # Initialize or load FAISS index for social content (forum)
+        self.social_index_path = self.data_dir / "vdb_social.index"
+        self.vdb_social = self._load_or_create_index(
+            self.social_index_path,
+            "VDB_Social"
+        )
         
         # Load metadata from file if exists (for testing)
         self._load_metadata_from_file()
@@ -69,7 +77,8 @@ class VectorStoreService:
         logger.info(
             f"VectorStoreService initialized. "
             f"Official: {self.vdb_official.ntotal} vectors ({len(self.official_metadata)} metadata), "
-            f"User: {self.vdb_user.ntotal} vectors ({len(self.user_metadata)} metadata)"
+            f"User: {self.vdb_user.ntotal} vectors ({len(self.user_metadata)} metadata), "
+            f"Social: {self.vdb_social.ntotal} vectors ({len(self.social_metadata)} metadata)"
         )
     
     def _load_or_create_index(self, path: Path, name: str) -> faiss.IndexFlatL2:
@@ -111,11 +120,12 @@ class VectorStoreService:
                 logger.warning(f"Failed to load metadata from file: {e}")
     
     def save_indexes(self) -> None:
-        """Persist both indexes to disk."""
+        """Persist all indexes to disk."""
         try:
             faiss.write_index(self.vdb_official, str(self.official_index_path))
             faiss.write_index(self.vdb_user, str(self.user_index_path))
-            logger.info("Successfully saved vector indexes to disk")
+            faiss.write_index(self.vdb_social, str(self.social_index_path))
+            logger.info("Successfully saved vector indexes to disk (official, user, social)")
         except Exception as e:
             logger.error(f"Failed to save indexes: {e}")
             raise
@@ -464,6 +474,133 @@ class VectorStoreService:
         return all_results[:k]
     
     # ============================================================================
+    # SOCIAL CONTENT STORE (FORUM POSTS)
+    # ============================================================================
+    
+    async def add_forum_posts(
+        self,
+        posts: List[Dict],
+    ) -> List[int]:
+        """Add forum posts to social vector store.
+        
+        Forum posts are indexed with lower authority than official documents
+        but can provide peer knowledge and discussions.
+        
+        Args:
+            posts: List of dicts with keys: 'id', 'title', 'content', 'thread_id'
+        
+        Returns:
+            List of FAISS index IDs assigned to each post.
+        
+        Example:
+            >>> posts = [
+            ...     {"id": "uuid1", "title": "Calculus help", "content": "Can anyone explain limits?", "thread_id": None},
+            ...     {"id": "uuid2", "title": None, "content": "Sure! A limit is...", "thread_id": "uuid1"}
+            ... ]
+            >>> ids = await service.add_forum_posts(posts)
+        """
+        if not posts:
+            return []
+        
+        # Combine title and content for embedding
+        texts = []
+        for post in posts:
+            title = post.get("title", "") or ""
+            content = post.get("content", "")
+            combined = f"{title} {content}".strip() if title else content
+            texts.append(combined)
+        
+        # Generate embeddings
+        embeddings = await self.generate_embeddings_batch(texts)
+        
+        # Convert to numpy array
+        vectors = np.array(embeddings, dtype=np.float32)
+        
+        # Get current index size
+        current_size = self.vdb_social.ntotal
+        
+        # Add to FAISS index
+        self.vdb_social.add(vectors)
+        
+        # Calculate assigned IDs
+        assigned_ids = list(range(current_size, current_size + len(texts)))
+        
+        # Store metadata
+        for idx, post, text in zip(assigned_ids, posts, texts):
+            self.social_metadata[idx] = {
+                "post_id": post["id"],
+                "title": post.get("title"),
+                "content": post.get("content"),
+                "thread_id": post.get("thread_id"),
+                "text": text,
+                "source_type": "forum"
+            }
+        
+        # Auto-save
+        self.save_indexes()
+        
+        logger.info(f"Added {len(posts)} forum posts to VDB_Social (IDs: {assigned_ids[0]}-{assigned_ids[-1]})")
+        
+        return assigned_ids
+    
+    async def search_social(
+        self,
+        query_text: str,
+        k: int = 5
+    ) -> List[Tuple[int, float]]:
+        """Search social content (forum posts) by similarity.
+        
+        Args:
+            query_text: Query text to search for.
+            k: Number of results to return (default 5).
+        
+        Returns:
+            List of (index_id, distance) tuples, sorted by similarity.
+        
+        Example:
+            >>> results = await service.search_social("calculus limits", k=3)
+            >>> print(results)
+            [(0, 0.12), (5, 0.18), (12, 0.25)]
+        """
+        if self.vdb_social.ntotal == 0:
+            return []
+        
+        try:
+            # Generate query embedding
+            query_embedding = await self.generate_embedding(query_text)
+            query_vector = np.array([query_embedding], dtype=np.float32)
+            
+            # Search FAISS index
+            distances, indices = self.vdb_social.search(query_vector, k)
+        except Exception as e:
+            logger.warning(f"Embedding generation failed: {e}. Using MOCK MODE")
+            results = [(i, float(i) * 0.1) for i in range(min(k, self.vdb_social.ntotal))]
+            return results
+        
+        # Convert to list of tuples
+        results = [
+            (int(idx), float(dist))
+            for idx, dist in zip(indices[0], distances[0])
+            if idx != -1
+        ]
+        
+        return results
+    
+    def get_social_metadata(self, index_ids: List[int]) -> List[Dict]:
+        """Retrieve metadata for social content (forum posts).
+        
+        Args:
+            index_ids: List of FAISS index IDs.
+        
+        Returns:
+            List of metadata dicts for each index_id.
+        """
+        return [
+            self.social_metadata.get(idx, {"text": "Metadata not found", "source_type": "forum"})
+            for idx in index_ids
+        ]
+    
+    # ============================================================================
     # INDEX MANAGEMENT
     # ============================================================================
     
@@ -492,14 +629,19 @@ class VectorStoreService:
         }
     
     def get_stats(self) -> Dict[str, Dict]:
-        """Get combined statistics for both vector stores.
+        """Get combined statistics for all vector stores.
         
         Returns:
-            Dict with stats for both stores and embedding model info.
+            Dict with stats for all stores and embedding model info.
         """
         return {
             "vdb_official": self.get_official_stats(),
             "vdb_user": self.get_user_stats(),
+            "vdb_social": {
+                "total_vectors": self.vdb_social.ntotal,
+                "dimension": self.EMBEDDING_DIMENSION,
+                "metadata_count": len(self.social_metadata)
+            },
             "embedding_model": "text-embedding-3-small"
         }
     

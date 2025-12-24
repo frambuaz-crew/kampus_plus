@@ -342,7 +342,7 @@ async def flag_post(
 
 
 @router.post(
-    "/admin/forum/posts/{post_id}/reveal",
+    "/posts/{post_id}/reveal",
     status_code=status.HTTP_200_OK,
     summary="Admin: reveal real user behind anonymous post",
 )
