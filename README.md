@@ -97,6 +97,14 @@ docker-compose up --build
 
 ## 📚 Dokümantasyon
 
+### 🏗️ Mimari ve API Dokümantasyonu (ÖNEMLİ!)
+
+- **[📐 Mimari Diyagram](./docs/ARCHITECTURE.md)**: Sistem mimarisi, servisler arası iletişim, veri akışı
+- **[📡 API Dokümantasyonu](./docs/API_DOCUMENTATION.md)**: Tüm endpoint'ler, request/response formatları, örnekler
+- **[🔗 Swagger UI](http://localhost:8000/docs)**: İnteraktif API test arayüzü (geliştirme ortamı)
+
+### 📋 Proje Dokümantasyonu
+
 - **[Constitution](./. specify/memory/constitution.md)**: Proje anayasası ve kurallar
 - **[Specification](./specs/001-ai-platform/spec.md)**: Özellik belirtimi (6 user story)
 - **[Planning](./specs/001-ai-platform/plan.md)**: Implementation planı
