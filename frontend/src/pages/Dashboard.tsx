@@ -104,7 +104,7 @@ export const Dashboard: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <button 
             onClick={() => navigate('/chat')}
             className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow text-left"
@@ -115,6 +115,23 @@ export const Dashboard: React.FC = () => {
                 <h3 className="text-xl font-bold mb-1">AI Assistant</h3>
                 <p className="text-indigo-100 text-sm">
                   Ask questions about courses, documents, and more
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => navigate('/forum')}
+            className="bg-white border border-gray-200 p-6 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-left"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="text-4xl">🧑‍🏫</div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">
+                  Go to Forum
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Join course discussions and ask peers/instructors
                 </p>
               </div>
             </div>

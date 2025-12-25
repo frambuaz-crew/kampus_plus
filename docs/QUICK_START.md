@@ -23,9 +23,15 @@ cp .env.example .env    # macOS/Linux
 
 ```env
 GOOGLE_API_KEY=buraya-kendi-api-keyini-yapistir
+
+# MinIO credentials (Docker için - değiştirmeyin!)
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin123
+AWS_S3_ENDPOINT_URL=http://minio:9000
 ```
 
-> 💡 API Key: https://makersuite.google.com/app/apikey
+> 💡 API Key: https://makersuite.google.com/app/apikey  
+> ⚠️ MinIO ayarlarına dokunmayın - Docker otomatik halleder!
 
 ```bash
 # Frontend .env
@@ -45,6 +51,7 @@ docker-compose up --build
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+- MinIO Console: http://localhost:9001 (minioadmin/minioadmin123)
 
 **Test Kullanıcısı:**
 - Email: `student1@university.edu.tr`
@@ -52,4 +59,4 @@ docker-compose up --build
 
 ---
 
-**Sorun mu yaşıyorsun?** → [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+**Sorun mu yaşıyorsun?** → [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) | [SETUP_GUIDE.md](./SETUP_GUIDE.md)

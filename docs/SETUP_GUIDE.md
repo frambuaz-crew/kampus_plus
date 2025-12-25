@@ -71,12 +71,14 @@ docker-compose up --build
 - Docker image'lar indirilecek (~2-3 dakika)
 - Paketler yüklenecek
 - Veritabanı oluşturulacak
+- **MinIO (S3) başlatılacak** (PDF yükleme için gerekli)
 - Test kullanıcıları eklenecek
 
 **✅ Hazır!**
 - Backend: http://localhost:8000
 - Frontend: http://localhost:5173
 - API Docs: http://localhost:8000/docs
+- MinIO Console: http://localhost:9001 (minioadmin / minioadmin123)
 
 **Test Kullanıcıları:**
 
@@ -147,7 +149,19 @@ pip install -r requirements.txt
 # .env dosyasını ayarla
 copy .env.example .env        # Windows
 cp .env.example .env          # macOS/Linux
-# .env dosyasında GOOGLE_API_KEY'i düzenle
+# .env dosyasında şunları düzenle:
+# - GOOGLE_API_KEY (zorunlu)
+# - AWS_ACCESS_KEY_ID=minioadmin (MinIO için)
+# - AWS_SECRET_ACCESS_KEY=minioadmin123 (MinIO için)
+# - AWS_S3_ENDPOINT_URL=http://localhost:9000 (MinIO için)
+
+# MinIO'yu başlat (PDF yükleme için gerekli)
+docker run -d \
+  --name kampus-minio \
+  -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin \
+  -e MINIO_ROOT_PASSWORD=minioadmin123 \
+  minio/minio server /data --console-address ":9001"
 
 # Veritabanını hazırla
 python -m alembic upgrade head

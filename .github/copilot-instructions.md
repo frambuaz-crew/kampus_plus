@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2025-11-11
 
 ## Active Technologies
+- Python 3.11+ (backend), TypeScript/JavaScript (frontend) (002-product-backlog)
+- PostgreSQL (primary), FAISS (vector DB for knowledge base), MinIO (S3-compatible for materials) (002-product-backlog)
 
 - Python 3.11+ (backend), JavaScript/TypeScript (frontend with React.js) (001-ai-platform)
 
@@ -23,9 +25,9 @@ cd src; pytest; ruff check .
 Python 3.11+ (backend), JavaScript/TypeScript (frontend with React.js): Follow standard conventions
 
 ## Recent Changes
+- 002-product-backlog: Added Python 3.11+ (backend), TypeScript/JavaScript (frontend)
 - 001-ai-platform: Added Python 3.11+ (backend), JavaScript/TypeScript (frontend with React.js)
 - 2025-11-11: Feature 001-ai-platform planning complete (constitution, spec, plan, tasks)
-- 2025-11-11: 217 tasks generated, organized by 6 user stories (US1-US6)
 
 ## Implementation Status
 - ✅ Phase 0: Research complete (15 technical decisions)

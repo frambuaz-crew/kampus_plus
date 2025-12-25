@@ -27,8 +27,10 @@ docker-compose up --build
 ✅ **Hazır!**
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000
+- MinIO (S3): http://localhost:9001
 
-📖 **Detaylı kurulum:** [QUICK_START.md](./QUICK_START.md) | [SETUP_GUIDE.md](./SETUP_GUIDE.md)
+📖 **Detaylı kurulum:** [QUICK_START.md](./QUICK_START.md) | [SETUP_GUIDE.md](./SETUP_GUIDE.md)  
+🔧 **Sorun mu yaşıyorsun?** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 
 ---
 

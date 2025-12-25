@@ -29,6 +29,20 @@ class S3Service:
         """Initialize S3 service with AWS credentials."""
         settings = get_settings()
         
+        # Validate credentials
+        if not settings.aws_access_key_id or not settings.aws_secret_access_key:
+            error_msg = (
+                "❌ S3 credentials eksik! PDF yükleme için gerekli.\n"
+                "\n📝 .env dosyasında şunları ayarlayın:\n"
+                "   AWS_ACCESS_KEY_ID=minioadmin\n"
+                "   AWS_SECRET_ACCESS_KEY=minioadmin123\n"
+                "   AWS_S3_ENDPOINT_URL=http://minio:9000\n"
+                "\n🐳 Docker kullanıyorsanız: 'docker-compose up minio'\n"
+                "📖 Detaylı bilgi: docs/SETUP_GUIDE.md"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
         # Create boto3 S3 client with optional endpoint URL (for MinIO/LocalStack)
         client_kwargs = {
             "service_name": "s3",
