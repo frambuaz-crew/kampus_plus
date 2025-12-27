@@ -22,7 +22,29 @@
 
 ## Overview
 
-KAMPÜS+ API is a RESTful API built with FastAPI. All endpoints (except authentication) require JWT Bearer token authentication. The API follows OpenAPI 3.0 specification and provides automatic interactive documentation via Swagger UI.
+KAMPÜS+ API is a RESTful API built with FastAPI supporting 14 user stories across authentication, content management, AI assistance, community engagement, and personalization. All endpoints (except authentication) require JWT Bearer token authentication. The API follows OpenAPI 3.0 specification and provides automatic interactive documentation via Swagger UI.
+
+### Feature Coverage
+
+**Priority P1 (Critical)**:
+- US-01: Student Registration & Email Verification
+- US-02: Responsive Navigation Sidebar (frontend-only)
+- US-03: Course Content Upload & Organization
+- US-08: Direct Messaging System
+- US-10: Knowledge Base & AI-Powered Q&A
+
+**Priority P2 (High)**:
+- US-04: AI-Powered Study Assistant
+- US-05: Forum Moderation & Content Management
+- US-06: Course Discovery & Enrollment
+- US-09: Anonymous Forum Discussion
+- US-13: Dashboard with Personalized Widgets
+
+**Priority P3 (Enhancement)**:
+- US-07: Career Resources & Job Referral System
+- US-11: Image Extraction & Document OCR
+- US-12: Mentor Matching & Mentorship Network
+- US-14: AI-Powered Course Recommendations
 
 ### Base Information
 
@@ -205,6 +227,33 @@ POST /v1/auth/verify-email
 
 **Error Responses**:
 - `400 Bad Request`: Invalid or expired token
+
+---
+
+#### Resend Verification Email
+
+```http
+POST /v1/auth/resend-verification
+```
+
+**Request Body**:
+```json
+{
+  "email": "student@university.edu.tr"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "If the email exists and is not verified, a verification email has been sent."
+}
+```
+
+**Note**: Always returns 200 to prevent email enumeration attacks.
+
+**Error Responses**:
+- `400 Bad Request`: Email already verified
 
 ---
 
@@ -448,6 +497,114 @@ GET /v1/courses/my-courses
 
 ---
 
+#### Course Discovery (US-06)
+
+```http
+GET /v1/courses?limit=20&offset=0&rating_min=4.5&sort_by=popular
+```
+
+**Query Parameters**:
+- `limit` (optional): Number of courses (default: 20, max: 100)
+- `offset` (optional): Pagination offset (default: 0)
+- `rating_min` (optional): Minimum rating filter (1.0-5.0)
+- `sort_by` (optional): Sort order (`popular`, `rating`, `newest`, `alphabetical`)
+
+**Response** (200 OK):
+```json
+{
+  "courses": [
+    {
+      "id": "110e8400-e29b-41d4-a716-446655440000",
+      "code": "BİL101",
+      "name": "Bilgisayar Bilimlerine Giriş",
+      "instructor_name": "Prof. Dr. Mehmet Demir",
+      "rating": 4.7,
+      "enrollment_count": 245,
+      "review_count": 32,
+      "department": "Bilgisayar Mühendisliği",
+      "credits": 3
+    }
+  ],
+  "total": 50,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
+#### Enroll in Course (US-06)
+
+```http
+POST /v1/courses/{course_id}/enroll
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Successfully enrolled in course",
+  "enrollment_id": "220e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Error Responses**:
+- `403 Forbidden`: Course is full or enrollment closed
+- `409 Conflict`: Already enrolled
+
+---
+
+#### Upload Course Material (US-03) - Instructor Only
+
+```http
+POST /v1/courses/{course_id}/materials
+Content-Type: multipart/form-data
+```
+
+**Request Body** (multipart/form-data):
+- `file`: PDF/DOCX/PPTX/XLSX file (max 25MB)
+- `title`: Material title
+- `category`: `lecture`, `exercise`, `assignment`, `reading`, `exam_prep`
+
+**Response** (201 Created):
+```json
+{
+  "material_id": "330e8400-e29b-41d4-a716-446655440000",
+  "title": "Lecture 1: Introduction",
+  "category": "lecture",
+  "file_size": 1048576,
+  "uploaded_at": "2025-01-15T10:30:00Z"
+}
+```
+
+---
+
+#### List Course Materials (US-03)
+
+```http
+GET /v1/courses/{course_id}/materials?category=lecture&sort_by=latest
+```
+
+**Query Parameters**:
+- `category` (optional): Filter by category
+- `sort_by` (optional): `latest` or `oldest`
+
+**Response** (200 OK):
+```json
+{
+  "materials": [
+    {
+      "id": "330e8400-e29b-41d4-a716-446655440000",
+      "title": "Lecture 1: Introduction",
+      "category": "lecture",
+      "uploaded_at": "2025-01-15T10:30:00Z",
+      "file_size": 1048576
+    }
+  ]
+}
+```
+
+---
+
 ### Document Endpoints (Phase 5 - Planned)
 
 #### Upload Document
@@ -567,6 +724,627 @@ DELETE /v1/documents/{document_id}
 **Error Responses**:
 - `403 Forbidden`: Document belongs to another user
 - `404 Not Found`: Document not found
+
+---
+
+### Forum Endpoints (US-05, US-09)
+
+#### Create Thread
+
+```http
+POST /v1/forum/threads
+```
+
+**Request Body**:
+```json
+{
+  "title": "Question about assignment",
+  "content": "I have a question about the homework...",
+  "is_anonymous": true,
+  "course_id": "110e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "thread_id": "cc0e8400-e29b-41d4-a716-446655440000",
+  "title": "Question about assignment",
+  "anonymous_id": "a3f8d2e1c4b9",
+  "created_at": "2025-01-15T10:30:00Z"
+}
+```
+
+**Note**: If `is_anonymous=true`, the same user will have the same `anonymous_id` within the same course.
+
+---
+
+#### List Threads
+
+```http
+GET /v1/forum/threads?limit=20&offset=0&course_id={course_id}
+```
+
+**Query Parameters**:
+- `limit` (optional): Number of threads (default: 20, max: 100)
+- `offset` (optional): Pagination offset (default: 0)
+- `course_id` (optional): Filter by course
+
+**Response** (200 OK):
+```json
+{
+  "threads": [
+    {
+      "id": "cc0e8400-e29b-41d4-a716-446655440000",
+      "title": "Question about assignment",
+      "author": "a3f8d2e1c4b9",
+      "reply_count": 5,
+      "last_activity": "2025-01-15T11:00:00Z"
+    }
+  ],
+  "total": 50,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
+#### Get Thread
+
+```http
+GET /v1/forum/threads/{thread_id}
+```
+
+**Response** (200 OK):
+```json
+{
+  "thread": {
+    "id": "cc0e8400-e29b-41d4-a716-446655440000",
+    "title": "Question about assignment",
+    "content": "I have a question...",
+    "author": "a3f8d2e1c4b9",
+    "created_at": "2025-01-15T10:30:00Z"
+  },
+  "replies": [
+    {
+      "id": "dd0e8400-e29b-41d4-a716-446655440000",
+      "content": "Here's the answer...",
+      "author": "b4g9e3f2d5a0",
+      "created_at": "2025-01-15T10:35:00Z"
+    }
+  ]
+}
+```
+
+---
+
+#### Reply to Thread
+
+```http
+POST /v1/forum/threads/{thread_id}/replies
+```
+
+**Request Body**:
+```json
+{
+  "content": "Here's my answer...",
+  "is_anonymous": true
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "reply_id": "dd0e8400-e29b-41d4-a716-446655440000",
+  "anonymous_id": "a3f8d2e1c4b9",
+  "created_at": "2025-01-15T10:35:00Z"
+}
+```
+
+---
+
+#### Search Forum
+
+```http
+GET /v1/forum/search?q=assignment&limit=20
+```
+
+**Query Parameters**:
+- `q`: Search query
+- `limit` (optional): Number of results (default: 20)
+
+**Response** (200 OK):
+```json
+{
+  "results": [
+    {
+      "id": "cc0e8400-e29b-41d4-a716-446655440000",
+      "title": "Question about assignment",
+      "content_snippet": "...assignment...",
+      "author": "a3f8d2e1c4b9",
+      "created_at": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "total": 10
+}
+```
+
+---
+
+#### Flag Post (US-05)
+
+```http
+POST /v1/forum/posts/{post_id}/flag
+```
+
+**Request Body**:
+```json
+{
+  "reason": "inappropriate_content"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Post flagged for moderation"
+}
+```
+
+---
+
+#### Reveal Anonymous Identity (US-05) - Admin Only
+
+```http
+POST /v1/forum/posts/{post_id}/reveal
+```
+
+**Response** (200 OK):
+```json
+{
+  "user_id": "440e8400-e29b-41d4-a716-446655440000",
+  "user_name": "Ahmet Yılmaz",
+  "user_email": "ahmet@university.edu.tr"
+}
+```
+
+**Error Responses**:
+- `403 Forbidden`: Admin role required
+
+---
+
+#### Get Moderation Queue (US-05) - Admin/Moderator Only
+
+```http
+GET /v1/admin/moderation-queue?limit=20&offset=0
+```
+
+**Response** (200 OK):
+```json
+{
+  "flagged_posts": [
+    {
+      "post_id": "cc0e8400-e29b-41d4-a716-446655440000",
+      "reason": "inappropriate_content",
+      "flagged_at": "2025-01-15T10:30:00Z",
+      "anonymous_id": "a3f8d2e1c4b9"
+    }
+  ],
+  "total": 5
+}
+```
+
+---
+
+#### Remove Post (US-05) - Admin Only
+
+```http
+POST /v1/admin/forum-posts/{post_id}/remove
+```
+
+**Request Body**:
+```json
+{
+  "removal_reason": "Violates community guidelines"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Post removed successfully"
+}
+```
+
+---
+
+### Direct Messaging Endpoints (US-08)
+
+#### Send Message
+
+```http
+POST /v1/messages
+```
+
+**Request Body**:
+```json
+{
+  "recipient_id": "440e8400-e29b-41d4-a716-446655440000",
+  "content": "Merhaba, ders hakkında bir sorum var."
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "message_id": "550e8400-e29b-41d4-a716-446655440000",
+  "conversation_id": "660e8400-e29b-41d4-a716-446655440000",
+  "created_at": "2025-01-15T10:30:00Z"
+}
+```
+
+**Processing Time**: <5 seconds (SC-006)
+
+---
+
+#### List Conversations
+
+```http
+GET /v1/messages/conversations?limit=20&offset=0
+```
+
+**Response** (200 OK):
+```json
+{
+  "conversations": [
+    {
+      "user_id": "440e8400-e29b-41d4-a716-446655440000",
+      "user_name": "Ahmet Yılmaz",
+      "last_message": "Merhaba, ders hakkında bir sorum var.",
+      "last_message_at": "2025-01-15T10:30:00Z",
+      "unread_count": 2
+    }
+  ],
+  "total": 5,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
+#### Get Conversation Thread
+
+```http
+GET /v1/messages/conversations/{user_id}?limit=50&offset=0
+```
+
+**Response** (200 OK):
+```json
+{
+  "conversation_id": "660e8400-e29b-41d4-a716-446655440000",
+  "participant": {
+    "id": "440e8400-e29b-41d4-a716-446655440000",
+    "name": "Ahmet Yılmaz"
+  },
+  "messages": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "sender_id": "440e8400-e29b-41d4-a716-446655440000",
+      "content": "Merhaba, ders hakkında bir sorum var.",
+      "is_read": true,
+      "created_at": "2025-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+#### Mark Message as Read
+
+```http
+POST /v1/messages/{message_id}/read
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Message marked as read"
+}
+```
+
+---
+
+#### Get Unread Count
+
+```http
+GET /v1/messages/unread-count
+```
+
+**Response** (200 OK):
+```json
+{
+  "unread_count": 5
+}
+```
+
+---
+
+### Knowledge Base Endpoints (US-10)
+
+#### Search Knowledge Base
+
+```http
+POST /v1/knowledge-base/search
+```
+
+**Request Body**:
+```json
+{
+  "query": "What is the add/drop deadline?"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "answer": "The add/drop deadline for the Fall 2024 semester is March 22, 2024. Students can modify their course schedules until this date without penalty.",
+  "sources": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440000",
+      "title": "Academic Calendar 2024",
+      "source_url": "https://university.edu.tr/calendar",
+      "relevance": 0.95,
+      "category": "academic"
+    }
+  ],
+  "response_time_ms": 2850
+}
+```
+
+**Processing Time**: <3 seconds (SC-008)
+
+**Error Responses**:
+- `400 Bad Request`: Query too short or invalid
+- `503 Service Unavailable`: Knowledge base temporarily unavailable
+
+---
+
+### Mentorship Endpoints (US-12)
+
+#### Browse Mentors
+
+```http
+GET /v1/mentors?expertise=career-planning&available=true
+```
+
+**Query Parameters**:
+- `expertise` (optional): Filter by expertise tag
+- `available` (optional): Filter by availability
+
+**Response** (200 OK):
+```json
+{
+  "mentors": [
+    {
+      "id": "880e8400-e29b-41d4-a716-446655440000",
+      "name": "Dr. Ayşe Kaya",
+      "bio": "Senior software engineer with 10 years experience",
+      "expertise": ["career-planning", "software-engineering"],
+      "rating": 4.8,
+      "availability": "available"
+    }
+  ]
+}
+```
+
+---
+
+#### Request Mentorship
+
+```http
+POST /v1/mentors/{mentor_id}/request
+```
+
+**Request Body**:
+```json
+{
+  "description": "I need guidance on choosing my specialization",
+  "expertise_tags": ["career-planning"]
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "mentorship_id": "990e8400-e29b-41d4-a716-446655440000",
+  "status": "pending",
+  "created_at": "2025-01-15T10:30:00Z"
+}
+```
+
+---
+
+#### Accept Mentorship Request
+
+```http
+POST /v1/mentorships/{mentorship_id}/accept
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Mentorship request accepted",
+  "status": "active",
+  "messaging_channel_opened": true
+}
+```
+
+---
+
+### Recommendations Endpoints (US-14)
+
+#### Get Course Recommendations
+
+```http
+GET /v1/recommendations?limit=5
+```
+
+**Response** (200 OK):
+```json
+{
+  "recommendations": [
+    {
+      "course_id": "110e8400-e29b-41d4-a716-446655440000",
+      "course_name": "Machine Learning Fundamentals",
+      "relevance_score": 0.92,
+      "reason": "Matches your interest in AI",
+      "ranking": 1
+    }
+  ]
+}
+```
+
+**Note**: Recommendations update daily at 2 AM UTC based on user behavior.
+
+---
+
+#### Track Recommendation Click
+
+```http
+POST /v1/recommendations/{recommendation_id}/click
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Click tracked"
+}
+```
+
+---
+
+### Dashboard Endpoints (US-13)
+
+#### Get Dashboard Data
+
+```http
+GET /v1/dashboard
+```
+
+**Response** (200 OK):
+```json
+{
+  "active_courses": [
+    {
+      "id": "110e8400-e29b-41d4-a716-446655440000",
+      "name": "Bilgisayar Bilimlerine Giriş",
+      "code": "BİL101"
+    }
+  ],
+  "gpa": 3.75,
+  "upcoming_assignments": [
+    {
+      "id": "aa0e8400-e29b-41d4-a716-446655440000",
+      "title": "Homework 3",
+      "due_date": "2025-01-20T23:59:00Z",
+      "course_name": "BİL101"
+    }
+  ],
+  "widget_preferences": {
+    "visible": ["active_courses", "gpa_card", "upcoming_assignments"],
+    "order": [0, 1, 2]
+  }
+}
+```
+
+---
+
+#### Update Widget Preferences
+
+```http
+PUT /v1/dashboard/widgets
+```
+
+**Request Body**:
+```json
+{
+  "visible": ["active_courses", "gpa_card", "upcoming_assignments"],
+  "order": [0, 1, 2],
+  "settings": {}
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "message": "Widget preferences updated"
+}
+```
+
+---
+
+### Career Endpoints (US-07)
+
+#### Browse Job Referrals
+
+```http
+GET /v1/career/referrals?role=software-engineer&employment_type=full-time
+```
+
+**Query Parameters**:
+- `role` (optional): Filter by job role
+- `employment_type` (optional): `full-time`, `part-time`, `internship`, `contract`
+- `company` (optional): Filter by company name
+
+**Response** (200 OK):
+```json
+{
+  "referrals": [
+    {
+      "id": "bb0e8400-e29b-41d4-a716-446655440000",
+      "company_name": "Tech Corp",
+      "job_title": "Software Engineer",
+      "location": "Istanbul",
+      "salary_range_min": 50000,
+      "salary_range_max": 70000,
+      "employment_type": "full-time",
+      "required_skills": ["Python", "React"],
+      "apply_by_date": "2025-02-15"
+    }
+  ],
+  "total": 25,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
+#### Get Referral Details
+
+```http
+GET /v1/career/referrals/{referral_id}
+```
+
+**Response** (200 OK):
+```json
+{
+  "id": "bb0e8400-e29b-41d4-a716-446655440000",
+  "company_name": "Tech Corp",
+  "job_title": "Software Engineer",
+  "job_description": "Full job description...",
+  "location": "Istanbul",
+  "salary_range_min": 50000,
+  "salary_range_max": 70000,
+  "application_url": "https://techcorp.com/apply",
+  "contact_name": "HR Department",
+  "contact_email": "hr@techcorp.com",
+  "required_skills": ["Python", "React", "PostgreSQL"]
+}
+```
 
 ---
 

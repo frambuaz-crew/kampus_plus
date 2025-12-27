@@ -23,13 +23,36 @@
 
 KAMPÜS+ is a hybrid intelligence platform that merges official university data with user-generated content through an AI-powered assistant. The system uses a microservices-oriented architecture with clear separation between frontend, backend API, database, and vector stores.
 
+### Feature Scope (14 User Stories)
+
+**Priority P1 (Critical)**:
+- **US-01**: Student Registration & Email Verification
+- **US-02**: Responsive Navigation Sidebar
+- **US-03**: Course Content Upload & Organization
+- **US-08**: Direct Messaging System
+- **US-10**: Knowledge Base & AI-Powered Q&A
+
+**Priority P2 (High)**:
+- **US-04**: AI-Powered Study Assistant
+- **US-05**: Forum Moderation & Content Management
+- **US-06**: Course Discovery & Enrollment
+- **US-09**: Anonymous Forum Discussion
+- **US-13**: Dashboard with Personalized Widgets
+
+**Priority P3 (Enhancement)**:
+- **US-07**: Career Resources & Job Referral System
+- **US-11**: Image Extraction & Document OCR
+- **US-12**: Mentor Matching & Mentorship Network
+- **US-14**: AI-Powered Course Recommendations
+
 ### Key Architectural Principles
 
 - **Separation of Concerns**: Frontend (React), Backend (FastAPI), Database (PostgreSQL), Vector Store (FAISS)
 - **Dual Vector Stores**: Official data (VDB_Official) and user content (VDB_User) for clear source attribution
-- **Security by Default**: JWT authentication, HTTPS enforcement, data anonymization
-- **Test-First Development**: All features require tests before implementation
-- **Observability**: Structured logging, health checks, metrics
+- **Security by Default**: JWT authentication, HTTPS enforcement, data anonymization, email verification
+- **Test-First Development**: All features require tests before implementation (77 acceptance scenarios)
+- **Observability**: Structured logging, health checks, metrics, request tracing
+- **Privacy-First AI**: PII anonymization, no prompt logging, anonymous forum support
 
 ---
 
@@ -148,13 +171,19 @@ sequenceDiagram
 
 **Responsibilities**: HTTP request handling, validation, response formatting
 
-- **`auth.py`**: Authentication endpoints (register, login, refresh, logout, password reset)
-- **`chat.py`**: AI chatbot endpoints (sessions, messages)
-- **`courses.py`**: Course information endpoints
-- **`documents.py`**: PDF upload/management endpoints (Phase 5)
-- **`forum.py`**: Anonymous forum endpoints (Phase 6)
-- **`sync.py`**: Data synchronization endpoints (Phase 7)
-- **`instructor.py`**: Instructor panel endpoints (Phase 8)
+- **`auth.py`**: Authentication endpoints (register, login, refresh, logout, password reset, email verification) - US-01
+- **`chat.py`**: AI chatbot endpoints (sessions, messages) - US-04
+- **`courses.py`**: Course information endpoints (my-courses, enrollment, materials) - US-03, US-06
+- **`documents.py`**: PDF upload/management endpoints - US-03, US-11
+- **`forum.py`**: Anonymous forum endpoints (threads, replies, search, moderation) - US-05, US-09
+- **`messages.py`**: Direct messaging endpoints (1-on-1 conversations) - US-08
+- **`knowledge_base.py`**: Knowledge base Q&A endpoints (AI-powered policy search) - US-10
+- **`mentors.py`**: Mentorship network endpoints (request, approve, manage) - US-12
+- **`recommendations.py`**: AI-powered course recommendations - US-14
+- **`dashboard.py`**: Dashboard widgets and preferences - US-13
+- **`career.py`**: Career resources and job referrals - US-07
+- **`sync.py`**: Data synchronization endpoints (UZEM sync) - Phase 7
+- **`instructor.py`**: Instructor panel endpoints (analytics, course management) - Phase 8
 - **`health.py`**: Health check endpoints
 
 **Dependencies**: 
@@ -166,14 +195,20 @@ sequenceDiagram
 
 **Responsibilities**: Business logic, external API calls, data processing
 
-- **`auth_service.py`**: User authentication, JWT generation, password hashing
-- **`ai_service.py`**: LangChain RAG pipeline, prompt management, response formatting
-- **`vector_service.py`**: FAISS index management, similarity search, embedding generation
-- **`pdf_service.py`**: PDF text extraction, chunking, vectorization
-- **`s3_service.py`**: AWS S3 upload/download, pre-signed URL generation
-- **`anonymization_service.py`**: PII detection and removal
+- **`auth_service.py`**: User authentication, JWT generation, password hashing, email verification - US-01
+- **`ai_service.py`**: LangChain RAG pipeline, prompt management, response formatting - US-04, US-10, US-14
+- **`vector_service.py`**: FAISS index management, similarity search, embedding generation - US-04, US-10
+- **`pdf_service.py`**: PDF text extraction, chunking, vectorization, OCR processing - US-03, US-11
+- **`s3_service.py`**: AWS S3 upload/download, pre-signed URL generation - US-03
+- **`anonymization_service.py`**: PII detection and removal - US-04, US-10
+- **`forum_service.py`**: Anonymous identity management, moderation queue - US-05, US-09
+- **`messaging_service.py`**: Direct messaging, read receipts, notifications - US-08
+- **`email_service.py`**: Email sending (SendGrid/SMTP) for verification, notifications - US-01, US-08, US-12
+- **`knowledge_base_service.py`**: Knowledge base indexing, semantic search - US-10
+- **`recommendation_service.py`**: ML-based course recommendations - US-14
+- **`mentorship_service.py`**: Mentor matching, relationship management - US-12
 - **`sync_service.py`**: UZEM/announcement data synchronization (Phase 7)
-- **`forum_service.py`**: Anonymous identity management (Phase 6)
+- **`malware_service.py`**: ClamAV integration for file security scanning - US-03
 
 **Dependencies**:
 - Database sessions (SQLAlchemy)
@@ -194,11 +229,16 @@ sequenceDiagram
 
 **Responsibilities**: Database schema definitions (SQLAlchemy ORM)
 
-- **`user.py`**: User, RefreshToken models
-- **`course.py`**: Course, Enrollment models
-- **`document.py`**: OfficialDocument, UserDocument, VectorEmbedding models
+- **`user.py`**: User, RefreshToken models (with is_verified, widget_preferences, violation_count)
+- **`course.py`**: Course, Enrollment models (with rating, enrollment_count)
+- **`document.py`**: OfficialDocument, UserDocument, VectorEmbedding, Material models (with category, OCR fields)
 - **`conversation.py`**: ConversationSession, ChatMessage models
-- **`forum.py`**: ForumPost, AnonymousMapping models
+- **`forum.py`**: ForumPost, AnonymousMapping models (with is_anonymous, is_flagged, is_removed)
+- **`message.py`**: Message model (1-on-1 direct messaging with read receipts) - US-08
+- **`mentorship.py`**: Mentorship model (mentor-mentee relationships) - US-12
+- **`recommendation.py`**: Recommendation model (AI-generated course suggestions) - US-14
+- **`knowledge_item.py`**: KnowledgeItem model (indexed policy documents) - US-10
+- **`referral.py`**: Referral model (career opportunities) - US-07
 - **`sync.py`**: SyncJob, AuditLog models
 
 ### Frontend Components
@@ -207,13 +247,18 @@ sequenceDiagram
 
 **Responsibilities**: Top-level page components, routing
 
-- **`Dashboard.tsx`**: Student dashboard (courses, quick actions)
+- **`Dashboard.tsx`**: Student dashboard with customizable widgets (US-13)
 - **`InstructorDashboard.tsx`**: Instructor dashboard (courses, analytics preview)
-- **`ChatPage.tsx`**: Full-page chat interface
-- **`DocumentsPage.tsx`**: Document management (Phase 5)
-- **`ForumPage.tsx`**: Forum interface (Phase 6)
+- **`ChatPage.tsx`**: Full-page chat interface (US-04)
+- **`DocumentsPage.tsx`**: Document management (US-03)
+- **`ForumPage.tsx`**: Forum interface with anonymous posting (US-05, US-09)
+- **`MessagesPage.tsx`**: Direct messaging interface (US-08)
+- **`KnowledgeBasePage.tsx`**: Knowledge base Q&A interface (US-10)
+- **`MentorsPage.tsx`**: Mentorship network interface (US-12)
+- **`CareerPage.tsx`**: Career resources and job referrals (US-07)
+- **`CoursesPage.tsx`**: Course discovery and enrollment (US-06)
 - **`LoginPage.tsx`**: Login form wrapper
-- **`RegisterPage.tsx`**: Registration form wrapper
+- **`RegisterPage.tsx`**: Registration form wrapper with email verification (US-01)
 
 #### 2. Components (`frontend/src/components/`)
 
@@ -233,10 +278,43 @@ sequenceDiagram
 - **`UploadForm.tsx`**: PDF upload with drag-and-drop
 - **`DocumentList.tsx`**: Document table/grid with status
 
-**Forum Components** (Phase 6):
+**Forum Components** (US-05, US-09):
 - **`ThreadList.tsx`**: Forum thread list
 - **`ThreadView.tsx`**: Thread detail with replies
 - **`NewThreadForm.tsx`**: Create new thread form
+- **`ReplyForm.tsx`**: Reply to thread form
+- **`SearchBar.tsx`**: Forum search functionality
+
+**Messaging Components** (US-08):
+- **`DirectMessage.tsx`**: Direct messaging interface
+- **`ConversationList.tsx`**: List of conversations
+- **`MessageComposer.tsx`**: Message input and send
+
+**Dashboard Components** (US-13):
+- **`Dashboard.tsx`**: Main dashboard container
+- **`Widgets.tsx`**: Customizable widget components (Active Courses, GPA Card, Upcoming Assignments)
+- **`WidgetSettings.tsx`**: Widget visibility and order management
+
+**Knowledge Base Components** (US-10):
+- **`KnowledgeBase.tsx`**: Q&A interface
+- **`SearchResults.tsx`**: Search results with source citations
+
+**Mentorship Components** (US-12):
+- **`MentorNetwork.tsx`**: Mentor browsing and matching
+- **`MentorProfile.tsx`**: Mentor profile display
+- **`MentorshipRequest.tsx`**: Request mentorship form
+
+**Career Components** (US-07):
+- **`CareerReferrals.tsx`**: Job referral listings
+- **`ReferralCard.tsx`**: Individual referral card
+
+**Course Components** (US-03, US-06):
+- **`CourseCards.tsx`**: Course discovery cards with ratings
+- **`CourseUpload.tsx`**: Instructor material upload
+- **`CourseMaterialsList.tsx`**: Course materials with filtering
+
+**Layout Components** (US-02):
+- **`Sidebar.tsx`**: Responsive navigation sidebar (mobile/tablet/desktop)
 
 #### 3. Services (`frontend/src/api/`)
 
@@ -323,6 +401,54 @@ APScheduler (cron: every 2 hours)
   → PostgreSQL (update SyncJob status=completed)
 ```
 
+### 5. Direct Messaging Flow (US-08)
+
+```
+User → Frontend (DirectMessage) 
+  → POST /v1/messages 
+  → Backend (messages.py) 
+  → MessagingService.send_message() 
+  → PostgreSQL (create Message record) 
+  → Redis/WebSocket (notify recipient) 
+  → Frontend (update conversation list, show notification)
+```
+
+### 6. Knowledge Base Query Flow (US-10)
+
+```
+User → Frontend (KnowledgeBase) 
+  → POST /v1/knowledge-base/search 
+  → Backend (knowledge_base.py) 
+  → VectorService.search() 
+    → FAISS VDB_Official (semantic search)
+  → KnowledgeBaseService.format_response() 
+  → GeminiAPI (generate answer with context) 
+  → Backend (return answer + source URLs) 
+  → Frontend (display answer with citations)
+```
+
+### 7. Course Recommendation Flow (US-14)
+
+```
+Daily Batch Job (2 AM UTC)
+  → RecommendationService.generate_recommendations() 
+  → ML Model (collaborative filtering + content-based) 
+  → PostgreSQL (create Recommendation records) 
+  → Frontend (Dashboard widget displays recommendations)
+```
+
+### 8. Mentorship Request Flow (US-12)
+
+```
+Student → Frontend (MentorNetwork) 
+  → POST /v1/mentors/{id}/request 
+  → Backend (mentors.py) 
+  → MentorshipService.create_request() 
+  → PostgreSQL (create Mentorship record, status=pending) 
+  → EmailService (notify mentor) 
+  → Mentor approves → status=active, messaging channel opens
+```
+
 ---
 
 ## Service Communication
@@ -351,24 +477,29 @@ APScheduler (cron: every 2 hours)
 
 ### API Endpoint Summary
 
-#### Authentication (`/v1/auth/*`)
-- `POST /auth/register` - User registration
-- `POST /auth/login` - User login (returns JWT)
+#### Authentication (`/v1/auth/*`) - US-01
+- `POST /auth/register` - User registration with email verification
+- `POST /auth/login` - User login (returns JWT, requires verified email)
 - `POST /auth/refresh` - Refresh access token
 - `POST /auth/logout` - Logout (revoke token)
-- `POST /auth/verify-email` - Email verification
+- `POST /auth/verify-email` - Email verification (24-hour token)
+- `POST /auth/resend-verification` - Resend verification email
 - `POST /auth/forgot-password` - Password reset request
 - `POST /auth/reset-password` - Password reset
 
-#### Chat (`/v1/chat/*`)
+#### Chat (`/v1/chat/*`) - US-04
 - `POST /chat/sessions` - Create new chat session
 - `GET /chat/sessions` - List user's chat sessions
 - `GET /chat/sessions/{id}` - Get session with message history
-- `POST /chat/sessions/{id}/messages` - Send message, get AI response
+- `POST /chat/sessions/{id}/messages` - Send message, get AI response (anonymized, <5s)
 - `DELETE /chat/sessions/{id}` - Delete session (soft-delete)
 
-#### Courses (`/v1/courses/*`)
+#### Courses (`/v1/courses/*`) - US-03, US-06
 - `GET /courses/my-courses` - Get enrolled courses for student
+- `GET /courses` - Course discovery with filtering (rating, enrollment count)
+- `POST /courses/{id}/enroll` - Enroll in course
+- `POST /courses/{id}/materials` - Upload course material (instructor only)
+- `GET /courses/{id}/materials` - List course materials with category filter
 
 #### Documents (`/v1/documents/*`) - Phase 5
 - `POST /documents` - Upload PDF document
@@ -377,21 +508,54 @@ APScheduler (cron: every 2 hours)
 - `GET /documents/{id}/download` - Get pre-signed download URL
 - `DELETE /documents/{id}` - Delete document
 
-#### Forum (`/v1/forum/*`) - Phase 6
-- `POST /forum/threads` - Create new thread
+#### Forum (`/v1/forum/*`) - US-05, US-09
+- `POST /forum/threads` - Create new thread (anonymous option)
 - `GET /forum/threads` - List threads (pagination)
 - `GET /forum/threads/{id}` - Get thread with replies
-- `POST /forum/threads/{id}/replies` - Reply to thread
+- `POST /forum/threads/{id}/replies` - Reply to thread (anonymous option)
 - `GET /forum/search` - Search forum content
+- `POST /forum/posts/{id}/flag` - Flag post for moderation
+- `POST /forum/posts/{id}/reveal` - Reveal anonymous identity (admin only)
+- `GET /admin/moderation-queue` - Get flagged posts (admin/moderator)
+- `POST /admin/forum-posts/{id}/remove` - Remove flagged post (admin)
 
 #### Sync (`/v1/sync/*`) - Phase 7 (Admin only)
 - `GET /sync/jobs` - List sync job history
 - `POST /sync/jobs` - Manually trigger sync
 - `GET /sync/jobs/{id}` - Get sync job details
 
+#### Direct Messaging (`/v1/messages/*`) - US-08
+- `POST /messages` - Send direct message
+- `GET /messages/conversations` - List conversations
+- `GET /messages/conversations/{user_id}` - Get conversation thread
+- `POST /messages/{id}/read` - Mark message as read
+- `GET /messages/unread-count` - Get unread message count
+
+#### Knowledge Base (`/v1/knowledge-base/*`) - US-10
+- `POST /knowledge-base/search` - AI-powered policy Q&A (<3s response)
+- `GET /knowledge-base/categories` - List policy categories
+
+#### Mentorship (`/v1/mentors/*`) - US-12
+- `GET /mentors` - Browse mentors
+- `POST /mentors/{id}/request` - Request mentorship
+- `POST /mentorships/{id}/accept` - Accept mentorship request
+- `GET /mentorships` - List active/pending mentorships
+
+#### Recommendations (`/v1/recommendations/*`) - US-14
+- `GET /recommendations` - Get personalized course recommendations (3-5 courses)
+- `POST /recommendations/{id}/click` - Track recommendation click
+
+#### Dashboard (`/v1/dashboard/*`) - US-13
+- `GET /dashboard` - Get dashboard data (courses, GPA, assignments)
+- `PUT /dashboard/widgets` - Update widget preferences (visibility, order)
+
+#### Career (`/v1/career/*`) - US-07
+- `GET /career/referrals` - Browse job referrals
+- `GET /career/referrals/{id}` - Get referral details
+
 #### Instructor (`/v1/instructor/*`) - Phase 8
 - `GET /instructor/dashboard` - Instructor dashboard
-- `GET /instructor/courses/{id}/analytics` - Course analytics
+- `GET /instructor/courses/{id}/analytics` - Course analytics (anonymized)
 - `POST /instructor/courses/{id}/documents` - Upload course material
 
 #### Health (`/health/*`)
@@ -571,17 +735,23 @@ APScheduler (cron: every 2 hours)
 **Purpose**: Structured relational data
 
 **Tables**:
-- `users` - User accounts (students, instructors, admins)
+- `users` - User accounts (students, instructors, admins) with is_verified, widget_preferences, violation_count
 - `refresh_tokens` - JWT refresh token management
-- `courses` - University courses
+- `courses` - University courses with rating, enrollment_count
 - `enrollments` - Student-course relationships
+- `materials` - Course materials with category, OCR fields (US-03, US-11)
 - `official_documents` - Synced university content
 - `user_documents` - Uploaded PDFs metadata
 - `vector_embeddings` - Vector metadata (FAISS index references)
 - `conversation_sessions` - Chat sessions
 - `chat_messages` - Individual messages
-- `forum_posts` - Forum threads and replies
+- `messages` - Direct 1-on-1 messages with read receipts (US-08)
+- `forum_posts` - Forum threads and replies with is_anonymous, is_flagged, is_removed
 - `anonymous_mappings` - Forum anonymity mapping
+- `mentorships` - Mentor-mentee relationships (US-12)
+- `recommendations` - AI-generated course recommendations (US-14)
+- `knowledge_items` - Indexed policy documents for knowledge base (US-10)
+- `referrals` - Career opportunities and job postings (US-07)
 - `sync_jobs` - Data synchronization history
 - `audit_logs` - Security audit trail
 
@@ -592,17 +762,22 @@ APScheduler (cron: every 2 hours)
 **Purpose**: Semantic search for AI RAG pipeline
 
 **VDB_Official**:
-- Contains: Official university documents (UZEM, announcements, schedules)
+- Contains: Official university documents (UZEM, announcements, schedules), knowledge base items (US-10)
 - Embedding model: Google Gemini text-embedding-004 (768 dimensions)
 - Index type: IndexFlatL2 (can upgrade to IndexIVFFlat for performance)
 - Size: ~10K-100K documents expected
+- Updated: Nightly sync (Phase 7) + manual knowledge base indexing (US-10)
 
 **VDB_User**:
-- Contains: User-uploaded PDFs, forum posts
+- Contains: User-uploaded PDFs, forum posts (US-03, US-09)
 - Embedding model: Google Gemini text-embedding-004 (768 dimensions)
 - Index type: IndexFlatL2
 - Access control: User-level isolation (user_id filtering)
 - Size: ~1K-10K documents per user
+
+**VDB_Social** (Alternative naming in some contexts):
+- Contains: Forum posts, user-generated content
+- Same embedding model and access control as VDB_User
 
 **Persistence**: Disk-based indexes (`backend/data/vectors/`), loaded at startup
 
