@@ -298,8 +298,8 @@ Each task follows this format:
 
 ### Integration Test Suite
 
-- [ ] T153 **[TEST]** Write E2E test suite in `backend/tests/integration/test_full_stack.py`: end-to-end scenarios covering all 4 user stories
-- [ ] T154 **[TEST]** Write E2E authentication tests: registration → email verification → login → token refresh → logout
+- [x] T153 **[TEST]** Write E2E test suite in `backend/tests/integration/test_full_stack.py`: end-to-end scenarios covering all 4 user stories ✅ 2025-12-28
+- [x] T154 **[TEST]** Write E2E authentication tests: registration → email verification → login → token refresh → logout ✅ 2025-12-28
 - [ ] T155 **[TEST]** Write E2E AI chat tests: login → upload document → ask question about document → verify response uses document → ask about official data → verify source citation
 - [ ] T156 **[TEST]** Write E2E forum tests: create thread → multiple users reply → verify anonymity → moderator reveal → AI references forum content
 
