@@ -301,14 +301,14 @@ Each task follows this format:
 - [x] T153 **[TEST]** Write E2E test suite in `backend/tests/integration/test_full_stack.py`: end-to-end scenarios covering all 4 user stories ✅ 2025-12-28
 - [x] T154 **[TEST]** Write E2E authentication tests: registration → email verification → login → token refresh → logout ✅ 2025-12-28
 - [x] T155 **[TEST]** Write E2E AI chat tests: login → upload document → ask question about document → verify response uses document → ask about official data → verify source citation ✅ 2025-12-28 (needs endpoint fixes)
-- [ ] T156 **[TEST]** Write E2E forum tests: create thread → multiple users reply → verify anonymity → moderator reveal → AI references forum content
+- [x] T156 **[TEST]** Write E2E forum tests: create thread → multiple users reply → verify anonymity → moderator reveal → AI references forum content ✅ 2025-12-28
 
 ### Playwright/Cypress E2E Tests (Frontend)
 
-- [ ] T157 **[TEST]** Set up Playwright in `frontend/` with test configuration
-- [ ] T158 **[TEST]** Write Playwright test: complete student registration and login flow
-- [ ] T159 **[TEST]** Write Playwright test: upload PDF → chat with AI about uploaded content
-- [ ] T160 **[TEST]** Write Playwright test: create forum thread → reply → search forum
+- [x] T157 **[TEST]** Set up Playwright in `frontend/` with test configuration ✅ 2025-12-28
+- [x] T158 **[TEST]** Write Playwright test: complete student registration and login flow ✅ 2025-12-28
+- [x] T159 **[TEST]** Write Playwright test: upload PDF → chat with AI about uploaded content ✅ 2025-12-28
+- [x] T160 **[TEST]** Write Playwright test: create forum thread → reply → search forum ✅ 2025-12-28
 
 ### API Contract Testing
 
