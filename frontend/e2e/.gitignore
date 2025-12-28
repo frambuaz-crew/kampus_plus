@@ -1,0 +1,11 @@
+# Playwright Test Results
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Playwright Videos and Screenshots  
+videos/
+screenshots/
+
+# Playwright State
+.auth/
