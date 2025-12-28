@@ -14,7 +14,7 @@ This document consolidates research findings and technical decisions for impleme
 
 ### Decision
 Use two separate FAISS vector stores:
-- **VDB_Official**: Official university data (UZEM, announcements, schedules)
+- **VDB_Official**: Official university data (announcements, schedules, course materials)
 - **VDB_Social**: User-generated content (uploaded PDFs, forum discussions)
 
 ### Rationale
@@ -117,7 +117,7 @@ Use AWS S3 for storing uploaded PDF documents, with metadata stored in PostgreSQ
 ## 5. University Data Sync Strategy
 
 ### Decision
-Implement adapter pattern for each data source (UZEM, announcements, schedules) with standardized output format.
+Implement adapter pattern for each data source (announcements, schedules) with standardized output format.
 
 ### Rationale
 1. **Flexibility**: Universities have different APIs/data formats; adapters isolate integration logic
@@ -127,12 +127,6 @@ Implement adapter pattern for each data source (UZEM, announcements, schedules) 
 
 ### Implementation Details
 
-#### UZEM Adapter
-- **Input**: UZEM API (REST or web scraping if no API)
-- **Output**: Standardized `OfficialDocument` model with course metadata
-- **Frequency**: Every 2 hours
-- **Challenges**: May require web scraping if API not available; implement rate limiting and caching
-
 #### Announcements Adapter
 - **Input**: RSS feed or HTML scraping from university announcement page
 - **Output**: `OfficialDocument` with announcement text, date, category
@@ -141,7 +135,7 @@ Implement adapter pattern for each data source (UZEM, announcements, schedules) 
 
 #### Schedule Adapter
 - **Input**: CSV export or iCal format from university scheduling system
-- **Output**: `Course` model with schedule details (time, location, instructor)
+- **Output**: `Course` model with schedule details (time, location)
 - **Frequency**: Daily or on-demand when schedule changes detected
 - **Parsing**: pandas for CSV, icalendar library for iCal format
 
@@ -178,7 +172,7 @@ JWT (JSON Web Token) based authentication with university email verification.
 5. On access token expiry, use refresh token to get new access token
 
 #### Authorization
-- Role-based: `student`, `instructor`, `admin`
+- Role-based: `student`, `admin`
 - Route protection: FastAPI dependency injection checks JWT and role
 - Frontend: React Context API stores auth state, protected routes redirect to login
 
@@ -425,11 +419,10 @@ Multi-container Docker Compose setup for local development and initial deploymen
 ## 14. Open Questions & Future Considerations
 
 ### Open Questions (To be clarified during Phase 1)
-1. **UZEM API Access**: Does university provide official API or will web scraping be required?
-2. **Authentication Integration**: Should we integrate with university SSO (SAML/OAuth2) or build custom auth?
-3. **Turkish NLP Model**: Which spaCy model for Turkish NER (anonymization)?
-4. **File Size Limit**: Confirm 10MB (spec) vs 25MB (technical feasibility)
-5. **LLM Cost Budget**: What is monthly OpenAI API budget for MVP?
+1. **Authentication Integration**: Should we integrate with university SSO (SAML/OAuth2) or build custom auth?
+2. **Turkish NLP Model**: Which spaCy model for Turkish NER (anonymization)?
+3. **File Size Limit**: Confirm 10MB (spec) vs 25MB (technical feasibility)
+4. **LLM Cost Budget**: What is monthly Gemini API budget for MVP?
 
 ### Future Enhancements (Out of Scope for MVP)
 - **Multi-tenant Support**: Support multiple universities in single deployment
@@ -446,8 +439,7 @@ Multi-container Docker Compose setup for local development and initial deploymen
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| OpenAI API rate limits | Medium | High | Implement exponential backoff, caching, fallback to cached responses |
-| UZEM API changes/downtime | High | Medium | Adapter pattern isolates changes, cache last sync data |
+| Gemini API rate limits | Medium | High | Implement exponential backoff, caching, fallback to cached responses |
 | PDF processing timeout | Medium | Medium | Async processing with status updates, size limits, chunked processing |
 | FAISS index corruption | Low | High | Daily backups to S3, index rebuild from PostgreSQL if corrupted |
 | University email verification | Medium | Medium | Fallback to manual verification by admins, clear error messages |
@@ -460,5 +452,5 @@ Multi-container Docker Compose setup for local development and initial deploymen
 ## Conclusion
 
 All technical decisions align with constitutional requirements (Test-First, Security by Default, AI Ethics & Privacy). The architecture is designed for MVP simplicity while maintaining clear migration paths for scaling. Dual FAISS vector stores enable hybrid RAG with proper source attribution. AWS S3 and PostgreSQL provide scalable storage. LangChain + OpenAI deliver conversational AI quality. APScheduler handles automated data sync. Docker Compose ensures consistent deployment.
-
+Google Gemini deliver conversational AI quality. Manual data import handles official content initially
 **Next Steps**: Proceed to Phase 1 (data-model.md, contracts/, quickstart.md).

@@ -82,7 +82,7 @@ Each task follows this format:
 - [x] T016 [P] Create health check endpoints in `backend/src/api/routes/health.py`: `/health` (basic), `/health/ready` (DB + vector store), `/health/live` (liveness probe) ✅ 2025-11-15
 - [x] T017 [P] Set up pytest configuration in `backend/pytest.ini` with coverage settings (80% target), async test support ✅ 2025-11-15
 - [x] T018 [P] Set up Jest + React Testing Library in `frontend/package.json`, create test setup file `frontend/src/setupTests.js` ✅ 2025-11-15
-- [x] T019 Create database seed script `backend/scripts/seed_data.py` with sample users (student/instructor), courses, enrollments for development ✅ 2025-11-15
+- [x] T019 Create database seed script `backend/scripts/seed_data.py` with sample users (student/admin), courses, enrollments for development ✅ 2025-11-15
 - [x] T020 Create `backend/scripts/init_faiss.py` to initialize empty FAISS indexes on first run ✅ 2025-11-15
 
 ---
@@ -107,7 +107,7 @@ Each task follows this format:
 
 - [x] T025 Implement `backend/src/core/security.py`: password hashing with bcrypt, JWT encode/decode functions (HS256), token validation middleware ✅ 2025-11-16 (GREEN: 20/25 tests passing - bcrypt cost 12, JWT 15min/7day, timezone-aware)
 - [x] T026 Implement `backend/src/services/auth_service.py`: user registration, login, refresh token rotation, email verification token generation ✅ 2025-11-16 (GREEN: 25/25 tests passing - register_user, authenticate_user, refresh_access_token, verify_email, AsyncMock DB operations)
-- [x] T027 Create FastAPI dependency `backend/src/api/dependencies.py`: `get_current_user()` that validates JWT and loads user from DB, `require_role()` for role-based access ✅ 2025-11-16 (GREEN: 19/19 tests passing - get_current_user, require_role, require_admin, require_instructor_or_admin, optional auth, email verification)
+- [x] T027 Create FastAPI dependency `backend/src/api/dependencies.py`: `get_current_user()` that validates JWT and loads user from DB, `require_admin()` for admin-only access ✅ 2025-11-16 (GREEN: 19/19 tests passing - get_current_user, require_admin, optional auth, email verification)
 - [x] T028 Run T021 tests → Verify they PASS after implementation → Achieve 80%+ coverage for auth module ✅ 2025-11-16 (GREEN: 60/60 tests passing - 91% coverage achieved - email verification, token revocation, user lookup fully tested)
 
 ### AI & Vector Services (Dependency for US2, US3, US4)
@@ -143,7 +143,7 @@ Each task follows this format:
 - [x] T041 [US1] Implement `/auth/refresh` endpoint: validate refresh token from cookie, issue new access token, rotate refresh token ✅ 2025-11-16 (GREEN: 2/2 tests passing - token rotation, cookie validation)
 - [x] T042 [US1] Implement `/auth/logout` endpoint: revoke refresh token in DB, clear cookie ✅ 2025-11-16 (GREEN: 2/2 tests passing - Bearer token auth, HTTPBearer auto_error=False for 401 handling)
 - [x] T043 [US1] Implement `/auth/forgot-password` and `/auth/reset-password` endpoints for password recovery flow ✅ 2025-11-16 (GREEN: 5/5 tests passing - forgot always 200, reset validates token/password length)
-- [x] T044 [US1] Create `/courses/my-courses` endpoint in `backend/src/api/routes/courses.py`: return enrolled courses for authenticated student ✅ 2025-11-16 (GREEN: 9/9 tests passing - enrollment filtering, instructor names, schema compliance, UUID conversion in dependencies)
+- [x] T044 [US1] Create `/courses/my-courses` endpoint in `backend/src/api/routes/courses.py`: return enrolled courses for authenticated student ✅ 2025-11-16 (GREEN: 9/9 tests passing - enrollment filtering, course info, schema compliance, UUID conversion in dependencies)
 
 ### Frontend Implementation
 
@@ -152,9 +152,9 @@ Each task follows this format:
 - [x] T047 [P] [US1] Create `frontend/src/contexts/AuthContext.jsx`: React Context for auth state (user, token, isAuthenticated), token refresh logic ✅ 2025-11-16 (Context + useAuth hook, localStorage persistence, token refresh interceptor in API config)
 - [x] T048 [P] [US1] Create `frontend/src/components/auth/ProtectedRoute.jsx`: wrapper component that redirects to login if not authenticated ✅ 2025-11-18 (ProtectedRoute with role-based access control, loading states, Navigate redirect, Access Denied page for unauthorized roles)
 - [x] T049 [US1] Create `frontend/src/pages/Dashboard.jsx`: student dashboard showing enrolled courses, quick access to AI chat, upload button ✅ 2025-11-18 (Student dashboard with /courses/my-courses integration, responsive grid layout, quick action buttons, stats cards, loading/error/empty states)
-- [x] T050 [US1] Create `frontend/src/pages/InstructorDashboard.jsx`: instructor dashboard with course list, analytics preview ✅ 2025-11-18 (Instructor dashboard with course management, analytics preview, purple gradient theme, material upload tips)
+- [x] T050 [US1] Create `frontend/src/pages/AdminDashboard.jsx`: admin dashboard with user management ✅ 2025-11-18 (Admin dashboard with user management, system stats, analytics preview)
 - [x] T051 [US1] Implement automatic token refresh: Axios interceptor detects 401, calls `/auth/refresh`, retries original request ✅ 2025-11-16 (Implemented in api/config.ts interceptor, auto-retry on 401 with refresh token)
-- [x] **Router Setup** [US1] Configure BrowserRouter with role-based navigation: /login, /register, /dashboard (student), /instructor (instructor) ✅ 2025-11-18 (App.tsx refactored with Routes, ProtectedRoute integration, automatic redirect based on user role after login)
+- [x] **Router Setup** [US1] Configure BrowserRouter with navigation: /login, /register, /dashboard (student) ✅ 2025-11-18 (App.tsx refactored with Routes, ProtectedRoute integration, automatic redirect based on user role after login)
 
 ### Testing & Validation
 
@@ -286,230 +286,151 @@ Each task follows this format:
 
 ### Testing & Validation
 
- - [x] T111 [US4] Run T092 unit tests → Verify anonymous ID generation and security ✅ 5 passed
+- [x] T111 [US4] Run T092 unit tests → Verify anonymous ID generation and security ✅ 5 passed
 - [x] T112 [US4] Run T093 integration tests → Verify complete forum flow with anonymity ✅ 6 passed (thread creation, replies, anonymity, search, flag, admin reveal)
-- [x] T113 [US4] Run T094 frontend tests → Verify ThreadView component behavior ✅ 6 tests implemented (render, replies, reply form, submit, flag, loading)
-## Phase 7: User Story 5 - Automatic Official Data Sync (Priority P3)
-
-**User Story**: System automatically synchronizes official university data on a regular schedule.
-
-**Independent Test Criteria**: Sync job runs successfully, new announcements appear in AI responses, sync failures are logged and retried.
-
-### MANDATORY TESTS - Write FIRST
-
-- [ ] T115 **[TEST]** [US5] Write unit tests for `backend/tests/unit/test_sync_service.py`: test UZEM adapter, announcement parser, schedule CSV parser, error handling, retry logic
-- [ ] T116 **[TEST]** [US5] Write integration tests in `backend/tests/integration/test_sync_flow.py`: trigger sync job → verify OfficialDocuments created → verify vectorized in VDB_Official → query AI for synced content
-
-### Backend Implementation
-
-- [ ] T117 [US5] Create `backend/src/services/sync_service.py`: base `DataAdapter` interface with `fetch()`, `parse()`, `save()` methods
-- [ ] T118 [US5] Implement `backend/src/services/adapters/uzem_adapter.py`: fetch UZEM course content (API or web scraping), parse HTML/JSON, create OfficialDocument records with `source_system=uzem`
-- [ ] T119 [US5] Implement `backend/src/services/adapters/announcement_adapter.py`: fetch university announcements (RSS or HTML scraping), parse, create OfficialDocument with `source_system=announcements`
-- [ ] T120 [US5] Implement `backend/src/services/adapters/schedule_adapter.py`: fetch course schedules (CSV or iCal), parse, update Course records with schedule data
-- [ ] T121 [US5] Create `backend/src/schedulers/sync_scheduler.py`: configure APScheduler with BackgroundScheduler, add jobs for each adapter (cron schedule: every 2 hours 08:00-22:00)
-- [ ] T122 [US5] Implement sync job executor: create SyncJob record with `status=running`, execute adapter, update `status=completed/failed`, log errors
-- [ ] T123 [US5] Implement retry logic: exponential backoff (1min, 5min, 15min), max 3 retries, send admin email on persistent failure
-- [ ] T124 [US5] Vectorize synced OfficialDocuments: after successful sync, chunk content, generate embeddings, add to VDB_Official
-- [ ] T125 [US5] Implement `/sync/jobs` GET endpoint in `backend/src/api/routes/sync.py`: list sync job history with status, timestamps, documents_synced count (admin only)
-- [ ] T126 [US5] Implement `/sync/jobs` POST endpoint: manually trigger sync job (admin only, for testing/troubleshooting)
-- [ ] T127 [US5] Implement `/sync/jobs/{id}` GET endpoint: retrieve sync job details including error logs
-
-### Frontend Implementation (Admin Panel)
-
-- [ ] T128 [P] [US5] Create `frontend/src/components/admin/SyncJobList.jsx`: display sync job history, status badges, error messages
-- [ ] T129 [P] [US5] Create `frontend/src/components/admin/SyncJobDetail.jsx`: detailed view of sync job with logs, documents synced
-- [ ] T130 [US5] Create `frontend/src/pages/AdminPage.jsx`: admin dashboard with sync job management, manual trigger button
-- [ ] T131 [US5] Add sync status indicator to main dashboard (last sync time, next scheduled sync)
-
-### Testing & Validation
-
-- [ ] T132 [US5] Run T115 unit tests → Verify each adapter correctly fetches and parses data
-- [ ] T133 [US5] Run T116 integration tests → Verify complete sync and vectorization flow
-- [ ] T134 [US5] Manual E2E test: Trigger manual sync → Verify OfficialDocuments created in DB → Verify vectorized in VDB_Official → Ask AI about synced announcement → Verify correct response with source citation → Simulate sync failure (disconnect network) → Verify retry logic and error logging
+- [ ] T113 [US4] Run T094 frontend tests → Verify ThreadView component behavior ✅ 6 tests implemented (render, replies, reply form, submit, flag, loading)
 
 ---
 
-## Phase 8: User Story 6 - Instructor Panel & Analytics (Priority P3)
-
-**User Story**: Instructors view student engagement analytics and manage course materials.
-
-**Independent Test Criteria**: Instructor can login, view their courses, see anonymized analytics, upload course documents.
-
-### MANDATORY TESTS - Write FIRST
-
-- [ ] T135 **[TEST]** [US6] Write integration tests in `backend/tests/integration/test_instructor_flow.py`: login as instructor → view courses → access analytics → verify anonymization → upload document → verify students can access. **Analytics tests MUST include**: ChatMessage aggregation by course_id (query count per topic), verify student identities are anonymized in results, test time period filtering (7d/30d/90d), validate response structure matches AnalyticsResponse schema
-- [ ] T136 **[TEST]** [US6] Write frontend tests in `frontend/src/components/instructor/__tests__/CourseAnalytics.test.jsx`: test analytics chart rendering with real aggregated data (query frequency over time, top 10 topics), time period selection (7d/30d/90d buttons), anonymized data display (no student names/emails visible), loading states, empty state when no data, error handling for failed API calls
-
-### Backend Implementation
-
-- [ ] T137 [US6] Implement `/instructor/dashboard` GET endpoint in `backend/src/api/routes/instructor.py`: return courses where user is instructor, aggregate student counts, recent activity
-- [ ] T138 [US6] Implement `/instructor/courses/{id}/analytics` GET endpoint: aggregate anonymized student query patterns for course (most asked topics, query frequency), accept `period` parameter (7d, 30d, 90d)
-- [ ] T139 [US6] Create analytics aggregation in `backend/src/services/analytics_service.py`: query ChatMessages for course-related topics, group by topic (use NLP clustering or keyword extraction), anonymize student identities
-- [ ] T140 [US6] Implement `/instructor/courses/{id}/documents` POST endpoint: allow instructor to upload course materials, store in S3, create OfficialDocument with `course_id`
-- [ ] T141 [US6] Implement `/instructor/courses/{id}/documents` GET endpoint: list documents uploaded by instructor for course
-- [ ] T142 [US6] Implement ACL check: verify instructor owns course before allowing access to analytics or document upload
-- [ ] T143 [US6] Vectorize instructor-uploaded documents: chunk, embed, add to VDB_Official with course_id metadata for targeted retrieval
-
-### Frontend Implementation
-
-- [ ] T144 [P] [US6] Create `frontend/src/components/instructor/CourseCard.jsx`: display course info, student count, quick access to analytics
-- [ ] T145 [P] [US6] Create `frontend/src/components/instructor/CourseAnalytics.jsx`: display analytics charts (query frequency over time, top topics), time period selector
-- [ ] T146 [P] [US6] Create `frontend/src/components/instructor/CourseDocuments.jsx`: list instructor-uploaded documents, upload form
-- [ ] T147 [US6] Create `frontend/src/pages/InstructorCoursePage.jsx`: full instructor view for single course with tabs (overview, analytics, documents, students)
-- [ ] T148 [US6] Enhance InstructorDashboard (from T050) with course cards and analytics preview
-- [ ] T149 [US6] Implement data visualization using Chart.js or Recharts for analytics charts
-
-### Testing & Validation
-
-- [ ] T150 [US6] Run T135 integration tests → Verify complete instructor workflow
-- [ ] T151 [US6] Run T136 frontend tests → Verify CourseAnalytics component behavior
-- [ ] T152 [US6] Manual E2E test: Login as instructor → View dashboard → Select course → View analytics (verify no student names visible) → Upload course document → Login as enrolled student → Ask AI question answerable from instructor's document → Verify correct response
-
----
-
-## Phase 9: Full-Stack Integration Testing (Constitution Principle II)
+## Phase 7: Full-Stack Integration Testing (Constitution Principle II)
 
 **CONSTITUTION REQUIREMENT**: Full-Stack Integration Testing is MANDATORY per Principle II. These tests validate complete user flows across all layers.
 
 ### Integration Test Suite
 
-- [ ] T153 **[TEST]** Write E2E test suite in `backend/tests/integration/test_full_stack.py`: end-to-end scenarios covering all 6 user stories
-- [ ] T154 **[TEST]** Write E2E authentication tests: registration → email verification → login → token refresh → role-based access → logout
+- [ ] T153 **[TEST]** Write E2E test suite in `backend/tests/integration/test_full_stack.py`: end-to-end scenarios covering all 4 user stories
+- [ ] T154 **[TEST]** Write E2E authentication tests: registration → email verification → login → token refresh → logout
 - [ ] T155 **[TEST]** Write E2E AI chat tests: login → upload document → ask question about document → verify response uses document → ask about official data → verify source citation
 - [ ] T156 **[TEST]** Write E2E forum tests: create thread → multiple users reply → verify anonymity → moderator reveal → AI references forum content
-- [ ] T157 **[TEST]** Write E2E sync tests: trigger sync job → verify data appears in DB and vector store → query AI → verify response includes synced content
-- [ ] T158 **[TEST]** Write E2E instructor tests: instructor uploads document → student queries AI → verify instructor document cited → view analytics → verify anonymization
 
 ### Playwright/Cypress E2E Tests (Frontend)
 
-- [ ] T159 **[TEST]** Set up Playwright in `frontend/` with test configuration
-- [ ] T160 **[TEST]** Write Playwright test: complete student registration and login flow
-- [ ] T161 **[TEST]** Write Playwright test: upload PDF → chat with AI about uploaded content
-- [ ] T162 **[TEST]** Write Playwright test: create forum thread → reply → search forum
-- [ ] T163 **[TEST]** Write Playwright test: instructor login → view analytics dashboard
+- [ ] T157 **[TEST]** Set up Playwright in `frontend/` with test configuration
+- [ ] T158 **[TEST]** Write Playwright test: complete student registration and login flow
+- [ ] T159 **[TEST]** Write Playwright test: upload PDF → chat with AI about uploaded content
+- [ ] T160 **[TEST]** Write Playwright test: create forum thread → reply → search forum
 
 ### API Contract Testing
 
-- [ ] T164 **[TEST]** Validate all endpoints against OpenAPI schema in `backend/tests/contract/test_openapi_compliance.py`
-- [ ] T164.5 **[TEST]** Verify X-Request-ID header presence in all API responses: test random sampling of endpoints (auth, chat, documents, health), assert header exists and matches UUID format, verify tracing through multi-hop requests (FR-039)
-- [ ] T165 **[TEST]** Test all error responses (400, 401, 403, 404, 409, 429) match OpenAPI spec
-- [ ] T166 **[TEST]** Test rate limiting on critical endpoints (login, chat, upload)
+- [ ] T161 **[TEST]** Validate all endpoints against OpenAPI schema in `backend/tests/contract/test_openapi_compliance.py`
+- [ ] T162 **[TEST]** Verify X-Request-ID header presence in all API responses: test random sampling of endpoints (auth, chat, documents, health), assert header exists and matches UUID format, verify tracing through multi-hop requests (FR-032)
+- [ ] T163 **[TEST]** Test all error responses (400, 401, 403, 404, 409, 429) match OpenAPI spec
+- [ ] T164 **[TEST]** Test rate limiting on critical endpoints (login, chat, upload)
 
 ### Performance & Load Testing
 
-- [ ] T167 **[TEST]** Write performance tests using locust or pytest-benchmark: test AI query response time (<5s target)
-- [ ] T168 **[TEST]** Load test with 500 concurrent users using locust, verify p95 latency <200ms for non-AI endpoints
-- [ ] T169 **[TEST]** Test PDF processing time (10MB document should complete in <2 minutes)
+- [ ] T165 **[TEST]** Write performance tests using locust or pytest-benchmark: test AI query response time (<5s target)
+- [ ] T166 **[TEST]** Load test with 500 concurrent users using locust, verify p95 latency <200ms for non-AI endpoints
+- [ ] T167 **[TEST]** Test PDF processing time (10MB document should complete in <2 minutes)
 
 ### Security Testing
 
-- [ ] T170 **[TEST]** Test JWT token security: expired tokens rejected, invalid signature rejected, role escalation prevented
-- [ ] T171 **[TEST]** Test data isolation: user A cannot access user B's documents/sessions
-- [ ] T172 **[TEST]** Test anonymization: verify PII removed from AI prompts, no prompt logs persisted
-- [ ] T173 **[TEST]** Test SQL injection prevention on all input fields
-- [ ] T174 **[TEST]** Test file upload security: malicious files rejected, size limits enforced
+- [ ] T168 **[TEST]** Test JWT token security: expired tokens rejected, invalid signature rejected
+- [ ] T169 **[TEST]** Test data isolation: user A cannot access user B's documents/sessions
+- [ ] T170 **[TEST]** Test anonymization: verify PII removed from AI prompts, no prompt logs persisted
+- [ ] T171 **[TEST]** Test SQL injection prevention on all input fields
+- [ ] T172 **[TEST]** Test file upload security: malicious files rejected, size limits enforced
 
 ---
 
-## Phase 10: Deployment, Observability & Polish
+## Phase 8: Deployment, Observability & Polish
 
 **Goal**: Prepare production deployment, finalize documentation, ensure observability.
 
 ### Deployment Configuration
 
-- [ ] T175 [P] Create production `docker-compose.prod.yml` with production settings (gunicorn workers, nginx config, volume mounts)
-- [ ] T176 [P] Create nginx configuration `nginx.conf` for reverse proxy: HTTPS enforcement, rate limiting, static file serving
-- [ ] T177 [P] Create GitHub Actions CI/CD pipeline `.github/workflows/ci.yml`: run pytest on push, build Docker images, deploy to staging on merge to main
-- [ ] T178 Create deployment documentation `docs/DEPLOYMENT.md`: server requirements, environment setup, SSL certificate installation, database initialization, backup procedures
-- [ ] T179 Create SSL certificate setup guide (Let's Encrypt or manual cert installation)
-- [ ] T180 Set up database backup script `backend/scripts/backup_postgres.sh`: pg_dump to S3, schedule daily backups
-- [ ] T181 Set up FAISS index backup: cron job to copy vector indexes to S3 daily
+- [ ] T173 [P] Create production `docker-compose.prod.yml` with production settings (gunicorn workers, nginx config, volume mounts)
+- [ ] T174 [P] Create nginx configuration `nginx.conf` for reverse proxy: HTTPS enforcement, rate limiting, static file serving
+- [ ] T175 [P] Create GitHub Actions CI/CD pipeline `.github/workflows/ci.yml`: run pytest on push, build Docker images, deploy to staging on merge to main
+- [ ] T176 Create deployment documentation `docs/DEPLOYMENT.md`: server requirements, environment setup, SSL certificate installation, database initialization, backup procedures
+- [ ] T177 Create SSL certificate setup guide (Let's Encrypt or manual cert installation)
+- [ ] T178 Set up database backup script `backend/scripts/backup_postgres.sh`: pg_dump to S3, schedule daily backups
+- [ ] T179 Set up FAISS index backup: cron job to copy vector indexes to S3 daily
 
 ### Observability & Monitoring
 
-- [ ] T182 [P] Implement request ID tracking: generate UUID for each request, include in all logs
-- [ ] T183 [P] Implement error tracking: structured error logging with stack traces, error rates
-- [ ] T184 [P] Add Prometheus metrics endpoint `/metrics` using `prometheus-fastapi-instrumentator`: request count, latency histograms, active users
-- [ ] T185 Create alerting rules in `prometheus/alerts.yml`: high error rate, slow AI queries, sync job failures, disk usage
-- [ ] T186 Set up Grafana dashboard JSON `grafana/dashboard.json`: API latency, user activity, AI query volume, vector store size
-- [ ] T187 Implement audit logging: log all sensitive actions (login, document access, admin actions) to AuditLog table
-- [ ] T188 Create log aggregation setup documentation (optional: ELK stack or CloudWatch)
+- [ ] T180 [P] Implement request ID tracking: generate UUID for each request, include in all logs
+- [ ] T181 [P] Implement error tracking: structured error logging with stack traces, error rates
+- [ ] T182 [P] Add Prometheus metrics endpoint `/metrics` using `prometheus-fastapi-instrumentator`: request count, latency histograms, active users
+- [ ] T183 Create alerting rules in `prometheus/alerts.yml`: high error rate, slow AI queries, disk usage
+- [ ] T184 Set up Grafana dashboard JSON `grafana/dashboard.json`: API latency, user activity, AI query volume, vector store size
+- [ ] T185 Implement audit logging: log all sensitive actions (login, document access, admin actions) to AuditLog table
+- [ ] T186 Create log aggregation setup documentation (optional: ELK stack or CloudWatch)
 
 ### Documentation & Developer Experience
 
-- [ ] T189 [P] Create comprehensive API documentation: Swagger UI auto-generated from OpenAPI spec, add example requests/responses
-- [ ] T190 [P] Create `README.md` in repository root: project overview, quick start, links to documentation
-- [ ] T191 [P] Enhance `quickstart.md` with troubleshooting section for common issues
-- [ ] T192 Create architecture diagram in `docs/ARCHITECTURE.md`: system components, data flow, vector store structure
-- [ ] T193 Create data privacy documentation `docs/PRIVACY.md`: how student data is handled, anonymization process, GDPR/KVKK compliance notes
-- [ ] T194 Create contributing guide `CONTRIBUTING.md`: branch naming, commit conventions, PR process, code style guide
-- [ ] T195 Add code formatting tools: Black for Python, Prettier for JavaScript, pre-commit hooks
-- [ ] T196 Add linting tools: Ruff for Python, ESLint for JavaScript, configure in CI pipeline
+- [ ] T187 [P] Create comprehensive API documentation: Swagger UI auto-generated from OpenAPI spec, add example requests/responses
+- [ ] T188 [P] Create `README.md` in repository root: project overview, quick start, links to documentation
+- [ ] T189 [P] Enhance `quickstart.md` with troubleshooting section for common issues
+- [ ] T190 Create architecture diagram in `docs/ARCHITECTURE.md`: system components, data flow, vector store structure
+- [ ] T191 Create data privacy documentation `docs/PRIVACY.md`: how student data is handled, anonymization process, GDPR/KVKK compliance notes
+- [ ] T192 Create contributing guide `CONTRIBUTING.md`: branch naming, commit conventions, PR process, code style guide
+- [ ] T193 Add code formatting tools: Black for Python, Prettier for JavaScript, pre-commit hooks
+- [ ] T194 Add linting tools: Ruff for Python, ESLint for JavaScript, configure in CI pipeline
 
 ### Frontend Polish
 
-- [ ] T197 [P] Implement responsive design: test on mobile (375px), tablet (768px), desktop (1920px)
-- [ ] T198 [P] Add loading skeletons for all async data fetches
-- [ ] T199 [P] Add error boundaries in React for graceful error handling
-- [ ] T200 [P] Implement toast notifications for user actions (upload success, error messages)
-- [ ] T201 Add accessibility features: ARIA labels, keyboard navigation, screen reader support
-- [ ] T202 Add Turkish language UI: create i18n setup with `react-i18next`, translate all UI strings
-- [ ] T203 Add dark mode support (optional for MVP)
-- [ ] T204 Optimize bundle size: code splitting, lazy loading routes, image optimization
+- [ ] T195 [P] Implement responsive design: test on mobile (375px), tablet (768px), desktop (1920px)
+- [ ] T196 [P] Add loading skeletons for all async data fetches
+- [ ] T197 [P] Add error boundaries in React for graceful error handling
+- [ ] T198 [P] Implement toast notifications for user actions (upload success, error messages)
+- [ ] T199 Add accessibility features: ARIA labels, keyboard navigation, screen reader support
+- [ ] T200 Add Turkish language UI: create i18n setup with `react-i18next`, translate all UI strings
+- [ ] T201 Add dark mode support (optional for MVP)
+- [ ] T202 Optimize bundle size: code splitting, lazy loading routes, image optimization
 
 ### Backend Polish
 
-- [ ] T205 [P] Implement input validation: use Pydantic models for all request bodies, validate email formats, file types
-- [ ] T206 [P] Implement rate limiting middleware: install slowapi library, configure Redis backend, define rate limit decorators for different endpoint tiers
-- [ ] T206.5 **[IMPLEMENTATION]** [P] Apply rate limiting to endpoints per FR-035: 100 req/min per authenticated user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200) - use `@limiter.limit()` decorators on auth, chat, document routes
-- [ ] T207 [P] Implement database query optimization: add indexes on frequently queried fields (user.email, course.code, document.user_id)
-- [ ] T208 Add request timeout handling: 30s timeout on external API calls (OpenAI, UZEM)
-- [ ] T209 Add graceful shutdown handling: finish processing requests before container shutdown
-- [ ] T210 Optimize vector search: tune FAISS parameters (nprobe for IVF indexes), cache frequent queries
-- [ ] T211 Implement database connection pooling tuning: optimize pool size for production load
+- [ ] T203 [P] Implement input validation: use Pydantic models for all request bodies, validate email formats, file types
+- [ ] T204 [P] Implement rate limiting middleware: install slowapi library, configure Redis backend, define rate limit decorators for different endpoint tiers
+- [ ] T205 **[IMPLEMENTATION]** [P] Apply rate limiting to endpoints per FR-028: 100 req/min per authenticated user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200) - use `@limiter.limit()` decorators on auth, chat, document routes
+- [ ] T206 [P] Implement database query optimization: add indexes on frequently queried fields (user.email, course.code, document.user_id)
+- [ ] T207 Add request timeout handling: 30s timeout on external API calls
+- [ ] T208 Add graceful shutdown handling: finish processing requests before container shutdown
+- [ ] T209 Optimize vector search: tune FAISS parameters, cache frequent queries
+- [ ] T210 Implement database connection pooling tuning: optimize pool size for production load
 
 ### Final Testing & Validation
 
-- [ ] T212 Run full test suite: pytest (backend) + Jest (frontend) + Playwright (E2E) → Verify 80%+ code coverage
-- [ ] T213 Perform security audit: run OWASP ZAP or similar tool, fix identified vulnerabilities
-- [ ] T214 Perform load testing with production-like data: 5000 users, 100k documents, verify performance targets met
-- [ ] T215 Validate all 10 success criteria from spec.md: SC-001 through SC-010
-- [ ] T216 User acceptance testing: have stakeholders test all 6 user stories, gather feedback
-- [ ] T217 Create release notes `CHANGELOG.md`: document all features, known limitations, upgrade instructions
+- [ ] T211 Run full test suite: pytest (backend) + Jest (frontend) + Playwright (E2E) → Verify 80%+ code coverage
+- [ ] T212 Perform security audit: run OWASP ZAP or similar tool, fix identified vulnerabilities
+- [ ] T213 Perform load testing with production-like data: 5000 users, 100k documents, verify performance targets met
+- [ ] T214 Validate all 8 success criteria from spec.md: SC-001 through SC-008
+- [ ] T215 User acceptance testing: have stakeholders test all 4 user stories, gather feedback
+- [ ] T216 Create release notes `CHANGELOG.md`: document all features, known limitations, upgrade instructions
 
 ---
 
 ## Summary
 
-**Total Tasks**: 217
+**Total Tasks**: 216
 **P1 Tasks (Blocking)**: Authentication (T035-T055: 21 tasks), AI Chatbot (T056-T075: 20 tasks)
 **P2 Tasks**: PDF Upload (T076-T091: 16 tasks), Forum (T092-T114: 23 tasks)
-**P3 Tasks**: Data Sync (T115-T134: 20 tasks), Instructor Panel (T135-T152: 18 tasks)
-**Testing Tasks**: 59 test tasks (T021-T024, T035-T037, T056-T058, T076-T077, T092-T094, T115-T116, T135-T136, T153-T174)
+**Testing Tasks**: 47 test tasks
 **Infrastructure Tasks**: 20 tasks (T001-T020)
-**Integration Tasks**: 22 tasks (T153-T174)
-**Deployment Tasks**: 42 tasks (T175-T217)
+**Integration Tasks**: 20 tasks (T153-T172)
+**Deployment Tasks**: 44 tasks (T173-T216)
 
 **Parallel Opportunities**: Tasks marked [P] can be executed in parallel within the same phase (e.g., T001-T004 can all run simultaneously).
 
 **Critical Path**: 
 1. Phase 1 (Setup) → Phase 2 (Foundational Services) → Phase 3 (US1 Auth) → Phase 4 (US2 AI Chat)
-2. After US1+US2 complete, US3/US4/US5/US6 can proceed in parallel
-3. Phase 9 (Integration Testing) requires all user stories complete
-4. Phase 10 (Deployment) is final
+2. After US1+US2 complete, US3/US4 can proceed in parallel
+3. Phase 7 (Integration Testing) requires all user stories complete
+4. Phase 8 (Deployment) is final
 
 **MVP Recommendation**: For fastest time-to-value, implement Phases 1-4 only (Setup + Auth + AI Chat). This delivers core functionality: students can login and query official university data through AI assistant. Estimated: ~60 tasks, 4-6 weeks with 2 developers.
 
 **Test-First Mandate**: All test tasks (marked **[TEST]**) MUST be written and approved BEFORE implementing corresponding features. This is a constitutional requirement (Principle I: Test-First Development).
 
-**Independent Deployment**: Each user story (US1-US6) can be deployed independently to production once its tests pass. US1 alone constitutes a minimal viable product (authentication only). US1+US2 is the recommended initial release (auth + AI chat with official data).
+**Independent Deployment**: Each user story (US1-US4) can be deployed independently to production once its tests pass. US1 alone constitutes a minimal viable product (authentication only). US1+US2 is the recommended initial release (auth + AI chat with official data).
 
 **Constitution Compliance**: 
-- ✅ Test-First Development: 59 test tasks marked MANDATORY, must be written first
-- ✅ Integration Testing: Phase 9 dedicated to full-stack integration tests
-- ✅ Security by Default: T170-T174 security tests, HTTPS/JWT/encryption throughout
-- ✅ AI Ethics: T172 tests anonymization, T032 implements PII removal
-- ✅ Observability: T182-T188 implement logging, metrics, monitoring
+- ✅ Test-First Development: 47 test tasks marked MANDATORY, must be written first
+- ✅ Integration Testing: Phase 7 dedicated to full-stack integration tests
+- ✅ Security by Default: T168-T172 security tests, HTTPS/JWT/encryption throughout
+- ✅ AI Ethics: T170 tests anonymization, T032 implements PII removal
+- ✅ Observability: T180-T186 implement logging, metrics, monitoring
 
 ---
 

@@ -7,7 +7,7 @@
 
 ## Summary
 
-KAMPÜS+ eliminates information fragmentation across university systems by merging official academic data (UZEM, announcements, schedules) with user-generated content (notes, discussions) into a unified AI assistant platform. The system uses a hybrid RAG (Retrieval-Augmented Generation) architecture with dual vector databases: one for official university data and another for user-generated content. Students authenticate via university email, interact with an AI chatbot powered by LangChain + OpenAI, upload personal PDFs for vectorization, and participate in anonymous forums. Automatic scheduling syncs official data, while all student data is anonymized before AI processing per constitutional requirements.
+KAMPÜS+ eliminates information fragmentation across university systems by providing a unified AI assistant platform that merges official academic data with user-generated content. The system uses a hybrid RAG (Retrieval-Augmented Generation) architecture with dual vector databases: one for official university data and another for user-generated content. Students authenticate via university email, interact with an AI chatbot powered by LangChain + Google Gemini, upload personal PDFs for vectorization, and participate in anonymous forums. All student data is anonymized before AI processing per constitutional requirements.
 
 ## Technical Context
 
@@ -101,12 +101,11 @@ backend/
 │   │   │   ├── chat.py       # AI chatbot endpoints
 │   │   │   ├── documents.py  # PDF upload/management
 │   │   │   ├── forum.py      # Anonymous forum endpoints
-│   │   │   ├── sync.py       # Official data sync endpoints
-│   │   │   └── instructor.py # Instructor panel endpoints
+│   │   │   └── admin.py       # Admin panel endpoints
 │   │   ├── middleware.py     # Auth, CORS, logging middleware
 │   │   └── dependencies.py   # Shared dependencies (DB, auth)
 │   ├── models/
-│   │   ├── user.py           # User, Student, Instructor models
+│   │   ├── user.py           # User, Student models
 │   │   ├── course.py         # Course, Enrollment models
 │   │   ├── document.py       # OfficialDocument, UserDocument
 │   │   ├── conversation.py   # Chat session models
@@ -117,7 +116,6 @@ backend/
 │   │   ├── ai_service.py     # LangChain RAG pipeline
 │   │   ├── vector_service.py # FAISS operations (dual DBs)
 │   │   ├── pdf_service.py    # PDF extraction, vectorization
-│   │   ├── sync_service.py   # UZEM/announcements sync
 │   │   ├── forum_service.py  # Anonymous identity management
 │   │   └── s3_service.py     # AWS S3 upload/download
 │   ├── core/
@@ -126,9 +124,7 @@ backend/
 │   │   ├── security.py       # Password hashing, token validation
 │   │   └── logging.py        # Structured JSON logging
 │   ├── schedulers/
-│   │   └── sync_scheduler.py # APScheduler jobs for data sync
-│   └── main.py               # FastAPI application entry point
-├── tests/
+│   tests/
 │   ├── unit/                 # Unit tests (pytest)
 │   │   ├── test_auth_service.py
 │   │   ├── test_ai_service.py
@@ -140,7 +136,7 @@ backend/
 │   │   ├── test_upload_flow.py
 │   │   └── test_sync_flow.py
 │   └── contract/             # API contract tests (OpenAPI validation)
-│       └── test_openapi_compliance.py
+│       └── test_forumapi_compliance.py
 ├── alembic/                  # Database migrations
 │   └── versions/
 ├── requirements.txt          # Python dependencies
@@ -154,13 +150,11 @@ frontend/
 │   │   ├── chat/             # ChatInterface, MessageList
 │   │   ├── documents/        # DocumentUpload, DocumentList
 │   │   ├── forum/            # ForumThread, ForumPost
-│   │   ├── instructor/       # InstructorDashboard, Analytics
 │   │   └── common/           # Shared components (Button, Input)
 │   ├── pages/
 │   │   ├── LoginPage.jsx
 │   │   ├── StudentDashboard.jsx
 │   │   ├── InstructorDashboard.jsx
-│   │   ├── ChatPage.jsx
 │   │   ├── ForumPage.jsx
 │   │   └── DocumentsPage.jsx
 │   ├── services/

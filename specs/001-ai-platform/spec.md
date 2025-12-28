@@ -87,45 +87,10 @@ Students participate in anonymous discussions and Q&A forums to share knowledge,
 
 ---
 
-### User Story 5 - Automatic Official Data Sync (Priority: P3)
-
-The system automatically synchronizes official university data (UZEM content, announcements, course schedules) on a regular schedule without manual intervention.
-
-**Why this priority**: While critical for keeping data current, the initial version can work with manually loaded data. Automation can be added after core features are validated.
-
-**Independent Test**: Can be tested by verifying that new announcements, schedule changes, or UZEM updates appear in the system without manual data entry, and the AI can answer questions about new information.
-
-**Acceptance Scenarios**:
-
-1. **Given** new university announcements are published, **When** the sync process runs, **Then** the new announcements are available for AI queries within the configured sync interval
-2. **Given** a course schedule changes in UZEM, **When** the next sync occurs, **Then** students querying their schedule receive updated information
-3. **Given** a sync fails due to connectivity issues, **When** the error is logged, **Then** administrators are notified and can troubleshoot
-4. **Given** large amounts of new data, **When** syncing, **Then** the system processes updates without impacting user queries
-
----
-
-### User Story 6 - Instructor Panel & Course Management (Priority: P3)
-
-Instructors access a dedicated panel to view student engagement analytics, manage course-specific information, and monitor how students interact with course materials through the AI.
-
-**Why this priority**: Provides value to instructors but is not essential for student MVP. Can be added after validating core student functionality.
-
-**Independent Test**: Can be tested by logging in as an instructor, viewing aggregated (anonymous) student query patterns for their courses, and verifying they cannot access individual student data.
-
-**Acceptance Scenarios**:
-
-1. **Given** an authenticated instructor, **When** they access their dashboard, **Then** they see courses they teach and aggregate engagement metrics
-2. **Given** students have queried the AI about a course, **When** the instructor views analytics, **Then** they see anonymized patterns of common questions and topics
-3. **Given** an instructor wants to add supplementary materials, **When** they upload course documents, **Then** those become available to enrolled students through the AI
-4. **Given** sensitive student queries exist, **When** an instructor views analytics, **Then** individual student identities remain protected
-
----
-
 ### Edge Cases
 
 - What happens when a student uploads a very large PDF (>100MB)? System rejects with clear size limit message
 - How does the system handle non-English characters in Turkish course content? UTF-8 encoding ensures proper display and search
-- What if UZEM becomes temporarily unavailable during a sync? System logs the failure, retries with exponential backoff, and uses cached data
 - How are conflicts handled when official data contradicts user-uploaded content? AI clearly distinguishes sources and marks official data as authoritative
 - What happens when a student's JWT token is compromised? Token can be revoked, forcing re-authentication
 - How does the system handle students enrolled in multiple universities? Single university deployment per instance (not multi-tenant for MVP) - each university gets isolated deployment
@@ -138,68 +103,58 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 
 **Authentication & Authorization**
 - **FR-001**: System MUST authenticate users via university email and password, issuing JWT tokens upon successful login
-- **FR-002**: System MUST differentiate between student and instructor roles, providing appropriate panel access based on role
-- **FR-003**: System MUST enforce JWT token expiration and require re-authentication after timeout
-- **FR-004**: System MUST support secure password reset via university email verification
+- **FR-002**: System MUST enforce JWT token expiration and require re-authentication after timeout
+- **FR-003**: System MUST support secure password reset via university email verification
 
 **Official Data Integration**
-- **FR-005**: System MUST sync official data from UZEM (course content, syllabi, materials)
-- **FR-006**: System MUST sync university-wide announcements from official sources
-- **FR-007**: System MUST sync course schedules including times, locations, and instructor assignments
-- **FR-008**: System MUST store official data separately from user-generated content with clear provenance tracking (JSON metadata: `source_system`, `sync_timestamp`, `authority_level` where official=1.0, user=0.7, forum=0.3)
-- **FR-009**: System MUST handle sync failures gracefully with retry logic and error logging
+- **FR-004**: System MUST allow manual upload of official university data (course content, syllabi, materials, announcements)
+- **FR-005**: System MUST store official data separately from user-generated content with clear provenance tracking (JSON metadata: `source_system`, `sync_timestamp`, `authority_level` where official=1.0, user=0.7, forum=0.3)
 
 **AI Chatbot & Query System**
-- **FR-010**: System MUST provide a conversational AI interface accessible to authenticated users
-- **FR-011**: System MUST retrieve relevant information from official data sources based on user queries
-- **FR-012**: System MUST retrieve relevant information from user's personal uploaded documents based on queries
-- **FR-013**: System MUST cite sources in AI responses, distinguishing between official and user-generated content
-- **FR-014**: System MUST maintain conversation context across multiple queries in a session (context window: last 5 message exchanges, ~2500 tokens)
-- **FR-015**: System MUST respect data access permissions (students cannot access others' private documents)
+- **FR-006**: System MUST provide a conversational AI interface accessible to authenticated users
+- **FR-007**: System MUST retrieve relevant information from official data sources based on user queries
+- **FR-008**: System MUST retrieve relevant information from user's personal uploaded documents based on queries
+- **FR-009**: System MUST cite sources in AI responses, distinguishing between official and user-generated content
+- **FR-010**: System MUST maintain conversation context across multiple queries in a session (context window: last 5 message exchanges, ~2500 tokens)
+- **FR-011**: System MUST respect data access permissions (students cannot access others' private documents)
 
 **Document Upload & Processing**
-- **FR-016**: System MUST allow students to upload PDF documents for personal knowledge base creation
-- **FR-017**: System MUST enforce file size limits (25MB maximum for PDF uploads)
-- **FR-018**: System MUST validate uploaded files for security using ClamAV malware scanning (synchronous during upload via clamd socket on port 3310) and file type verification. Infected files MUST be rejected with HTTP 400 error before S3 upload, quarantined for admin review, and logged to AuditLog with threat details
-- **FR-019**: System MUST process uploaded PDFs into searchable vector representations
-- **FR-020**: System MUST store user-uploaded documents securely with encryption at rest (S3 bucket encryption with SSE-S3 AES-256 or SSE-KMS)
-- **FR-021**: System MUST allow users to delete their uploaded documents
-- **FR-021b**: System MUST enforce per-user storage quota (500MB default, configurable via environment variable). Reject uploads exceeding quota with HTTP 413 Payload Too Large and clear error message showing current usage
+- **FR-012**: System MUST allow students to upload PDF documents for personal knowledge base creation
+- **FR-013**: System MUST enforce file size limits (25MB maximum for PDF uploads)
+- **FR-014**: System MUST validate uploaded files for security using ClamAV malware scanning (synchronous during upload via clamd socket on port 3310) and file type verification. Infected files MUST be rejected with HTTP 400 error before S3 upload, quarantined for admin review, and logged to AuditLog with threat details
+- **FR-015**: System MUST process uploaded PDFs into searchable vector representations
+- **FR-016**: System MUST store user-uploaded documents securely with encryption at rest (S3 bucket encryption with SSE-S3 AES-256 or SSE-KMS)
+- **FR-017**: System MUST allow users to delete their uploaded documents
+- **FR-018**: System MUST enforce per-user storage quota (500MB default, configurable via environment variable). Reject uploads exceeding quota with HTTP 413 Payload Too Large and clear error message showing current usage
 
 **Anonymous Forum**
-- **FR-022**: System MUST allow authenticated students to create anonymous forum posts and replies
-- **FR-023**: System MUST generate unique anonymous identifiers that cannot be traced to real identities by other students
-- **FR-024**: System MUST maintain a secure mapping between anonymous identifiers and real users for moderation purposes
-- **FR-025**: System MUST allow searching and browsing forum discussions
-- **FR-026**: System MUST enable the AI to reference forum discussions as supplementary sources with authority ranking: Official Documents (1.0) > User Documents (0.7) > Forum Posts (0.3)
-- **FR-027**: System MUST provide moderation capabilities to flag and remove inappropriate content
-
-**Instructor Panel**
-- **FR-028**: System MUST provide instructors with a dedicated dashboard showing their courses
-- **FR-029**: System MUST display anonymized analytics on student engagement with course materials through AI queries
-- **FR-030**: System MUST allow instructors to upload supplementary course materials for their enrolled students
-- **FR-031**: System MUST prevent instructors from accessing individual student private documents or identifiable query histories
+- **FR-019**: System MUST allow authenticated students to create anonymous forum posts and replies
+- **FR-020**: System MUST generate unique anonymous identifiers that cannot be traced to real identities by other students
+- **FR-021**: System MUST maintain a secure mapping between anonymous identifiers and real users for moderation purposes
+- **FR-022**: System MUST allow searching and browsing forum discussions
+- **FR-023**: System MUST enable the AI to reference forum discussions as supplementary sources with authority ranking: Official Documents (1.0) > User Documents (0.7) > Forum Posts (0.3)
+- **FR-024**: System MUST provide moderation capabilities to flag and remove inappropriate content
 
 **Data Privacy & Security**
-- **FR-032**: System MUST comply with AI Ethics & Privacy principles defined in project constitution (Section IV: anonymization before AI processing, no prompt log persistence)
-- **FR-033**: System MUST encrypt sensitive data at rest using AES-256-GCM for documents/files and Argon2id (in addition to bcrypt) for password hashing where enhanced security is required
-- **FR-034**: System MUST enforce HTTPS for all connections
-- **FR-035**: System MUST implement rate limiting with burst allowances: 100 req/min per user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200)
+- **FR-025**: System MUST comply with AI Ethics & Privacy principles defined in project constitution (Section IV: anonymization before AI processing, no prompt log persistence)
+- **FR-026**: System MUST encrypt sensitive data at rest using AES-256-GCM for documents/files and Argon2id (in addition to bcrypt) for password hashing where enhanced security is required
+- **FR-027**: System MUST enforce HTTPS for all connections
+- **FR-028**: System MUST implement rate limiting with burst allowances: 100 req/min per user (burst: 120), 10 AI queries/min per user (burst: 12), 1000 req/min per IP (burst: 1200)
 
 **Performance Requirements**
-- **FR-036**: AI-powered query endpoints (chatbot, document search) MUST respond within 5 seconds at p95 percentile
-- **FR-037**: Non-AI API endpoints (authentication, profile, file listing) MUST respond within 200ms at p95 percentile
+- **FR-029**: AI-powered query endpoints (chatbot, document search) MUST respond within 5 seconds at p95 percentile
+- **FR-030**: Non-AI API endpoints (authentication, profile, file listing) MUST respond within 200ms at p95 percentile
 
 **Observability Requirements**
-- **FR-038**: System MUST implement structured JSON logging for all application events
-- **FR-039**: System MUST track request IDs across all API calls for distributed tracing
-- **FR-040**: System MUST filter sensitive data (passwords, tokens, PII) from logs before persistence
+- **FR-031**: System MUST implement structured JSON logging for all application events
+- **FR-032**: System MUST track request IDs across all API calls for distributed tracing
+- **FR-033**: System MUST filter sensitive data (passwords, tokens, PII) from logs before persistence
 
 ### Key Entities
 
-- **User**: Represents both students and instructors with attributes including university email, role (student/instructor), enrolled courses, authentication tokens, and account status
-- **Course**: Official university course with attributes including course code, name, instructor(s), schedule, enrolled students, and associated materials
-- **Official Document**: University-provided content from UZEM or announcements with attributes including source system, document type, content, publication date, and target audience
+- **User**: Represents students with attributes including university email, enrolled courses, authentication tokens, and account status
+- **Course**: Official university course with attributes including course code, name, schedule, enrolled students, and associated materials
+- **Official Document**: University-provided content with attributes including source system, document type, content, publication date, and target audience
 - **User Document**: Student-uploaded PDF with attributes including owner, upload timestamp, file metadata, processing status, and vector embeddings
 - **Conversation Session**: AI chat interaction with attributes including user, timestamp, query history, and context state
 - **Forum Post**: Anonymous discussion content with attributes including anonymous identifier, secure user mapping, content, timestamp, thread relationships, and moderation status
@@ -216,14 +171,12 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 - **SC-004**: Student engagement with the platform averages 10+ queries per user per week, indicating value delivery
 - **SC-005**: Upload and processing of personal documents (up to 10MB PDFs) completes within 2 minutes
 - **SC-006**: Anonymous forum maintains active participation with 70% of students viewing discussions and 30% contributing content
-- **SC-007**: Official data synchronization completes within 1 hour of new content availability in source systems
-- **SC-008**: Zero security incidents related to unauthorized data access between students or privacy breaches
-- **SC-009**: Instructors access analytics within 3 clicks from login, with data updated daily
-- **SC-010**: System uptime exceeds 99% during academic semester periods
+- **SC-007**: Zero security incidents related to unauthorized data access between students or privacy breaches
+- **SC-008**: System uptime exceeds 99% during academic semester periods
 
 ## Assumptions
 
-1. University provides API access or data export capabilities for UZEM, announcements, and schedules
+1. Official university data can be manually uploaded or imported into the system
 2. University email system supports standard authentication protocols
 3. Students have access to university email accounts for authentication
 4. Turkish language support is required for content and UI
@@ -237,31 +190,30 @@ Instructors access a dedicated panel to view student engagement analytics, manag
 
 ## Dependencies
 
-1. Access to university data systems (UZEM, announcement system, scheduling system) for synchronization
-2. University authentication integration or OAuth2 provider
-3. LLM service provider API access (for AI chatbot functionality)
-4. Vector database infrastructure for embeddings storage
-5. Secure file storage infrastructure for uploaded PDFs
-6. SSL/TLS certificates for HTTPS enforcement
+1. LLM service provider API access (for AI chatbot functionality)
+2. Vector database infrastructure for embeddings storage
+3. Secure file storage infrastructure for uploaded PDFs
+4. SSL/TLS certificates for HTTPS enforcement
 
 ## Scope Boundaries
 
 **In Scope:**
 - Student and instructor authentication with university credentials
 - AI chatbot interface for querying official and personal knowledge
+- PDF uploauthentication with university credentials
+- AI chatbot interface for querying official and personal knowledge
 - PDF upload and vectorization for personal documents
-- Automatic synchronization of official university data
+- Manual upload of official university data
 - Anonymous student forum with moderation
-- Basic instructor analytics dashboard
 - Turkish language support
 
 **Out of Scope (for this version):**
 - Mobile native applications (web-responsive design only)
 - Real-time collaborative features (shared notes, study groups)
 - Video or audio content processing
-- Integration with external learning management systems beyond UZEM
-- Payment processing for premium features
-- Multi-university/multi-tenant support
+- Automatic synchronization with external university systems
+- Instructor panel and analytics dashboard
+- Role-based access control for instructors
 - Advanced analytics and machine learning on student behavior
 - Automated grading or assignment submission features
 - Direct messaging between students

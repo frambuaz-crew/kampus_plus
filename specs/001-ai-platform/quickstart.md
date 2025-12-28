@@ -202,7 +202,7 @@ python scripts/seed_data.py
 ```
 
 This creates:
-- Test users (student, instructor, admin)
+- Test users (student, admin)
 - Sample courses
 - Mock official documents
 
@@ -595,9 +595,7 @@ npm audit fix                 # Fix security vulnerabilities
 
 - **Dependency Injection**: FastAPI's `Depends` for DB sessions, auth
 - **Repository Pattern**: Data access abstracted in service layer
-- **Adapter Pattern**: Sync adapters for UZEM, announcements, schedules
 - **Singleton**: FAISS indexes loaded once at startup
-- **Observer**: APScheduler for periodic sync jobs
 
 ---
 

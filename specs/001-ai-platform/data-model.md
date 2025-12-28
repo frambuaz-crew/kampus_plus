@@ -104,7 +104,7 @@ Represents students, instructors, and administrators in the system.
 - `email` MUST match pattern `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 - `email` MUST be from university domain (validated during registration via ALLOWED_EMAIL_DOMAINS config: `["university.edu.tr", "*.university.edu.tr"]` - supports wildcards for subdomains)
 - `password_hash` MUST be bcrypt with cost factor ≥12
-- `role` MUST be one of: `student`, `instructor`, `admin`
+- `role` MUST be one of: `student`, `admin`
 - `first_name` and `last_name` MUST be 2-100 characters
 - `student_id` format depends on university (e.g., `2021xxxxxxx`)
 
@@ -113,7 +113,6 @@ Represents students, instructors, and administrators in the system.
 - User has many UserDocuments
 - User has many ConversationSessions
 - User has many ForumPosts (via AnonymousMapping)
-- User is instructor for many Courses (if instructor)
 
 **Indexes:**
 - PRIMARY KEY on `id`
@@ -172,7 +171,6 @@ Represents university courses from UZEM or scheduling system.
 | code | VARCHAR(50) | UNIQUE, NOT NULL | Course code (e.g., "CS101") |
 | name | VARCHAR(255) | NOT NULL | Course name |
 | description | TEXT | NULLABLE | Course description |
-| instructor_id | UUID | FK → User(id), NULLABLE | Primary instructor |
 | department | VARCHAR(100) | NOT NULL | Academic department |
 | semester | VARCHAR(20) | NOT NULL | e.g., "2024-Fall" |
 | credits | INTEGER | NOT NULL | Credit hours |
@@ -190,14 +188,12 @@ Represents university courses from UZEM or scheduling system.
 - `schedule` MUST be valid JSON if present
 
 **Relationships:**
-- Course has one instructor (User with role=instructor)
 - Course has many Enrollments
 - Course has many OfficialDocuments
 
 **Indexes:**
 - PRIMARY KEY on `id`
 - UNIQUE INDEX on `code`
-- INDEX on `instructor_id`
 - INDEX on `semester`
 - INDEX on `is_active`
 
@@ -246,7 +242,7 @@ Official university content from UZEM, announcements, schedules.
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | id | UUID | PK, NOT NULL | Unique identifier |
-| source_system | ENUM | NOT NULL | `uzem`, `announcement`, `schedule` |
+| source_system | ENUM | NOT NULL | `announcement`, `manual`, `schedule` |
 | source_id | VARCHAR(255) | NULLABLE | External system identifier |
 | document_type | VARCHAR(50) | NOT NULL | e.g., "syllabus", "lecture", "announcement" |
 | title | VARCHAR(500) | NOT NULL | Document title |
@@ -260,7 +256,7 @@ Official university content from UZEM, announcements, schedules.
 | updated_at | TIMESTAMP | NOT NULL | Last synced timestamp |
 
 **Validation Rules:**
-- `source_system` MUST be one of: `uzem`, `announcement`, `schedule`
+- `source_system` MUST be one of: `announcement`, `manual`, `schedule`
 - `title` MUST be 5-500 characters
 - `content` MUST be at least 10 characters
 - `metadata` MUST be valid JSON if present
