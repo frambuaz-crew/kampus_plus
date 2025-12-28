@@ -143,7 +143,7 @@ class Settings(BaseSettings):
     enable_metrics: bool = True
     metrics_port: int = 9090
     
-    # Email
+    # Email - Default SMTP (used for all universities)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
@@ -151,10 +151,26 @@ class Settings(BaseSettings):
     smtp_from_email: str = ""
     smtp_from_name: str = "KAMPÜS+ Platform"
     
-    # University Specific
-    university_name: str = "Example University"
+    # Email - University-specific SMTP settings (deprecated - using Resend for all universities)
+    # Resend tek bir SMTP sunucusu üzerinden tüm 5 üniversiteye email gönderebilir.
+    # Her üniversite için ayrı yapılandırma gerekmez.
+    university_smtp_config: str = ""
+    
+    # University Specific - Konya Universities
+    university_name: str = "Konya Universities"
     university_email_domain: str = "example.edu.tr"
     support_email: str = "support@kampusplus.edu.tr"
+    
+    # Allowed email domains for Konya universities (comma-separated)
+    allowed_email_domains: str = Field(
+        default="ogr.selcuk.edu.tr,ktun.edu.tr,ogr.erbakan.edu.tr,karatay.edu.tr,ogr.gidatarim.edu.tr",
+        description="Comma-separated list of allowed email domains for registration"
+    )
+    
+    @property
+    def allowed_email_domains_list(self) -> List[str]:
+        """Parse allowed email domains from comma-separated string."""
+        return [domain.strip().lower() for domain in self.allowed_email_domains.split(",") if domain.strip()]
     
     @field_validator("environment")
     @classmethod

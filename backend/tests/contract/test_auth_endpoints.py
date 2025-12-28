@@ -40,13 +40,22 @@ async def client():
 
 @pytest.fixture
 def valid_register_payload():
-    """Valid registration request payload."""
+    """Valid registration request payload for Konya universities."""
+    # Use one of the allowed Konya university domains
+    allowed_domains = [
+        "ogr.selcuk.edu.tr",
+        "ktun.edu.tr",
+        "ogr.erbakan.edu.tr",
+        "karatay.edu.tr",
+        "ogr.gidatarim.edu.tr"
+    ]
+    import random
+    domain = random.choice(allowed_domains)
     return {
-        "email": f"student{uuid4().hex[:8]}@university.edu.tr",
+        "email": f"student{uuid4().hex[:8]}@{domain}",
         "password": "SecurePass123!",
         "first_name": "Test",
         "last_name": "Student",
-        "role": "student",
         "student_id": "202112345"
     }
 
@@ -77,10 +86,10 @@ class TestRegisterEndpoint:
         """Test that register endpoint rejects requests missing required fields."""
         # Missing 'password'
         incomplete_payload = {
-            "email": "student@university.edu.tr",
+            "email": "student@ogr.selcuk.edu.tr",
             "first_name": "Test",
             "last_name": "Student",
-            "role": "student"
+            "student_id": "202112345"
         }
         
         response = await client.post("/v1/auth/register", json=incomplete_payload)
@@ -107,13 +116,44 @@ class TestRegisterEndpoint:
         assert response.status_code == 400, "Should reject password shorter than 8 characters"
     
     @pytest.mark.asyncio
-    async def test_register_validates_role_enum(self, client, valid_register_payload):
-        """Test that register endpoint validates role enum [student, instructor]."""
-        invalid_payload = {**valid_register_payload, "role": "invalid_role"}
+    async def test_register_validates_email_domain(self, client, valid_register_payload):
+        """Test that register endpoint validates email domain (Konya universities only)."""
+        # Test with invalid domain (not in allowed list)
+        invalid_payload = {**valid_register_payload, "email": "student@mit.edu"}
         
         response = await client.post("/v1/auth/register", json=invalid_payload)
         
-        assert response.status_code == 400, "Should reject invalid role value"
+        assert response.status_code == 400, "Should reject email from non-allowed domain"
+        error_data = response.json()
+        assert "error" in error_data, "Should return error object"
+        assert "Konya university" in error_data["error"]["message"] or "allowed" in error_data["error"]["message"].lower(), \
+            "Error message should mention allowed domains"
+    
+    @pytest.mark.asyncio
+    async def test_register_accepts_all_konya_domains(self, client):
+        """Test that register accepts all 5 allowed Konya university domains."""
+        allowed_domains = [
+            "ogr.selcuk.edu.tr",
+            "ktun.edu.tr",
+            "ogr.erbakan.edu.tr",
+            "karatay.edu.tr",
+            "ogr.gidatarim.edu.tr"
+        ]
+        
+        for domain in allowed_domains:
+            payload = {
+                "email": f"student{uuid4().hex[:8]}@{domain}",
+                "password": "SecurePass123!",
+                "first_name": "Test",
+                "last_name": "Student",
+                "student_id": "202112345"
+            }
+            
+            response = await client.post("/v1/auth/register", json=payload)
+            
+            # Should accept (201) or conflict if email already exists (409)
+            assert response.status_code in [201, 409], \
+                f"Should accept email from {domain}"
     
     @pytest.mark.asyncio
     async def test_register_success_response_schema(self, client, valid_register_payload):
@@ -184,11 +224,11 @@ class TestLoginEndpoint:
         """Test that successful login returns correct response schema (200)."""
         # First register a user
         register_payload = {
-            "email": f"student{uuid4().hex[:8]}@university.edu.tr",
+            "email": f"student{uuid4().hex[:8]}@ogr.selcuk.edu.tr",
             "password": "SecurePass123!",
             "first_name": "Test",
             "last_name": "Student",
-            "role": "student"
+            "student_id": "202112345"
         }
         await client.post("/v1/auth/register", json=register_payload)
         
@@ -243,11 +283,11 @@ class TestLoginEndpoint:
         """Test that unverified email returns 403 Forbidden."""
         # Register user (email not verified by default)
         register_payload = {
-            "email": f"unverified{uuid4().hex[:8]}@university.edu.tr",
+            "email": f"unverified{uuid4().hex[:8]}@ogr.selcuk.edu.tr",
             "password": "SecurePass123!",
             "first_name": "Unverified",
             "last_name": "User",
-            "role": "student"
+            "student_id": "202112345"
         }
         await client.post("/v1/auth/register", json=register_payload)
         
@@ -461,11 +501,11 @@ class TestErrorResponseFormat:
         """Test that 409 errors follow standard error schema."""
         # Register twice with same email
         payload = {
-            "email": f"conflict{uuid4().hex[:8]}@university.edu.tr",
+            "email": f"conflict{uuid4().hex[:8]}@ogr.selcuk.edu.tr",
             "password": "SecurePass123!",
             "first_name": "Test",
             "last_name": "User",
-            "role": "student"
+            "student_id": "202112345"
         }
         await client.post("/v1/auth/register", json=payload)
         response = await client.post("/v1/auth/register", json=payload)

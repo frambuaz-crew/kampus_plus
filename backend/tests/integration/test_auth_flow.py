@@ -36,8 +36,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.fixture
 def unique_email():
-    """Generate unique email for each test."""
-    return f"student{uuid4().hex[:12]}@university.edu.tr"
+    """Generate unique email for each test (Konya university domain)."""
+    return f"student{uuid4().hex[:12]}@ogr.selcuk.edu.tr"
 
 
 @pytest.fixture
@@ -64,7 +64,6 @@ class TestRegistrationFlow:
             "password": "SecurePass123!",
             "first_name": "Integration",
             "last_name": "Test",
-            "role": "student",
             "student_id": "202199999"
         }
         
@@ -112,7 +111,7 @@ class TestRegistrationFlow:
             "password": "SecurePass123!",
             "first_name": "First",
             "last_name": "User",
-            "role": "student"
+            "student_id": "202199999"
         }
         
         # First registration
@@ -141,7 +140,7 @@ class TestEmailVerificationFlow:
             "password": "SecurePass123!",
             "first_name": "Verify",
             "last_name": "Test",
-            "role": "student"
+            "student_id": "202199999"
         }
         
         response = await client.post("/v1/auth/register", json=register_payload)
@@ -204,7 +203,7 @@ class TestLoginFlow:
             "password": password,
             "first_name": "Login",
             "last_name": "Test",
-            "role": "student"
+            "student_id": "202199999"
         }
         
         register_response = await client.post("/v1/auth/register", json=register_payload)
@@ -266,7 +265,7 @@ class TestLoginFlow:
             "password": password,
             "first_name": "Unverified",
             "last_name": "User",
-            "role": "student"
+            "student_id": "202199999"
         }
         
         await client.post("/v1/auth/register", json=register_payload)
@@ -308,7 +307,7 @@ class TestTokenRefreshFlow:
             "password": password,
             "first_name": "Refresh",
             "last_name": "Test",
-            "role": "student"
+            "student_id": "202199999"
         }
         response = await client.post("/v1/auth/register", json=register_payload)
         assert response.status_code == 201
@@ -372,7 +371,7 @@ class TestLogoutFlow:
             "password": password,
             "first_name": "Logout",
             "last_name": "Test",
-            "role": "student"
+            "student_id": "202199999"
         }
         response = await client.post("/v1/auth/register", json=register_payload)
         assert response.status_code == 201
@@ -426,7 +425,7 @@ class TestPasswordResetFlow:
             "password": "OldPassword123!",
             "first_name": "Reset",
             "last_name": "Test",
-            "role": "student"
+            "student_id": "202199999"
         }
         await client.post("/v1/auth/register", json=register_payload)
         
@@ -466,7 +465,7 @@ class TestPasswordResetFlow:
             "password": old_password,
             "first_name": "Reset",
             "last_name": "Flow",
-            "role": "student"
+            "student_id": "202199999"
         }
         response = await client.post("/v1/auth/register", json=register_payload)
         assert response.status_code == 201
@@ -518,7 +517,6 @@ class TestCompleteAuthenticationFlow:
             "password": password,
             "first_name": "Full",
             "last_name": "Flow",
-            "role": "student",
             "student_id": "202100001"
         }
         

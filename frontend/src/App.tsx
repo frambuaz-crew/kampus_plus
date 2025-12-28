@@ -9,6 +9,8 @@ import { ChatTestPage } from './pages/ChatTestPage';
 import { ChatPage } from './pages/ChatPage';
 import DocumentsPage from './pages/DocumentsPage';
 import { ForumPage } from './pages/ForumPage';
+// EMAIL VERIFICATION DISABLED - TODO: Re-enable in production
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { AuthProvider } from './contexts/AuthContext';
 import './App.css';
 
@@ -20,6 +22,8 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          {/* EMAIL VERIFICATION DISABLED - TODO: Re-enable in production */}
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* Protected Routes */}
           <Route

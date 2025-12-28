@@ -41,15 +41,26 @@ copy .env.example .env  # Windows
 cp .env.example .env    # macOS/Linux
 ```
 
-`backend/.env` dosyasını aç ve **sadece şu satırı değiştir**:
+`backend/.env` dosyasını aç ve şu satırları güncelle:
 
 ```env
+# Google Gemini API Key (Zorunlu)
 GOOGLE_API_KEY=buraya-kendi-api-keyini-yapistir
+
+# Resend Email API Key (Email gönderimi için - Zorunlu)
+SMTP_PASSWORD=re_your_resend_api_key_here
 ```
 
-> 💡 **API Key Nasıl Alınır?**
+> 💡 **Google Gemini API Key Nasıl Alınır?**
 > 1. https://makersuite.google.com/app/apikey → "Create API Key"
 > 2. Oluşan key'i kopyala ve yapıştır
+
+> 📧 **Resend Email API Key Nasıl Alınır?**
+> 1. https://resend.com → Sign up (ücretsiz hesap)
+> 2. Dashboard → API Keys → Create API Key
+> 3. Permission: `Sending access` seçin
+> 4. API Key'i kopyalayın (format: `re_xxxxxxxxxxxxx`)
+> 5. `.env` dosyasında `SMTP_PASSWORD` satırına yapıştırın
 
 ```bash
 # Frontend .env dosyasını kopyala (root dizine dön)

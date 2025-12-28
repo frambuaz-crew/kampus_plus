@@ -17,19 +17,19 @@ FRONTEND_BASE = "http://localhost:5173"
 
 # Test credentials
 TEST_USER_1 = {
-    "email": "e2e_student1@university.edu.tr",
+    "email": "e2e_student1@ogr.selcuk.edu.tr",
     "password": "TestPassword123!",
     "first_name": "E2E",
     "last_name": "Student1",
-    "role": "student"
+    "student_id": "202199999"
 }
 
 TEST_USER_2 = {
-    "email": "e2e_student2@university.edu.tr",
+    "email": "e2e_student2@ogr.selcuk.edu.tr",
     "password": "TestPassword123!",
     "first_name": "E2E", 
     "last_name": "Student2",
-    "role": "student"
+    "student_id": "202199998"
 }
 
 def test_health_check():

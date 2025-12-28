@@ -253,7 +253,7 @@ class TestAuthService:
             password=password,
             first_name="Ali",
             last_name="Yılmaz",
-            role="student"
+            student_id="202112345"
         )
         
         # Verify password is hashed
@@ -423,28 +423,6 @@ class TestAuthService:
             )
         
         assert "already exists" in str(exc_info.value).lower()
-    
-    @pytest.mark.asyncio
-    async def test_register_user_rejects_invalid_role(self, auth_service, mocker):
-        """Test that registering with invalid role raises ValueError."""
-        # Mock DB session (no existing user)
-        mock_session = mocker.AsyncMock()
-        mock_session.execute = mocker.AsyncMock(
-            return_value=mocker.Mock(scalar_one_or_none=mocker.Mock(return_value=None))
-        )
-        
-        # Attempt registration with invalid role
-        with pytest.raises(ValueError) as exc_info:
-            await auth_service.register_user(
-                session=mock_session,
-                email="newuser@university.edu.tr",
-                password="Password123!",
-                first_name="Ali",
-                last_name="Yılmaz",
-                role="superuser"  # Invalid role
-            )
-        
-        assert "invalid role" in str(exc_info.value).lower()
     
     @pytest.mark.asyncio
     async def test_authenticate_user_rejects_nonexistent_email(self, auth_service, mocker):

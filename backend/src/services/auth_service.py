@@ -47,22 +47,22 @@ class AuthService:
         password: str,
         first_name: str,
         last_name: str,
-        role: str = "student",
-        student_id: Optional[str] = None,
+        student_id: str,
     ) -> User:
-        """Register new user with hashed password.
+        """Register new student user with hashed password.
+        
+        All users are registered as 'student' role. Platform is student-only.
         
         Args:
             session: Database session.
-            email: User's email address (must be unique).
+            email: User's email address (must be unique, from allowed Konya university domains).
             password: Plain text password to hash.
             first_name: User's first name.
             last_name: User's last name.
-            role: User role (student, instructor, admin).
-            student_id: Optional university student/staff ID.
+            student_id: University student ID (required).
         
         Returns:
-            Created User instance.
+            Created User instance with role='student'.
         
         Raises:
             ValueError: If email already exists or validation fails.
@@ -71,11 +71,11 @@ class AuthService:
             >>> async with session_factory() as session:
             ...     user = await auth_service.register_user(
             ...         session,
-            ...         email="student@university.edu.tr",
+            ...         email="student@ogr.selcuk.edu.tr",
             ...         password="SecurePass123!",
             ...         first_name="Ali",
             ...         last_name="Yılmaz",
-            ...         role="student"
+            ...         student_id="202112345"
             ...     )
         """
         # Check if email already exists
@@ -87,23 +87,19 @@ class AuthService:
         if existing_user:
             raise ValueError(f"User with email {email} already exists")
         
-        # Validate role
-        if role not in ["student", "instructor", "admin"]:
-            raise ValueError(f"Invalid role: {role}")
-        
         # Hash password with bcrypt
         password_hash = hash_password(password)
         
-        # Create user
+        # Create user (always as student)
         user = User(
             id=uuid4(),
             email=email,
             password_hash=password_hash,
-            role=UserRole(role),
+            role=UserRole("student"),  # Always student
             first_name=first_name,
             last_name=last_name,
             student_id=student_id,
-            is_verified=True,  # Auto-verified for testing (TODO: Re-enable email verification in production)
+            is_verified=True,  # Email verification temporarily disabled for development
             is_active=True,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
@@ -158,10 +154,10 @@ class AuthService:
         if not verify_password(password, user.password_hash):
             raise ValueError("Invalid email or password")
         
-        # Check if user is verified (DISABLED FOR TESTING)
-        # TODO: Re-enable in production
+        # Email verification temporarily disabled for development
+        # TODO: Re-enable email verification in production
         # if not user.is_verified:
-        #     raise ValueError("Email not verified")
+        #     raise ValueError("Email not verified. Please verify your email address before logging in.")
         
         # Check if user is active
         if not user.is_active:
@@ -263,9 +259,7 @@ class AuthService:
             id=uuid4(),
             user_id=user.id,
             token_hash=hash_password(new_refresh_token_str),
-            expires_at=datetime.now(timezone.utc).replace(
-                day=datetime.now(timezone.utc).day + self.settings.jwt_refresh_token_expire_days
-            ),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=self.settings.jwt_refresh_token_expire_days),
             is_revoked=False,
             created_at=datetime.now(timezone.utc),
         )
@@ -280,80 +274,80 @@ class AuthService:
         return new_access_token, new_refresh_token_str
     
     # ============================================================================
-    # EMAIL VERIFICATION
+    # EMAIL VERIFICATION - DISABLED - TODO: Re-enable in production
     # ============================================================================
     
-    async def generate_verification_token(self, user_id: UUID) -> str:
-        """Generate email verification token.
-        
-        Args:
-            user_id: User's UUID.
-        
-        Returns:
-            JWT verification token (1-day expiration).
-        
-        Example:
-            >>> token = await auth_service.generate_verification_token(user.id)
-        """
-        from datetime import timedelta
-        
-        # Create special verification token (1 day expiration)
-        return create_access_token(
-            user_id=user_id,
-            role="verification",  # Special role for verification tokens
-            expires_delta=timedelta(days=1)
-        )
+    # async def generate_verification_token(self, user_id: UUID) -> str:
+    #     """Generate email verification token.
+    #     
+    #     Args:
+    #         user_id: User's UUID.
+    #     
+    #     Returns:
+    #         JWT verification token (1-day expiration).
+    #     
+    #     Example:
+    #         >>> token = await auth_service.generate_verification_token(user.id)
+    #     """
+    #     from datetime import timedelta
+    #     
+    #     # Create special verification token (1 day expiration)
+    #     return create_access_token(
+    #         user_id=user_id,
+    #         role="verification",  # Special role for verification tokens
+    #         expires_delta=timedelta(days=1)
+    #     )
     
-    async def verify_email(
-        self,
-        session: AsyncSession,
-        verification_token: str,
-    ) -> User:
-        """Verify user email with verification token.
-        
-        Args:
-            session: Database session.
-            verification_token: JWT verification token.
-        
-        Returns:
-            Updated User instance with is_verified=True.
-        
-        Raises:
-            ValueError: If token is invalid or expired.
-        
-        Example:
-            >>> user = await auth_service.verify_email(session, token)
-        """
-        # Decode token
-        try:
-            payload = decode_token(verification_token)
-        except Exception as e:
-            raise ValueError(f"Invalid verification token: {e}")
-        
-        # Extract user_id
-        user_id_str = payload.get("user_id")
-        if not user_id_str:
-            raise ValueError("Token missing user_id")
-        
-        user_id = UUID(user_id_str)
-        
-        # Find user
-        result = await session.execute(
-            select(User).where(User.id == user_id)
-        )
-        user = result.scalar_one_or_none()
-        
-        if not user:
-            raise ValueError("User not found")
-        
-        # Mark as verified
-        user.is_verified = True
-        user.updated_at = datetime.now(timezone.utc)
-        
-        await session.commit()
-        await session.refresh(user)
-        
-        return user
+    # async def verify_email(
+    #     self,
+    #     session: AsyncSession,
+    #     verification_token: str,
+    # ) -> User:
+    #     """Verify user email with verification token.
+    #     
+    #     Args:
+    #         session: Database session.
+    #         verification_token: JWT verification token.
+    #     
+    #     Returns:
+    #         Updated User instance with is_verified=True.
+    #     
+    #     Raises:
+    #         ValueError: If token is invalid or expired.
+    #     
+    #     Example:
+    #         >>> user = await auth_service.verify_email(session, token)
+    #     """
+    #     # Decode token
+    #     try:
+    #         payload = decode_token(verification_token)
+    #     except Exception as e:
+    #         raise ValueError(f"Invalid verification token: {e}")
+    #     
+    #     # Extract user_id
+    #     user_id_str = payload.get("user_id")
+    #     if not user_id_str:
+    #         raise ValueError("Token missing user_id")
+    #     
+    #     user_id = UUID(user_id_str)
+    #     
+    #     # Find user
+    #     result = await session.execute(
+    #         select(User).where(User.id == user_id)
+    #     )
+    #     user = result.scalar_one_or_none()
+    #     
+    #     if not user:
+    #         raise ValueError("User not found")
+    #     
+    #     # Mark as verified
+    #     user.is_verified = True
+    #     user.updated_at = datetime.now(timezone.utc)
+    #     
+    #     await session.commit()
+    #     await session.refresh(user)
+    #     
+    #     return user
     
     # ============================================================================
     # PASSWORD RESET

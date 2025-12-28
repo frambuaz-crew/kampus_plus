@@ -3,10 +3,10 @@
  * 
  * Features:
  * - Registration form with validation
- * - University email check
+ * - Konya university email check (5 allowed domains)
  * - Success message prompting email verification
- * - Role selection (student/instructor)
- * - Student ID for students
+ * - Student ID required
+ * - All users registered as students
  */
 
 import React, { useState } from 'react';
@@ -26,7 +26,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     confirmPassword: '',
     first_name: '',
     last_name: '',
-    role: 'student' as 'student' | 'instructor',
     student_id: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -36,11 +35,25 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Email validation (university email)
+    // Email validation (Konya universities only)
+    const allowedDomains = [
+      'ogr.selcuk.edu.tr',
+      'ktun.edu.tr',
+      'ogr.erbakan.edu.tr',
+      'karatay.edu.tr',
+      'ogr.gidatarim.edu.tr'
+    ];
+
     if (!formData.email) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.edu(\.tr)?$/.test(formData.email)) {
-      newErrors.email = 'Please use a valid university email address';
+    } else {
+      const emailLower = formData.email.toLowerCase().trim();
+      const emailDomain = emailLower.split('@')[1];
+      
+      if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+        newErrors.email = 'Email must be from one of the allowed Konya university domains: ' + 
+          allowedDomains.join(', ');
+      }
     }
 
     // Password validation
@@ -50,8 +63,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       newErrors.password = 'Password must be at least 8 characters';
     }
 
-    // Confirm password
-    if (formData.password !== formData.confirmPassword) {
+    // Confirm password - only validate if password is provided
+    if (formData.password && formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
@@ -63,8 +76,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       newErrors.last_name = 'Last name is required';
     }
 
-    // Student ID for students
-    if (formData.role === 'student' && !formData.student_id) {
+    // Student ID is required
+    if (!formData.student_id) {
       newErrors.student_id = 'Student ID is required';
     }
 
@@ -92,15 +105,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         password: formData.password,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        role: formData.role,
-        ...(formData.role === 'student' && { student_id: formData.student_id }),
+        student_id: formData.student_id,
       };
 
       await register(registerData);
 
-      // Success - show message
+      // Success - show message (email verification disabled)
       setSuccessMessage(
-        'Registration successful! Please check your email to verify your account before logging in.'
+        'Registration successful! You can now login to your account.'
       );
 
       // Reset form
@@ -110,7 +122,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         confirmPassword: '',
         first_name: '',
         last_name: '',
-        role: 'student',
         student_id: '',
       });
 
@@ -144,6 +155,15 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
 
   return (
@@ -214,41 +234,23 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       </div>
 
       <div>
-        <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-          Role
+        <label htmlFor="student_id" className="block text-sm font-medium text-gray-700">
+          Student ID
         </label>
-        <select
-          id="role"
-          name="role"
-          value={formData.role}
+        <input
+          id="student_id"
+          name="student_id"
+          type="text"
+          value={formData.student_id}
           onChange={handleChange}
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           disabled={isLoading}
-        >
-          <option value="student">Student</option>
-          <option value="instructor">Instructor</option>
-        </select>
+          required
+        />
+        {errors.student_id && (
+          <p className="mt-1 text-sm text-red-600">{errors.student_id}</p>
+        )}
       </div>
-
-      {formData.role === 'student' && (
-        <div>
-          <label htmlFor="student_id" className="block text-sm font-medium text-gray-700">
-            Student ID
-          </label>
-          <input
-            id="student_id"
-            name="student_id"
-            type="text"
-            value={formData.student_id}
-            onChange={handleChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            disabled={isLoading}
-          />
-          {errors.student_id && (
-            <p className="mt-1 text-sm text-red-600">{errors.student_id}</p>
-          )}
-        </div>
-      )}
 
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
