@@ -10,6 +10,7 @@ import { ThreadList } from '../components/forum/ThreadList';
 import { ThreadView } from '../components/forum/ThreadView';
 import { NewThreadForm } from '../components/forum/NewThreadForm';
 import { SearchBar } from '../components/forum/SearchBar';
+import { Header } from '../components/layout/Header';
 import type { ThreadListItem, ThreadWithReplies, SearchResult } from '../types/forum';
 
 export const ForumPage: React.FC = () => {
@@ -130,9 +131,11 @@ export const ForumPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      
+      <div className="max-w-6xl mx-auto px-8 py-8">
+        {/* Page Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold text-gray-900">

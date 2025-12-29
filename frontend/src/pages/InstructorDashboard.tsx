@@ -11,6 +11,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/config';
+import { Header } from '../components/layout/Header';
 
 interface Course {
   id: string;
@@ -27,7 +28,7 @@ interface MyCoursesResponse {
 }
 
 export const InstructorDashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,35 +51,23 @@ export const InstructorDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">
-                👨‍🏫 Instructor Dashboard
-              </h1>
-              <p className="text-purple-100 mt-1">KAMPÜS+ AI Platform</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="font-medium">
-                  {user?.first_name} {user?.last_name}
-                </p>
-                <p className="text-sm text-purple-200">{user?.email}</p>
-              </div>
-              <button
-                onClick={() => logout()}
-                className="px-4 py-2 bg-white text-purple-600 rounded-md hover:bg-purple-50 font-medium"
-              >
-                Logout
-              </button>
-            </div>
+      {/* Professional Header */}
+      <Header />
+      
+      {/* Page Banner */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg">
+        <div className="w-full px-8 xl:px-16 py-8">
+          <div className="max-w-[1920px] mx-auto">
+            <h1 className="text-3xl font-bold">
+              👨‍🏫 Instructor Dashboard
+            </h1>
+            <p className="text-purple-100 mt-1">Manage your courses and student interactions</p>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="w-full px-8 xl:px-16 py-8">
+        <div className="max-w-[1920px] mx-auto">
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <button className="bg-white border-2 border-indigo-200 p-6 rounded-lg hover:border-indigo-400 hover:shadow-md transition-all text-left">
@@ -225,6 +214,7 @@ export const InstructorDashboard: React.FC = () => {
               💡 <span className="font-medium">Tip:</span> Upload course materials to enable AI-powered Q&A for your students
             </p>
           </div>
+        </div>
         </div>
       </main>
     </div>

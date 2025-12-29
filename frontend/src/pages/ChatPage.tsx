@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { apiClient } from '../api/config';
 import { SessionList } from '../components/chat/SessionList';
 import { ChatInterface } from '../components/chat/ChatInterface';
+import { Header } from '../components/layout/Header';
 
 interface Message {
   id: number;
@@ -108,38 +109,42 @@ export const ChatPage: React.FC = () => {
 
   if (isInitializing) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center bg-gray-50">
         <div className="text-gray-500">Loading chat...</div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen grid grid-cols-[300px_1fr]">
-      {/* Sidebar with session list */}
-      <div className="border-r border-gray-200 overflow-hidden">
-        <SessionList
-          currentSessionId={currentSessionId}
-          onSessionSelect={handleSessionSelect}
-          onNewChat={handleNewChat}
-          refreshTrigger={(refreshFn) => {
-            sessionListRefreshRef.current = refreshFn;
-          }}
-        />
-      </div>
+    <div className="h-screen flex flex-col bg-gray-50">
+      <Header />
+      
+      <div className="flex-1 grid grid-cols-[300px_1fr] overflow-hidden">
+        {/* Sidebar with session list */}
+        <div className="border-r border-gray-200 overflow-hidden bg-white">
+          <SessionList
+            currentSessionId={currentSessionId ? Number(currentSessionId) : null}
+            onSessionSelect={(id: number) => handleSessionSelect(String(id))}
+            onNewChat={handleNewChat}
+            refreshTrigger={(refreshFn) => {
+              sessionListRefreshRef.current = refreshFn;
+            }}
+          />
+        </div>
 
-      {/* Main chat area */}
-      <div className="overflow-hidden flex flex-col">
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 m-4 rounded">
-            {error}
-          </div>
-        )}
-        <ChatInterface
-          sessionId={currentSessionId}
-          initialMessages={messages}
-          onMessageSent={handleMessageSent}
-        />
+        {/* Main chat area */}
+        <div className="overflow-hidden flex flex-col bg-white">
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 m-4 rounded">
+              {error}
+            </div>
+          )}
+          <ChatInterface
+            sessionId={currentSessionId}
+            initialMessages={messages}
+            onMessageSent={handleMessageSent}
+          />
+        </div>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UploadForm from '../components/documents/UploadForm';
 import DocumentList from '../components/documents/DocumentList';
+import { Header } from '../components/layout/Header';
 import './DocumentsPage.css';
 
 const DocumentsPage: React.FC = () => {
@@ -36,35 +37,41 @@ const DocumentsPage: React.FC = () => {
 
   return (
     <div className="documents-page">
-      {/* Header */}
-      <header className="page-header">
-        <div className="header-content">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="back-btn"
-            aria-label="Back to dashboard"
-          >
-            <svg
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      {/* Professional Header */}
+      <Header />
+
+      {/* Page Title Section */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="w-full px-8 xl:px-16 py-6">
+          <div className="max-w-[1920px] mx-auto flex items-center space-x-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Back to dashboard"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-          <div className="header-text">
-            <h1>My Documents</h1>
-            <p className="header-subtitle">
-              Upload and manage your PDF documents
-            </p>
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">My Documents</h1>
+              <p className="text-sm text-gray-600">
+                Upload and manage your PDF documents
+              </p>
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="page-content">

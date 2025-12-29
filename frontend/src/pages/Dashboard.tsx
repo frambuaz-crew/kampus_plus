@@ -12,6 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { apiClient } from '../api/config';
+import { Header } from '../components/layout/Header';
 
 interface Course {
   id: string;
@@ -74,35 +75,11 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                🎓 KAMPÜS+ AI Platform
-              </h1>
-              <p className="text-sm text-gray-600">Student Dashboard</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.first_name} {user?.last_name}
-                </p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
-              </div>
-              <button
-                onClick={() => logout()}
-                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Professional Header */}
+      <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="w-full px-8 xl:px-16 py-8">
+        <div className="max-w-[1920px] mx-auto">
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <button 
@@ -338,6 +315,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </main>
     </div>
