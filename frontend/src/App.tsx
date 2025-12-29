@@ -3,12 +3,17 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { Dashboard } from './pages/Dashboard';
-import { InstructorDashboard } from './pages/InstructorDashboard';
+import { NewDashboard } from './pages/NewDashboard';
 import { ChatTestPage } from './pages/ChatTestPage';
 import { ChatPage } from './pages/ChatPage';
 import DocumentsPage from './pages/DocumentsPage';
 import { ForumPage } from './pages/ForumPage';
+import { CoursesPage } from './pages/CoursesPage';
+import { StatisticsPage } from './pages/StatisticsPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { HelpPage } from './pages/HelpPage';
+import { AdminLogin } from './pages/admin/AdminLogin';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
 // EMAIL VERIFICATION DISABLED - TODO: Re-enable in production
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { AuthProvider } from './contexts/AuthContext';
@@ -25,27 +30,31 @@ function App() {
           {/* EMAIL VERIFICATION DISABLED - TODO: Re-enable in production */}
           <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-          {/* Protected Routes */}
+          {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route
-            path="/dashboard"
+            path="/admin/dashboard"
             element={
-              <ProtectedRoute requiredRole="student">
-                <Dashboard />
+              <ProtectedRoute>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />
+          <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+
+          {/* Protected Routes - Student Only */}
           <Route
-            path="/instructor"
+            path="/dashboard"
             element={
-              <ProtectedRoute requiredRole="instructor">
-                <InstructorDashboard />
+              <ProtectedRoute>
+                <NewDashboard />
               </ProtectedRoute>
             }
           />
           <Route
             path="/chat-test"
             element={
-              <ProtectedRoute requiredRole="student">
+              <ProtectedRoute>
                 <ChatTestPage />
               </ProtectedRoute>
             }
@@ -53,7 +62,7 @@ function App() {
           <Route
             path="/chat"
             element={
-              <ProtectedRoute requiredRole="student">
+              <ProtectedRoute>
                 <ChatPage />
               </ProtectedRoute>
             }
@@ -61,7 +70,7 @@ function App() {
           <Route
             path="/documents"
             element={
-              <ProtectedRoute requiredRole="student">
+              <ProtectedRoute>
                 <DocumentsPage />
               </ProtectedRoute>
             }
@@ -69,8 +78,40 @@ function App() {
           <Route
             path="/forum"
             element={
-              <ProtectedRoute requiredRole="student">
+              <ProtectedRoute>
                 <ForumPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/courses"
+            element={
+              <ProtectedRoute>
+                <CoursesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <ProtectedRoute>
+                <StatisticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ProtectedRoute>
+                <HelpPage />
               </ProtectedRoute>
             }
           />
@@ -102,9 +143,9 @@ const LoginPage: React.FC = () => {
             Welcome Back
           </h2>
           <LoginForm
-            onSuccess={(user) => {
-              // Redirect based on role
-              window.location.href = user.role === 'instructor' ? '/instructor' : '/dashboard';
+            onSuccess={() => {
+              // Redirect to dashboard
+              window.location.href = '/dashboard';
             }}
           />
           <div className="mt-6 text-center">
