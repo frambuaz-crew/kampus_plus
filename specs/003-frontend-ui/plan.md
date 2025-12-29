@@ -273,7 +273,8 @@ directories captured above]
 
 **Goal**: Resolve all technical unknowns, validate library choices, establish architectural patterns
 
-**Deliverables**: esearch.md document with decisions, rationales, and alternatives considered
+**Deliverables**: 
+esearch.md document with decisions, rationales, and alternatives considered
 
 **Research Areas**:
 
@@ -352,7 +353,8 @@ directories captured above]
     - Rationale: Zero-config, automatic HTTPS, global CDN, instant rollbacks
     - CI/CD: GitHub Actions for linting/testing, Vercel for deployment
 
-**Output**: esearch.md document with full justification for all 15 decisions
+**Output**: 
+esearch.md document with full justification for all 15 decisions
 
 ---
 
