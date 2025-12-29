@@ -106,8 +106,12 @@ export const Header: React.FC = () => {
   };
 
   const handleLogout = () => {
+    setProfileOpen(false); // Close dropdown first
     logout();
-    navigate('/login');
+    // Small delay to ensure logout completes
+    setTimeout(() => {
+      navigate('/login');
+    }, 100);
   };
 
   return (
@@ -166,7 +170,7 @@ export const Header: React.FC = () => {
 
               {/* Notifications Dropdown */}
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-fadeIn">
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-fadeIn z-50">
                   {/* Header */}
                   <div className="px-4 py-2 border-b border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-900 flex items-center space-x-2">
@@ -244,7 +248,7 @@ export const Header: React.FC = () => {
 
               {/* Messages Dropdown */}
               {messagesOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-fadeIn">
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-fadeIn z-50">
                   {/* Header */}
                   <div className="px-4 py-2 border-b border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-900 flex items-center space-x-2">
@@ -344,7 +348,7 @@ export const Header: React.FC = () => {
 
               {/* Profile Dropdown */}
               {profileOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-fadeIn">
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-fadeIn z-50">
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">

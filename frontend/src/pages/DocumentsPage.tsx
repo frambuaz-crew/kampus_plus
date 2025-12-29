@@ -16,7 +16,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UploadForm from '../components/documents/UploadForm';
 import DocumentList from '../components/documents/DocumentList';
-import { Header } from '../components/layout/Header';
+import { MainLayout } from '../components/layout/MainLayout';
 import './DocumentsPage.css';
 
 const DocumentsPage: React.FC = () => {
@@ -36,14 +36,12 @@ const DocumentsPage: React.FC = () => {
   };
 
   return (
-    <div className="documents-page">
-      {/* Professional Header */}
-      <Header />
-
-      {/* Page Title Section */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="w-full px-8 xl:px-16 py-6">
-          <div className="max-w-[1920px] mx-auto flex items-center space-x-4">
+    <MainLayout>
+      <div className="documents-page">
+        {/* Page Title Section */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="w-full px-8 xl:px-16 py-6">
+            <div className="max-w-[1920px] mx-auto flex items-center space-x-4">
             <button
               onClick={() => navigate('/dashboard')}
               className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
@@ -105,7 +103,8 @@ const DocumentsPage: React.FC = () => {
           />
         </section>
       </main>
-    </div>
+      </div>
+    </MainLayout>
   );
 };
 

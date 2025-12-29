@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { apiClient } from '../api/config';
 import { SessionList } from '../components/chat/SessionList';
 import { ChatInterface } from '../components/chat/ChatInterface';
-import { Header } from '../components/layout/Header';
+import { MainLayout } from '../components/layout/MainLayout';
 
 interface Message {
   id: number;
@@ -116,10 +116,8 @@ export const ChatPage: React.FC = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <Header />
-      
-      <div className="flex-1 grid grid-cols-[300px_1fr] overflow-hidden">
+    <MainLayout>
+      <div className="h-full grid grid-cols-[300px_1fr] overflow-hidden">
         {/* Sidebar with session list */}
         <div className="border-r border-gray-200 overflow-hidden bg-white">
           <SessionList
@@ -146,6 +144,6 @@ export const ChatPage: React.FC = () => {
           />
         </div>
       </div>
-    </div>
+    </MainLayout>
   );
 };

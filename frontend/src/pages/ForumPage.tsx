@@ -10,7 +10,7 @@ import { ThreadList } from '../components/forum/ThreadList';
 import { ThreadView } from '../components/forum/ThreadView';
 import { NewThreadForm } from '../components/forum/NewThreadForm';
 import { SearchBar } from '../components/forum/SearchBar';
-import { Header } from '../components/layout/Header';
+import { MainLayout } from '../components/layout/MainLayout';
 import type { ThreadListItem, ThreadWithReplies, SearchResult } from '../types/forum';
 
 export const ForumPage: React.FC = () => {
@@ -131,9 +131,7 @@ export const ForumPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      
+    <MainLayout>
       <div className="max-w-6xl mx-auto px-8 py-8">
         {/* Page Header */}
         <div className="mb-8">
@@ -249,6 +247,6 @@ export const ForumPage: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </MainLayout>
   );
 };
