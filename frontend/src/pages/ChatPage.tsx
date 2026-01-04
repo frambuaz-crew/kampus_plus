@@ -1,148 +1,146 @@
-import React, { useState, useRef } from 'react';
+/**
+ * ChatPage Component
+ * 
+ * Spec: 009-ai-assistant/spec.md
+ * 
+ * AI Asistan chat sayfası:
+ * - Tek aktif konuşma (her kullanıcının sadece 1 konuşması)
+ * - "Yeni Konuşma" butonu (onay popup'ı ile)
+ * - ChatInterface ile mesajlaşma
+ * - MainLayout kullanır (Header + Sidebar + Main Content)
+ */
+
+import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api/config';
-import { SessionList } from '../components/chat/SessionList';
 import { ChatInterface } from '../components/chat/ChatInterface';
 import { MainLayout } from '../components/layout/MainLayout';
-
-interface Message {
-  id: number;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  sources?: Array<{
-    page_number: number;
-    document_title: string;
-    document_url?: string;
-  }>;
-}
-
-interface Session {
-  id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  message_count: number;
-}
+import type { ChatMessage } from '../types/chat';
 
 export const ChatPage: React.FC = () => {
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState<boolean>(true);
-  const sessionListRefreshRef = useRef<(() => void) | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Auto-create session on mount if no session exists
-  React.useEffect(() => {
-    console.log('ChatPage useEffect - initializing session...');
-    const initializeSession = async () => {
-      try {
-        // Check if there are existing sessions
-        console.log('Fetching existing sessions...');
-        const sessionsResponse = await apiClient.get('/chat/sessions');
-        const sessions = sessionsResponse.data;
-        console.log('Sessions fetched:', sessions);
-        
-        if (sessions && sessions.length > 0) {
-          // Load the most recent session
-          const latestSession = sessions[0];
-          console.log('Loading latest session:', latestSession.id);
-          await handleSessionSelect(latestSession.id);
-        } else {
-          // Create a new session if none exist
-          console.log('No sessions found, creating new...');
-          await handleNewChat();
-        }
-      } catch (err) {
-        console.error('Failed to initialize session:', err);
-        // Try to create a new session as fallback
-        await handleNewChat();
-      } finally {
-        console.log('Initialization complete, setting isInitializing to false');
-        setIsInitializing(false);
-      }
-    };
-    
-    initializeSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Load conversation on mount
+  useEffect(() => {
+    loadConversation();
   }, []);
 
-  const handleSessionSelect = async (sessionId: string) => {
+  const loadConversation = async () => {
     try {
+      setIsLoading(true);
       setError(null);
-      const response = await apiClient.get(`/chat/sessions/${sessionId}`);
+      const response = await apiClient.get('/ai/conversation');
       
-      setMessages(response.data.messages || []);
-      setCurrentSessionId(sessionId);
+      if (response.data.conversation_id) {
+        setConversationId(response.data.conversation_id);
+        setMessages(response.data.messages || []);
+      } else {
+        // No conversation yet, will be created on first message
+        setConversationId(null);
+        setMessages([]);
+      }
     } catch (err) {
-      console.error('Failed to load session messages:', err);
-      setError('Failed to load messages');
+      console.error('Konuşma yüklenemedi:', err);
+      setError('Konuşma yüklenemedi');
+      setMessages([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleNewChat = async () => {
+  const handleNewConversation = async () => {
     try {
       setError(null);
-      const response = await apiClient.post<Session>('/chat/sessions', {
-        title: 'New Chat',
-      });
-
-      // Clear current messages and select new session
-      setMessages([]);
-      setCurrentSessionId(response.data.id);
+      // Delete existing conversation
+      await apiClient.delete('/ai/conversation');
       
-      // Refresh session list
-      if (sessionListRefreshRef.current) {
-        sessionListRefreshRef.current();
-      }
+      // Clear state
+      setConversationId(null);
+      setMessages([]);
+      setShowConfirmDialog(false);
     } catch (err) {
-      console.error('Failed to create new chat:', err);
-      setError('Failed to create new chat');
+      console.error('Konuşma silinemedi:', err);
+      setError('Konuşma silinemedi');
     }
   };
 
   const handleMessageSent = () => {
-    // Refresh session list to update message counts
-    if (sessionListRefreshRef.current) {
-      sessionListRefreshRef.current();
-    }
+    // Reload conversation to get updated messages
+    loadConversation();
   };
 
-  if (isInitializing) {
+  if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">Loading chat...</div>
-      </div>
+      <MainLayout>
+        <div className="h-full flex items-center justify-center bg-gray-50">
+          <div className="text-gray-500">Yükleniyor...</div>
+        </div>
+      </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <div className="h-full grid grid-cols-[300px_1fr] overflow-hidden">
-        {/* Sidebar with session list */}
-        <div className="border-r border-gray-200 overflow-hidden bg-white">
-          <SessionList
-            currentSessionId={currentSessionId ? Number(currentSessionId) : null}
-            onSessionSelect={(id: number) => handleSessionSelect(String(id))}
-            onNewChat={handleNewChat}
-            refreshTrigger={(refreshFn) => {
-              sessionListRefreshRef.current = refreshFn;
-            }}
-          />
+      <div className="h-full flex flex-col bg-white">
+        {/* Header with "Yeni Konuşma" button */}
+        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between bg-white">
+          <h1 className="text-2xl font-bold text-gray-900">AI Asistanım</h1>
+          <button
+            onClick={() => setShowConfirmDialog(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium flex items-center gap-2"
+          >
+            🔄 Yeni Konuşma
+          </button>
         </div>
 
-        {/* Main chat area */}
-        <div className="overflow-hidden flex flex-col bg-white">
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 m-4 rounded">
-              {error}
-            </div>
-          )}
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border-t border-red-200 text-red-700 px-6 py-3">
+            {error}
+          </div>
+        )}
+
+        {/* Chat Interface */}
+        <div className="flex-1 overflow-hidden">
           <ChatInterface
-            sessionId={currentSessionId}
+            sessionId={conversationId}
             initialMessages={messages}
             onMessageSent={handleMessageSent}
           />
         </div>
+
+        {/* Confirm Dialog */}
+        {showConfirmDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Yeni Konuşma Başlat?
+              </h2>
+              <p className="text-gray-700 mb-6">
+                ⚠️ Mevcut konuşma geçmişi silinecek.
+                <br />
+                Emin misin?
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleNewConversation}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                >
+                  Evet, Temizle
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

@@ -521,7 +521,7 @@ CREATE INDEX idx_marketplace_messages_receiver ON marketplace_messages(receiver_
 
 ### Dosya Yükleme (Image Upload)
 
-**Stratejisi:** Local Storage (MVP için) - İleride MinIO veya Cloudflare R2'ye geçilebilir
+**Stratejisi:** Local Storage (mezuniyet projesi için sıfır maliyet)
 - **Dosya Formatı:** JPEG, PNG
 - **Maksimum Boyut:** 5MB/dosya
 - **Maksimum Adet:** 3 fotoğraf/ilan
@@ -529,9 +529,10 @@ CREATE INDEX idx_marketplace_messages_receiver ON marketplace_messages(receiver_
 - **Optimizasyon:** Backend'de image resize (1200x1200 max)
 - **Serving:** FastAPI StaticFiles (`/uploads/marketplace/...`)
 
-**Not:** 
-- Geliştirme aşamasında local disk kullanılacak (sıfır maliyet)
-- Production'da gerekirse MinIO (self-hosted) veya Cloudflare R2 (ücretli) kullanılabilir
+**NOT:** 
+- Bu proje mezuniyet projesi için local storage kullanır (backend/uploads/)
+- S3, MinIO, Cloudflare R2 veya cloud storage kullanılmaz
+- Tüm dosyalar backend sunucusunun disk'inde saklanır
 
 ---
 

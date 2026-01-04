@@ -4,18 +4,27 @@ import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { NewDashboard } from './pages/NewDashboard';
-import { ChatTestPage } from './pages/ChatTestPage';
 import { ChatPage } from './pages/ChatPage';
-import DocumentsPage from './pages/DocumentsPage';
 import { ForumPage } from './pages/ForumPage';
-import { CoursesPage } from './pages/CoursesPage';
-import { StatisticsPage } from './pages/StatisticsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { HelpPage } from './pages/HelpPage';
-import { AdminLogin } from './pages/admin/AdminLogin';
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-// EMAIL VERIFICATION DISABLED - TODO: Re-enable in production
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { LandingPage } from './pages/LandingPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { GlobalSearchPage } from './pages/GlobalSearchPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { MessagesPage } from './pages/MessagesPage';
+import { MessagesChatPage } from './pages/MessagesChatPage';
+import { AIAssistantPage } from './pages/AIAssistantPage';
+import { MarketplacePage } from './pages/MarketplacePage';
+import { CareerPage } from './pages/CareerPage';
+import { CourseSchedulePage } from './pages/CourseSchedulePage';
+import { AcademicCalendarPage } from './pages/AcademicCalendarPage';
+import { Error404Page } from './pages/Error404Page';
+import { Error500Page } from './pages/Error500Page';
+import { Error403Page } from './pages/Error403Page';
 import { AuthProvider } from './contexts/AuthContext';
 import './App.css';
 
@@ -25,24 +34,15 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          {/* EMAIL VERIFICATION DISABLED - TODO: Re-enable in production */}
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
 
-          {/* Admin Routes */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
-
-          {/* Protected Routes - Student Only */}
+          {/* Protected Routes - Dashboard */}
           <Route
             path="/dashboard"
             element={
@@ -52,26 +52,100 @@ function App() {
             }
           />
           <Route
-            path="/chat-test"
+            path="/dashboard/search"
             element={
               <ProtectedRoute>
-                <ChatTestPage />
+                <GlobalSearchPage />
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/ai-assistant"
+            element={
+              <ProtectedRoute>
+                <AIAssistantPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/forum"
+            element={
+              <ProtectedRoute>
+                <ForumPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/marketplace"
+            element={
+              <ProtectedRoute>
+                <MarketplacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/career"
+            element={
+              <ProtectedRoute>
+                <CareerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/course-schedule"
+            element={
+              <ProtectedRoute>
+                <CourseSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/academic-calendar"
+            element={
+              <ProtectedRoute>
+                <AcademicCalendarPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/messages"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/messages/:id"
+            element={
+              <ProtectedRoute>
+                <MessagesChatPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Legacy Routes (for backward compatibility) */}
           <Route
             path="/chat"
             element={
               <ProtectedRoute>
                 <ChatPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/documents"
-            element={
-              <ProtectedRoute>
-                <DocumentsPage />
               </ProtectedRoute>
             }
           />
@@ -84,21 +158,14 @@ function App() {
             }
           />
           <Route
-            path="/courses"
+            path="/dashboard/settings"
             element={
               <ProtectedRoute>
-                <CoursesPage />
+                <SettingsPage />
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/stats"
-            element={
-              <ProtectedRoute>
-                <StatisticsPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Legacy route for backward compatibility */}
           <Route
             path="/settings"
             element={
@@ -107,18 +174,14 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/help"
-            element={
-              <ProtectedRoute>
-                <HelpPage />
-              </ProtectedRoute>
-            }
-          />
+
+          {/* Error Pages */}
+          <Route path="/404" element={<Error404Page />} />
+          <Route path="/500" element={<Error500Page />} />
+          <Route path="/403" element={<Error403Page />} />
 
           {/* Default Redirect */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
@@ -134,25 +197,24 @@ const LoginPage: React.FC = () => {
             🎓 KAMPÜS+
           </h1>
           <p className="text-xl text-blue-100">
-            AI-Powered Learning Platform
+            AI Destekli Öğrenme Platformu
           </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-            Welcome Back
+            Tekrar Hoş Geldin
           </h2>
           <LoginForm
             onSuccess={() => {
-              // Redirect to dashboard
               window.location.href = '/dashboard';
             }}
           />
           <div className="mt-6 text-center">
             <p className="text-gray-600">
-              Don't have an account?{' '}
+              Hesabın yok mu?{' '}
               <a href="/register" className="text-indigo-600 hover:text-indigo-700 font-semibold">
-                Register here
+                Kayıt ol
               </a>
             </p>
           </div>
@@ -161,15 +223,15 @@ const LoginPage: React.FC = () => {
         <div className="mt-8 grid grid-cols-3 gap-4">
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-white text-center">
             <div className="text-2xl mb-1">🔐</div>
-            <p className="text-xs">Secure</p>
+            <p className="text-xs">Güvenli</p>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-white text-center">
             <div className="text-2xl mb-1">🤖</div>
-            <p className="text-xs">AI-Powered</p>
+            <p className="text-xs">AI Destekli</p>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-white text-center">
             <div className="text-2xl mb-1">⚡</div>
-            <p className="text-xs">Fast</p>
+            <p className="text-xs">Hızlı</p>
           </div>
         </div>
       </div>
@@ -186,20 +248,20 @@ const RegisterPage: React.FC = () => {
             🎓 KAMPÜS+
           </h1>
           <p className="text-xl text-purple-100">
-            Join the Future of Learning
+            Öğrenmenin Geleceğine Katıl
           </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-            Create Account
+            Hesap Oluştur
           </h2>
           <RegisterForm />
           <div className="mt-6 text-center">
             <p className="text-gray-600">
-              Already have an account?{' '}
+              Zaten hesabın var mı?{' '}
               <a href="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
-                Login here
+                Giriş yap
               </a>
             </p>
           </div>

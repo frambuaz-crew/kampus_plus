@@ -1,4 +1,11 @@
+# Git attributes - Line ending ve dosya tipi ayarları
+
+# Tüm dosyalar için otomatik line ending (platform'a göre)
 * text=auto
+
+# ============================================================================
+# Source Code Files (LF - Unix line endings)
+# ============================================================================
 *.py text eol=lf
 *.ts text eol=lf
 *.tsx text eol=lf
@@ -7,9 +14,53 @@
 *.css text eol=lf
 *.html text eol=lf
 *.md text eol=lf
+*.json text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
-*.json text eol=lf
 *.toml text eol=lf
 *.ini text eol=lf
 *.cjs text eol=lf
+*.mjs text eol=lf
+
+# ============================================================================
+# Configuration Files
+# ============================================================================
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.dockerignore text eol=lf
+.eslintignore text eol=lf
+.cursorignore text eol=lf
+
+# ============================================================================
+# Binary Files (No line ending conversion)
+# ============================================================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+
+# ============================================================================
+# Database Files (Binary)
+# ============================================================================
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.db-journal binary
+*.db-wal binary
+*.db-shm binary
+
+# ============================================================================
+# Vector Store Files (Binary)
+# ============================================================================
+*.index binary
+*.pkl binary

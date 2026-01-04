@@ -112,7 +112,7 @@ def delete_marketplace_image(image_url: str):
 - Dosyalar `backend/uploads/marketplace/user-id/listing-id/` altında olmalı
 
 **Not:** 
-- ⚠️ Production'da MinIO veya Cloudflare R2'ye geçilebilir (opsiyonel)
+- **NOT:** Bu proje mezuniyet projesi için local storage kullanır (backend/uploads/). S3, MinIO veya cloud storage kullanılmaz.
 - ⚠️ Sunucu yeniden başladığında dosyalar silinmez (kalıcı storage)
 
 ---
@@ -281,7 +281,7 @@ alembic upgrade head
 
 ```python
 from sqlalchemy import Column, String, Text, Numeric, Integer, Boolean, DateTime, ForeignKey, CheckConstraint, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+# SQLite kullanılır - UUID için String(36) kullanılır (PostgreSQL PG_UUID değil)
 from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
@@ -797,7 +797,7 @@ def delete_listing(
     if not listing:
         raise HTTPException(status_code=404, detail="İlan bulunamadı")
     
-    # S3'ten resimleri sil
+    # Local storage'dan resimleri sil
     for image in listing.images:
         delete_marketplace_image(image.image_url)
     

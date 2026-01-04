@@ -273,7 +273,7 @@ Email'deki linke tıklandığında açılan sayfa:
 **NFR-005:** Rate limiting: Aynı IP'den 10 dakikada max 5 kayıt denemesi  
 **NFR-006:** Resend email: Aynı email'den 1 saatte max 3 deneme  
 **NFR-007:** Verify-email sayfası loading popup gösterip otomatik login'e redirect etmeli  
-**NFR-008:** PostgreSQL database kullanılmalı (Docker ile local development)  
+**NFR-008:** SQLite database kullanılmalı (mezuniyet projesi için basitlik ve sıfır maliyet, WAL mode ile concurrent access)  
 **NFR-009:** Gmail SMTP (production) + Mailhog (local development) kullanılmalı  
 
 ---
@@ -283,9 +283,11 @@ Email'deki linke tıklandığında açılan sayfa:
 ### Technical Stack
 
 **Database:**
-- PostgreSQL 15+ (Docker için: `postgres:15` image)
+- SQLite (mezuniyet projesi için basitlik ve sıfır maliyet)
+- WAL (Write-Ahead Logging) mode etkin - concurrent reads/writes destekler
 - SQLAlchemy (ORM)
 - Alembic (migrations)
+- **NOT:** PostgreSQL kullanılmaz (production için gerekirse ileride eklenebilir)
 
 **Email Service:**
 - **Production:** Gmail SMTP (500 email/gün ücretsiz)
@@ -778,123 +780,26 @@ def cleanup_old_attempts(cache, window_seconds):
 
 ## Development Setup
 
-### PostgreSQL Migration (SQLite → PostgreSQL)
+### Database Setup (SQLite)
 
-**Mevcut Durum:** SQLite kullanılıyor  
-**Hedef:** PostgreSQL 15+ (production-ready database)
+**NOT:** Bu proje mezuniyet projesi için SQLite kullanır (basitlik ve sıfır maliyet).
+WAL (Write-Ahead Logging) mode etkin - concurrent reads/writes destekler.
 
-**Neden PostgreSQL?**
-- ✅ Production-ready (scalable, reliable)
-- ✅ UUID support (native)
-- ✅ Better concurrency handling
-- ✅ Heroku/AWS/DigitalOcean kolay deploy
-
-**Migration Adımları:**
-
-1. **Docker ile PostgreSQL çalıştır:**
-```yaml
-# backend/docker-compose.yml
-version: '3.8'
-services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: kampus_user
-      POSTGRES_PASSWORD: kampus_pass_dev
-      POSTGRES_DB: kampus_plus_dev
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-  
-  mailhog:
-    image: mailhog/mailhog
-    ports:
-      - "1025:1025"  # SMTP port
-      - "8025:8025"  # Web UI
-
-volumes:
-  postgres_data:
-```
-
-```bash
-# Çalıştır
-cd backend
-docker-compose up -d
-```
-
-2. **Backend .env güncellemesi:**
-```bash
-# Database
-DATABASE_URL=postgresql+psycopg://kampus_user:kampus_pass_dev@localhost:5432/kampus_plus_dev
-
-# Email (Development - Mailhog)
-SMTP_HOST=localhost
-SMTP_PORT=1025
-SMTP_USER=
-SMTP_PASSWORD=
-SMTP_FROM_EMAIL=noreply@kampusplus.local
-SMTP_FROM_NAME=KAMPÜS+ Platform
-
-# Email (Production - Gmail SMTP)
-# SMTP_HOST=smtp.gmail.com
-# SMTP_PORT=587
-# SMTP_USER=kampusplus.noreply@gmail.com
-# SMTP_PASSWORD=<Google App Password>
-# SMTP_FROM_EMAIL=kampusplus.noreply@gmail.com
-# SMTP_FROM_NAME=KAMPÜS+ Platform
-
-# JWT
-JWT_SECRET_KEY=your-super-secret-key-min-32-characters-change-in-production
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# Frontend URL (for email links)
-FRONTEND_URL=http://localhost:5173
-```
-
-3. **Alembic migration'ları sıfırla:**
-```bash
-# Eski migration'ları sil
-rm -rf backend/alembic/versions/*
-
-# Yeni migration oluştur (tüm tablolar)
-cd backend
-alembic revision --autogenerate -m "initial_schema_with_users"
-alembic upgrade head
-```
-
-4. **Test data oluştur (opsiyonel):**
-```python
-# backend/scripts/seed_data.py
-from src.models.user import User
-from src.services.auth_service import AuthService
-
-# Test user oluştur
-auth_service = AuthService()
-test_user = await auth_service.register_user(
-    email="test@selcuk.edu.tr",
-    password="TestPass123",
-    first_name="Test",
-    last_name="User",
-    student_id="123456789",
-    department="Bilgisayar Mühendisliği"
-)
-print(f"Test user created: {test_user.email}")
-```
+**Database:**
+- SQLite (file-based, `backend/kampus_plus_dev.db`)
+- WAL mode etkin (concurrent access için)
+- Alembic migrations
 
 ### Environment Variables
 
 **Backend (.env):**
 ```bash
 # App
-APP_NAME=KAMPÜS+ AI Platform
 ENVIRONMENT=development
 DEBUG=True
 
-# Database
-DATABASE_URL=postgresql+psycopg://kampus_user:kampus_pass_dev@localhost:5432/kampus_plus_dev
+# Database (SQLite)
+DATABASE_URL=sqlite+aiosqlite:///./kampus_plus_dev.db
 
 # JWT
 JWT_SECRET_KEY=your-secret-key-min-32-chars
@@ -902,7 +807,7 @@ JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Email (Mailhog for local)
+# Email (Mailhog for local development)
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_USER=
@@ -929,7 +834,6 @@ VITE_APP_NAME=KAMPÜS+
 ```bash
 # Backend
 cd backend
-docker-compose up -d
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -942,15 +846,15 @@ npm install
 npm run dev
 ```
 
-2. **Email test etme:**
+2. **Email test etme (opsiyonel - Mailhog):**
 - Mailhog web UI: http://localhost:8025
 - Register ol → Email Mailhog'da görünür
 - Verification link'e tıkla → Doğrulama yapılır
 
 3. **Database check:**
 ```bash
-# PostgreSQL'e bağlan
-docker exec -it backend-postgres-1 psql -U kampus_user -d kampus_plus_dev
+# SQLite veritabanını kontrol et
+sqlite3 backend/kampus_plus_dev.db
 
 # Kullanıcıları listele
 SELECT email, first_name, last_name, is_verified FROM users;
@@ -982,7 +886,7 @@ SELECT email, first_name, last_name, is_verified FROM users;
 
 **External Dependencies:**
 - Email Service (SMTP veya SendGrid)
-- Database (PostgreSQL)
+- Database (SQLite - mezuniyet projesi için)
 
 ---
 

@@ -1,67 +1,17 @@
 /**
  * VerifyEmailPage Component
  * 
- * EMAIL VERIFICATION DISABLED - TODO: Re-enable in production
+ * Spec: 015-email-verification/spec.md
  * 
- * Page for verifying user email address using verification token from email.
- * Currently disabled - redirects to login page.
+ * Email doğrulama sayfası:
+ * - URL'den token alır (?token=...)
+ * - Backend'e doğrulama isteği gönderir
+ * - Başarılı: 3 saniye sonra login'e yönlendirir
+ * - Hata: Token geçersiz/süresi dolmuş, tekrar gönderme formu gösterir
+ * 
+ * URL: /verify-email?token=...
  */
 
-import React, { useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-
-export const VerifyEmailPage: React.FC = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Redirect to login immediately since email verification is disabled
-    const timer = setTimeout(() => {
-      navigate('/login');
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, [navigate]);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            🎓 KAMPÜS+
-          </h1>
-          <p className="text-xl text-blue-100">
-            Email Verification
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="text-center">
-            <div className="text-6xl mb-4">ℹ️</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Email Verification Disabled
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Email verification is currently disabled. You can login directly with your account.
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              Redirecting to login page...
-            </p>
-            <Link
-              to="/login"
-              className="inline-block px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold"
-            >
-              Go to Login
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// EMAIL VERIFICATION DISABLED - Original implementation commented out
-// Uncomment below when re-enabling email verification
-/*
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/config';
@@ -83,23 +33,22 @@ export const VerifyEmailPage: React.FC = () => {
       verifyEmail(token);
     } else {
       setStatus('error');
-      setMessage('Verification token is missing. Please check your email and click the verification link again.');
+      setMessage('Doğrulama token\'ı bulunamadı. Lütfen email\'inizdeki doğrulama linkini tekrar kontrol edin.');
     }
   }, [token]);
 
   const verifyEmail = async (verificationToken: string) => {
     setStatus('loading');
-    setMessage('Verifying your email address...');
+    setMessage('Email adresiniz doğrulanıyor...');
 
     try {
-      const response = await apiClient.post('/auth/verify-email', {
+      await apiClient.post('/auth/verify-email', {
         token: verificationToken,
       });
 
       setStatus('success');
-      setMessage('Email verified successfully! You can now login to your account.');
+      setMessage('Email adresiniz başarıyla doğrulandı! Artık giriş yapabilirsiniz.');
 
-      // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/login');
       }, 3000);
@@ -107,72 +56,72 @@ export const VerifyEmailPage: React.FC = () => {
       setStatus('error');
       
       if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
+        const statusCode = error.response?.status;
         const errorData = error.response?.data;
 
-        if (status === 400) {
+        if (statusCode === 400) {
           setMessage(
-            errorData?.error?.message || 
-            'Invalid or expired verification token. Please request a new verification email.'
+            errorData?.detail || 
+            'Geçersiz veya süresi dolmuş doğrulama token\'ı. Lütfen yeni bir doğrulama email\'i isteyin.'
           );
         } else {
           setMessage(
-            errorData?.error?.message || 
-            'Failed to verify email. Please try again or contact support.'
+            errorData?.detail || 
+            'Email doğrulanamadı. Lütfen tekrar deneyin veya destek ekibiyle iletişime geçin.'
           );
         }
       } else {
-        setMessage('Network error. Please check your connection and try again.');
+        setMessage('Ağ hatası. Lütfen bağlantınızı kontrol edin ve tekrar deneyin.');
       }
     }
   };
 
   const handleResendVerification = async () => {
-    if (!email) {
+    if (!email.trim()) {
       setResendStatus('error');
-      setResendMessage('Please enter your email address.');
+      setResendMessage('Lütfen email adresinizi girin.');
       return;
     }
 
     setResendStatus('loading');
-    setResendMessage('Sending verification email...');
+    setResendMessage('Doğrulama email\'i gönderiliyor...');
 
     try {
       const response = await apiClient.post('/auth/resend-verification', {
-        email: email,
+        email: email.trim(),
       });
 
       setResendStatus('success');
       setResendMessage(
         response.data?.message || 
-        'Verification email sent! Please check your inbox.'
+        'Doğrulama email\'i gönderildi! Lütfen email\'inizi kontrol edin.'
       );
     } catch (error) {
       setResendStatus('error');
       
       if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
+        const statusCode = error.response?.status;
         const errorData = error.response?.data;
 
-        if (status === 429) {
-          const retryAfter = errorData?.error?.retry_after || 3600;
+        if (statusCode === 429) {
+          const retryAfter = errorData?.retry_after || 3600;
           const minutes = Math.ceil(retryAfter / 60);
           setResendMessage(
-            `Too many requests. Please try again after ${minutes} minute(s).`
+            `Çok fazla deneme yaptınız. Lütfen ${minutes} dakika sonra tekrar deneyin.`
           );
-        } else if (status === 400) {
+        } else if (statusCode === 400) {
           setResendMessage(
-            errorData?.error?.message || 
-            'Unable to resend verification email. Please check your email address.'
+            errorData?.detail || 
+            'Doğrulama email\'i gönderilemedi. Lütfen email adresinizi kontrol edin.'
           );
         } else {
           setResendMessage(
-            errorData?.error?.message || 
-            'Failed to resend verification email. Please try again later.'
+            errorData?.detail || 
+            'Doğrulama email\'i gönderilemedi. Lütfen daha sonra tekrar deneyin.'
           );
         }
       } else {
-        setResendMessage('Network error. Please check your connection and try again.');
+        setResendMessage('Ağ hatası. Lütfen bağlantınızı kontrol edin ve tekrar deneyin.');
       }
     }
   };
@@ -185,7 +134,7 @@ export const VerifyEmailPage: React.FC = () => {
             🎓 KAMPÜS+
           </h1>
           <p className="text-xl text-blue-100">
-            Email Verification
+            Email Doğrulama
           </p>
         </div>
 
@@ -201,17 +150,17 @@ export const VerifyEmailPage: React.FC = () => {
             <div className="text-center">
               <div className="text-6xl mb-4">✅</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                Email Verified!
+                Email Doğrulandı!
               </h2>
               <p className="text-gray-600 mb-6">{message}</p>
               <p className="text-sm text-gray-500 mb-6">
-                Redirecting to login page...
+                Giriş sayfasına yönlendiriliyorsunuz...
               </p>
               <Link
                 to="/login"
                 className="inline-block px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold"
               >
-                Go to Login
+                Giriş Sayfasına Git
               </Link>
             </div>
           )}
@@ -220,18 +169,18 @@ export const VerifyEmailPage: React.FC = () => {
             <div className="text-center">
               <div className="text-6xl mb-4">❌</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                Verification Failed
+                Doğrulama Başarısız
               </h2>
               <p className="text-gray-600 mb-6">{message}</p>
 
               <div className="mt-8 p-6 bg-gray-50 rounded-lg">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                  Resend Verification Email
+                  Doğrulama Email'ini Tekrar Gönder
                 </h3>
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address
+                      Email Adresi
                     </label>
                     <input
                       id="email"
@@ -239,7 +188,7 @@ export const VerifyEmailPage: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="your.email@ogr.selcuk.edu.tr"
+                      placeholder="ornek@selcuk.edu.tr"
                     />
                   </div>
                   <button
@@ -247,7 +196,7 @@ export const VerifyEmailPage: React.FC = () => {
                     disabled={resendStatus === 'loading'}
                     className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   >
-                    {resendStatus === 'loading' ? 'Sending...' : 'Resend Verification Email'}
+                    {resendStatus === 'loading' ? 'Gönderiliyor...' : 'Doğrulama Email\'ini Tekrar Gönder'}
                   </button>
                   
                   {resendStatus === 'success' && (
@@ -269,7 +218,7 @@ export const VerifyEmailPage: React.FC = () => {
                   to="/login"
                   className="text-indigo-600 hover:text-indigo-700 font-semibold"
                 >
-                  Back to Login
+                  Giriş Sayfasına Dön
                 </Link>
               </div>
             </div>
@@ -278,7 +227,7 @@ export const VerifyEmailPage: React.FC = () => {
           {status === 'idle' && (
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Preparing verification...</p>
+              <p className="text-gray-600">Doğrulama hazırlanıyor...</p>
             </div>
           )}
         </div>
@@ -286,5 +235,4 @@ export const VerifyEmailPage: React.FC = () => {
     </div>
   );
 };
-*/
 

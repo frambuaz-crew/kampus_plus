@@ -1,65 +1,69 @@
-"""User and RefreshToken models."""
+"""User ve RefreshToken modelleri.
+
+Spec: specs/SYSTEM_OVERVIEW.md - users ve refresh_tokens tabloları
+"""
 
 import enum
 from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    Enum,
-    ForeignKey,
-    Index,
-    String,
-    text,
-)
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
 
 class UserRole(str, enum.Enum):
-    """User role enumeration."""
+    """Kullanıcı rolü enum.
     
+    Spec: specs/SYSTEM_OVERVIEW.md - users tablosu
+    """
     STUDENT = "student"
     INSTRUCTOR = "instructor"
     ADMIN = "admin"
 
 
 class User(Base):
-    """User model - students, instructors, and administrators."""
+    """Kullanıcı modeli - öğrenciler ve yöneticiler."""
     
     __tablename__ = "users"
     
-    # Primary Key
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+    id: Mapped[str] = mapped_column(
+        String(36),
         primary_key=True,
-        default=uuid4,
+        default=lambda: str(uuid4()),
     )
     
-    # Authentication
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     
-    # Profile
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    username_last_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    
+    student_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    university: Mapped[str] = mapped_column(String(255), nullable=False)
+    department: Mapped[str] = mapped_column(String(255), nullable=False)
+    
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
-        index=True
+        index=True,
     )
-    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    student_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
     
-    # Status
-    is_verified: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    is_verified: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False, index=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False, index=True)
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
-    # Timestamps
+    profile_picture_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    theme_preference: Mapped[str] = mapped_column(String(10), server_default=text("'light'"), nullable=False)
+    
+    terms_accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
@@ -70,60 +74,62 @@ class User(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
-    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
-    # Relationships
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
-    enrollments = relationship("Enrollment", back_populates="student", cascade="all, delete-orphan")
-    taught_courses = relationship("Course", back_populates="instructor", foreign_keys="Course.instructor_id")
-    user_documents = relationship("UserDocument", back_populates="user", cascade="all, delete-orphan")
-    conversation_sessions = relationship("ConversationSession", back_populates="user", cascade="all, delete-orphan")
-    forum_posts = relationship("ForumPost", back_populates="author", cascade="all, delete-orphan")
-    anonymous_mappings = relationship("AnonymousMapping", back_populates="user", cascade="all, delete-orphan")
-    audit_logs = relationship("AuditLog", back_populates="user")
     
-    def __repr__(self) -> str:
-        return f"<User(id={self.id}, email={self.email}, role={self.role})>"
+    # Forum relationships
+    forum_topics = relationship("ForumTopic", foreign_keys="ForumTopic.author_id", cascade="all, delete-orphan")
+    forum_replies = relationship("ForumReply", foreign_keys="ForumReply.author_id", cascade="all, delete-orphan")
+    
+    # Marketplace relationships
+    marketplace_listings = relationship("MarketplaceListing", foreign_keys="MarketplaceListing.seller_id", cascade="all, delete-orphan")
+    
+    # Career relationships
+    career_listings = relationship("CareerListing", foreign_keys="CareerListing.posted_by", cascade="all, delete-orphan")
+    career_applications = relationship("CareerApplication", foreign_keys="CareerApplication.applicant_id", cascade="all, delete-orphan")
+    
+    # Academic relationships
+    academic_contributions = relationship("AcademicContribution", foreign_keys="AcademicContribution.user_id", cascade="all, delete-orphan")
+    
+    # Messages relationships
+    conversations_as_user1 = relationship("Conversation", foreign_keys="Conversation.user1_id", cascade="all, delete-orphan")
+    conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", cascade="all, delete-orphan")
+    
+    # Notifications
+    notifications = relationship("Notification", foreign_keys="Notification.user_id", cascade="all, delete-orphan")
+    
+    # AI relationships
+    ai_conversations = relationship("AIConversation", foreign_keys="AIConversation.user_id", cascade="all, delete-orphan")
+    
+    # Settings relationships
+    contact_messages = relationship("ContactMessage", foreign_keys="ContactMessage.user_id", cascade="all, delete-orphan")
 
 
 class RefreshToken(Base):
-    """RefreshToken model - JWT refresh token storage."""
+    """JWT refresh token saklama modeli."""
     
     __tablename__ = "refresh_tokens"
     
-    # Primary Key
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+    id: Mapped[str] = mapped_column(
+        String(36),
         primary_key=True,
-        default=uuid4,
+        default=lambda: str(uuid4()),
     )
     
-    # Foreign Key
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+    user_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     
-    # Token Data
-    token_hash: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(500), unique=True, nullable=False, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False, index=True)
-    is_revoked: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     
-    # Security Context
-    device_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
-    
-    # Timestamp
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
     
-    # Relationships
     user = relationship("User", back_populates="refresh_tokens")
-    
-    def __repr__(self) -> str:
-        return f"<RefreshToken(id={self.id}, user_id={self.user_id}, expires_at={self.expires_at})>"

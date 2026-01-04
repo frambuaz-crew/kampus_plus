@@ -242,7 +242,7 @@ alembic upgrade head
 
 ```python
 from sqlalchemy import Column, String, Text, Integer, Boolean, DateTime, ForeignKey, CheckConstraint, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+# SQLite kullanılır - UUID için String(36) kullanılır (PostgreSQL PG_UUID değil)
 from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid

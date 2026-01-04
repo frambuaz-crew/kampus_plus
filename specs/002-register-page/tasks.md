@@ -10,35 +10,29 @@
 
 ### Phase 0: Infrastructure Setup (0.5 gün)
 
-#### PostgreSQL & Docker Setup (2-3 saat)
+#### SQLite & Environment Setup (1-2 saat)
 
-**T001** - Setup Docker Compose
-- [ ] Create `backend/docker-compose.yml`
-- [ ] Add PostgreSQL service (postgres:15 image)
-  - Environment: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-  - Port: 5432
-  - Volume: postgres_data
-- [ ] Add Mailhog service (mailhog/mailhog image)
-  - SMTP Port: 1025
-  - Web UI Port: 8025
-- [ ] Test: `docker-compose up -d` çalışır, PostgreSQL ve Mailhog başlar
-- [ ] Test: Mailhog web UI'a erişim: http://localhost:8025
-
-**T002** - Update backend .env for PostgreSQL
+**T001** - Setup Environment Variables
+- [ ] Create `backend/.env` file from `.env.example`
 - [ ] Update `backend/.env` file:
-  - DATABASE_URL=postgresql+psycopg://kampus_user:kampus_pass_dev@localhost:5432/kampus_plus_dev
-  - SMTP_HOST=localhost, SMTP_PORT=1025 (Mailhog)
+  - DATABASE_URL=sqlite+aiosqlite:///./kampus_plus_dev.db
+  - SMTP_HOST=localhost, SMTP_PORT=1025 (Mailhog - opsiyonel)
   - JWT_SECRET_KEY (min 32 karakter)
   - FRONTEND_URL=http://localhost:5173
-- [ ] Update `backend/src/core/config.py` if needed (JWT settings)
 - [ ] Test: Backend `.env` dosyası doğru yükleniyor
 
-**T003** - Migrate SQLite to PostgreSQL
-- [ ] Eski Alembic migration'ları sil: `rm -rf backend/alembic/versions/*`
-- [ ] Yeni migration oluştur: `alembic revision --autogenerate -m "initial_schema"`
+**T002** - Setup SQLite Database
+- [ ] Alembic migration oluştur: `alembic revision --autogenerate -m "initial_schema"`
 - [ ] Migration'ı çalıştır: `alembic upgrade head`
-- [ ] Test: PostgreSQL'de tablolar oluşmuş (users, refresh_tokens, vs.)
-- [ ] Test: Backend başlatınca database'e bağlanıyor
+- [ ] Test: SQLite database dosyası oluşmuş (`backend/kampus_plus_dev.db`)
+- [ ] Test: Tablolar oluşmuş (users, refresh_tokens, vs.)
+- [ ] Test: Backend başlatınca database'e bağlanıyor (WAL mode etkin)
+
+**T003** - Optional: Mailhog Setup (Email Testing)
+- [ ] Add Mailhog service to `docker-compose.yml` (opsiyonel)
+  - SMTP Port: 1025
+  - Web UI Port: 8025
+- [ ] Test: Mailhog web UI'a erişim: http://localhost:8025
 
 ---
 
@@ -431,12 +425,12 @@
 
 **T027** - Create developer setup guide
 - [ ] Document environment variables needed:
-  - DATABASE_URL (PostgreSQL)
+  - DATABASE_URL (SQLite)
   - SMTP_HOST, SMTP_PORT (Gmail/Mailhog)
   - JWT_SECRET_KEY (min 32 karakter)
   - FRONTEND_URL (for email links)
 - [ ] Document Docker setup:
-  - docker-compose up -d (PostgreSQL + Mailhog)
+  - docker-compose up -d (Mailhog - opsiyonel)
   - Mailhog web UI: http://localhost:8025
 - [ ] Document how to run migrations (Alembic)
 - [ ] Document how to test email locally (Mailhog)
@@ -501,7 +495,7 @@ From `spec.md`:
 
 **External Services:**
 - Email service (SMTP/SendGrid) → Must be configured
-- Database (PostgreSQL) → Must be running
+- Database (SQLite) → File-based, otomatik oluşur
 
 ---
 
@@ -517,7 +511,7 @@ From `spec.md`:
 | **Total** | **28 tasks** | **47-60 hours (4-5 gün)** |
 
 **Team:**
-- DevOps/Setup: 0.5 gün (T001-T003) - PostgreSQL + Docker setup
+- DevOps/Setup: 0.5 gün (T001-T003) - SQLite + Environment setup
 - Backend Developer: 2 gün (T004-T012)
 - Frontend Developer: 2 gün (T013-T020)
 - QA/Testing: 0.5 gün (T021-T025)
@@ -536,7 +530,7 @@ Backend and frontend can work in parallel after T001-T006 complete (database + A
 - Alembic (migrations)
 - Bcrypt (password hashing)
 - SMTP/SendGrid (email service)
-- PostgreSQL (database)
+- SQLite (database - mezuniyet projesi için)
 
 **Frontend:**
 - React 19+ with TypeScript
@@ -552,7 +546,7 @@ Backend and frontend can work in parallel after T001-T006 complete (database + A
 **Backend (.env):**
 ```bash
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/kampus_plus
+DATABASE_URL=sqlite+aiosqlite:///./kampus_plus_dev.db
 
 # Email Service (Option 1: SMTP)
 SMTP_HOST=smtp.gmail.com

@@ -1,9 +1,8 @@
-"""Base SQLAlchemy declarative base for all models."""
+"""Tüm modeller için SQLAlchemy declarative base."""
 
 from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy ORM models."""
-    
+    """Tüm SQLAlchemy ORM modelleri için base class."""
     pass

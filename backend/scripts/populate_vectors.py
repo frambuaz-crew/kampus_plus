@@ -1,63 +1,54 @@
 """
-Script to populate vector database from metadata.
+Vector veritabanını metadata'dan doldurma script'i.
 
-This script reads the metadata from metadata_official.py and generates
-embeddings using Google Gemini, then adds them to the FAISS vector store.
+metadata_official.py dosyasından test verilerini okur ve FAISS vector store'a ekler.
 """
+
 import asyncio
 import sys
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.services.vector_service import VectorStoreService
 
 
 async def populate_official_vectors():
-    """Populate official vector store from metadata."""
-    print("Initializing Vector Service...")
-    service = VectorStoreService()
+    """Resmi vector store'u test verilerinden doldur."""
+    print("=" * 60)
+    print("🔧 Vector Store Doldurma")
+    print("=" * 60)
     
-    # Get metadata
+    service = VectorStoreService()
     metadata_list = list(service.official_metadata.values())
     
     if not metadata_list:
-        print("❌ No metadata found!")
+        print("❌ Metadata bulunamadı!")
         return
     
-    print(f"Found {len(metadata_list)} metadata entries")
-    
-    # Extract texts
-    texts = [meta.get("text", "") for meta in metadata_list]
-    texts = [t for t in texts if t]  # Filter empty
+    texts = [meta.get("text", "") for meta in metadata_list if meta.get("text")]
     
     if not texts:
-        print("❌ No text content found in metadata!")
+        print("❌ Metin içeriği bulunamadı!")
         return
     
-    print(f"Adding {len(texts)} documents to vector store...")
+    print(f"📊 {len(texts)} belge bulundu, ekleniyor...")
     
     try:
-        # Add to official store
         ids = await service.add_to_official(
             texts=texts,
-            start_index=0,
             metadata=metadata_list
         )
         
-        print(f"✅ Successfully added {len(ids)} vectors!")
-        print(f"   Vector IDs: {ids}")
-        print(f"   Total vectors in official store: {service.vdb_official.ntotal}")
-        
-        # Save indexes
-        service.save_indexes()
-        print("✅ Indexes saved to disk")
+        print(f"✅ {len(ids)} vector eklendi")
+        print(f"📈 Toplam vector: {service.vdb_official.ntotal}")
+        print("=" * 60)
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Hata: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

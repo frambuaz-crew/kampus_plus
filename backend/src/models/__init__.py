@@ -1,30 +1,54 @@
-"""SQLAlchemy ORM Models for KAMPÜS+ Platform.
+"""SQLAlchemy ORM Modelleri - KAMPÜS+ Platform.
 
-This package contains all database models matching the schema
-defined in specs/001-ai-platform/data-model.md.
+Bu paket specs/SYSTEM_OVERVIEW.md'de tanımlanan
+veritabanı şemasına uygun tüm modelleri içerir.
 """
 
 from .base import Base
 from .user import User, RefreshToken
-from .course import Course, Enrollment
-from .document import OfficialDocument, UserDocument, VectorEmbedding
-from .conversation import ConversationSession, ChatMessage
-from .forum import ForumPost, AnonymousMapping
-from .sync import SyncJob, AuditLog
+from .forum import ForumCategory, ForumTopic, ForumReply
+from .marketplace import MarketplaceListing, MarketplaceReport, MarketplaceMessage
+from .career import CareerListing, CareerApplication, CareerReport, CareerMessage
+from .academic import AcademicCalendarEvent, CourseSchedule, AcademicContribution
+from .messages import Conversation
+from .notifications import Notification
+from .ai import AIConversation, AIMessage, AISystemSettings, AIKnowledgeBase
+from .settings import ContactMessage
+from .university import University
 
 __all__ = [
     "Base",
+    # Core
     "User",
     "RefreshToken",
-    "Course",
-    "Enrollment",
-    "OfficialDocument",
-    "UserDocument",
-    "VectorEmbedding",
-    "ConversationSession",
-    "ChatMessage",
-    "ForumPost",
-    "AnonymousMapping",
-    "SyncJob",
-    "AuditLog",
+    # Forum
+    "ForumCategory",
+    "ForumTopic",
+    "ForumReply",
+    # Marketplace
+    "MarketplaceListing",
+    "MarketplaceReport",
+    "MarketplaceMessage",
+    # Career
+    "CareerListing",
+    "CareerApplication",
+    "CareerReport",
+    "CareerMessage",
+    # Academic
+    "AcademicCalendarEvent",
+    "CourseSchedule",
+    "AcademicContribution",
+    # Messages
+    "Conversation",
+    # Notifications
+    "Notification",
+    # AI
+    "AIConversation",
+    "AIMessage",
+    "AISystemSettings",
+    "AIKnowledgeBase",
+    # Settings
+    "ContactMessage",
+    # University
+    "University",
 ]

@@ -1,15 +1,42 @@
-# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
-!.env   
-!.env.example
-!.env.development
-!.env.production
-!.env.test
-!.env.local
-!.env.development.local
-!.env.test.local
-!.env.production.local
-!.env.staging.local
-!.env.staging
-!.env.production.local
-!.env.production
-!.env.development
+# Cursor indexing ignore patterns
+# Bu dosyalar/klasörler Cursor'ın indexlemesinden hariç tutulur
+
+# Node modules (çok büyük, indexlenmesine gerek yok)
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Test coverage
+coverage_html/
+.coverage
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Vector stores (büyük binary dosyalar)
+backend/data/vectors/*.index
+
+# Uploaded files
+backend/uploads/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

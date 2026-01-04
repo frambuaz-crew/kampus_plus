@@ -845,7 +845,7 @@ src/
 
 **Framework:** FastAPI (Python)
 
-**Database:** PostgreSQL
+**Database:** SQLite (mezuniyet projesi için, WAL mode ile concurrent access)
 
 **Yeni Endpoint:**
 

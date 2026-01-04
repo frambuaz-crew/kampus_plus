@@ -1025,7 +1025,7 @@ CREATE TABLE thread_files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     thread_id UUID REFERENCES threads(id) ON DELETE CASCADE,
     file_name VARCHAR(255) NOT NULL,
-    file_path VARCHAR(500) NOT NULL,  -- S3 veya local path
+    file_path VARCHAR(500) NOT NULL,  -- Local storage path (backend/uploads/)
     file_size INTEGER NOT NULL,  -- Bytes
     file_type VARCHAR(50),  -- MIME type
     uploaded_at TIMESTAMP DEFAULT NOW()

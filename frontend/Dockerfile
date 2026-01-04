@@ -1,6 +1,12 @@
 # ============================================================================
-# Kampus+ Frontend Dockerfile
+# KAMPÜS+ Frontend Dockerfile
 # Multi-stage build: development and production
+# ============================================================================
+#
+# Build commands:
+#   Development: docker build --target development -t kampus-frontend:dev .
+#   Production:  docker build --target production --build-arg VITE_API_URL=https://api.kampusplus.edu.tr/v1 -t kampus-frontend:prod .
+#
 # ============================================================================
 
 # ============================================================================
@@ -38,6 +44,11 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 FROM base AS builder
 
 WORKDIR /app
+
+# Build-time environment variables
+# Vite requires VITE_ prefixed variables at build time
+ARG VITE_API_URL=http://localhost:8000/v1
+ENV VITE_API_URL=$VITE_API_URL
 
 # Copy source code
 COPY . .

@@ -1,10 +1,6 @@
-"""Email service for sending verification and notification emails.
+"""Email servisi - Doğrulama ve bildirim email'leri gönderme.
 
-This module provides:
-- Email sending via SMTP
-- HTML email templates for verification and password reset
-- Error handling and logging
-- Support for both verification and password reset emails
+Spec: specs/002-register-page, specs/003-login-page
 """
 
 import smtplib
@@ -12,7 +8,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr
 from typing import Optional
-from datetime import datetime
 
 import logging
 
@@ -22,15 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class EmailService:
-    """Service for sending emails via SMTP.
-    
-    Supports:
-    - Single SMTP server for all universities (recommended: SendGrid/AWS SES)
-    - University-specific SMTP servers (optional, via config)
-    """
+    """SMTP ile email gönderme servisi."""
     
     def __init__(self):
-        """Initialize email service with settings."""
+        """Email servisini başlat."""
         self.settings = get_settings()
         self.smtp_host = self.settings.smtp_host
         self.smtp_port = self.settings.smtp_port
@@ -39,72 +29,9 @@ class EmailService:
         self.from_email = self.settings.smtp_from_email
         self.from_name = self.settings.smtp_from_name
         self.support_email = self.settings.support_email
-        
-        # Parse university-specific SMTP config if provided
-        self.university_smtp_map: dict[str, dict] = {}
-        if hasattr(self.settings, 'university_smtp_config') and self.settings.university_smtp_config:
-            self._parse_university_smtp_config()
-    
-    def _parse_university_smtp_config(self):
-        """Parse university-specific SMTP configuration.
-        
-        Format: domain1:host:port:user:password|domain2:host:port:user:password
-        Example: ogr.selcuk.edu.tr:mailgateway.selcuk.edu.tr:587:noreply@selcuk.edu.tr:pass123
-        """
-        try:
-            configs = self.settings.university_smtp_config.split('|')
-            for config in configs:
-                parts = config.strip().split(':')
-                if len(parts) == 5:
-                    domain, host, port, user, password = parts
-                    self.university_smtp_map[domain.lower()] = {
-                        'host': host,
-                        'port': int(port),
-                        'user': user,
-                        'password': password
-                    }
-        except Exception as e:
-            logger.warning(f"Failed to parse university SMTP config: {e}")
-    
-    def _get_smtp_config_for_domain(self, email_domain: str) -> dict:
-        """Get SMTP configuration for specific email domain.
-        
-        Args:
-            email_domain: Email domain (e.g., 'ogr.selcuk.edu.tr')
-            
-        Returns:
-            Dictionary with SMTP config (host, port, user, password, from_email)
-        """
-        # Check if university-specific config exists
-        if email_domain.lower() in self.university_smtp_map:
-            config = self.university_smtp_map[email_domain.lower()]
-            return {
-                'host': config['host'],
-                'port': config['port'],
-                'user': config['user'],
-                'password': config['password'],
-                'from_email': config['user'],  # Use SMTP user as from_email
-            }
-        
-        # Use default SMTP config
-        return {
-            'host': self.smtp_host,
-            'port': self.smtp_port,
-            'user': self.smtp_user,
-            'password': self.smtp_password,
-            'from_email': self.from_email,
-        }
     
     def _create_verification_email_html(self, verification_url: str, user_name: str) -> str:
-        """Create HTML email template for email verification.
-        
-        Args:
-            verification_url: Full URL with verification token
-            user_name: User's first name
-            
-        Returns:
-            HTML email content
-        """
+        """Email doğrulama için HTML email şablonu oluştur."""
         return f"""
 <!DOCTYPE html>
 <html>
@@ -156,15 +83,7 @@ class EmailService:
 """
     
     def _create_verification_email_text(self, verification_url: str, user_name: str) -> str:
-        """Create plain text email template for email verification.
-        
-        Args:
-            verification_url: Full URL with verification token
-            user_name: User's first name
-            
-        Returns:
-            Plain text email content
-        """
+        """Email doğrulama için düz metin email şablonu oluştur."""
         return f"""
 KAMPÜS+ Platform - Email Doğrulama
 
@@ -184,15 +103,7 @@ Sorularınız için: {self.support_email}
 """
     
     def _create_password_reset_email_html(self, reset_url: str, user_name: str) -> str:
-        """Create HTML email template for password reset.
-        
-        Args:
-            reset_url: Full URL with password reset token
-            user_name: User's first name
-            
-        Returns:
-            HTML email content
-        """
+        """Şifre sıfırlama için HTML email şablonu oluştur."""
         return f"""
 <!DOCTYPE html>
 <html>
@@ -250,48 +161,17 @@ Sorularınız için: {self.support_email}
         html_content: str,
         text_content: Optional[str] = None
     ) -> bool:
-        """Send email via SMTP.
-        
-        Automatically selects SMTP server based on recipient email domain.
-        Falls back to default SMTP if no university-specific config found.
-        
-        Args:
-            to_email: Recipient email address
-            subject: Email subject
-            html_content: HTML email body
-            text_content: Plain text email body (optional, fallback)
-            
-        Returns:
-            True if email sent successfully, False otherwise
-        """
-        # Extract domain from email
-        email_domain = to_email.split('@')[1].lower() if '@' in to_email else ''
-        
-        # Get SMTP config for this domain
-        smtp_config = self._get_smtp_config_for_domain(email_domain)
-        
-        # Check if SMTP is configured
-        if not smtp_config['host'] or not smtp_config['user'] or not smtp_config['password']:
-            logger.warning(
-                "SMTP not configured. Email not sent.",
-                extra={"to_email": to_email, "subject": subject, "domain": email_domain}
-            )
+        """SMTP ile email gönder."""
+        if not self.smtp_host or not self.smtp_user or not self.smtp_password:
+            logger.warning(f"SMTP yapılandırılmamış. Email gönderilmedi: {to_email}")
             return False
         
         try:
-            # Create message
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
-            # Resend requires format: "Name <email@domain.com>" or just "email@domain.com"
-            # Ensure proper encoding for non-ASCII characters in name
-            from_email = smtp_config['from_email']
-            from_name = self.from_name
-            # Use emailutils to properly encode the name if it contains non-ASCII
-            from email.utils import formataddr
-            msg["From"] = formataddr((from_name, from_email))
+            msg["From"] = formataddr((self.from_name, self.from_email))
             msg["To"] = to_email
             
-            # Add text and HTML parts
             if text_content:
                 text_part = MIMEText(text_content, "plain", "utf-8")
                 msg.attach(text_part)
@@ -299,88 +179,50 @@ Sorularınız için: {self.support_email}
             html_part = MIMEText(html_content, "html", "utf-8")
             msg.attach(html_part)
             
-            # Connect to SMTP server and send
-            with smtplib.SMTP(smtp_config['host'], smtp_config['port']) as server:
-                server.starttls()  # Enable TLS
-                server.login(smtp_config['user'], smtp_config['password'])
+            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                server.starttls()
+                server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
             
-            logger.info(
-                "Email sent successfully",
-                extra={
-                    "to_email": to_email,
-                    "subject": subject,
-                    "domain": email_domain,
-                    "smtp_host": smtp_config['host'],
-                    "timestamp": datetime.utcnow().isoformat()
-                }
-            )
+            logger.info(f"Email başarıyla gönderildi: {to_email} - {subject}")
             return True
             
-        except smtplib.SMTPException as e:
-            logger.error(
-                "SMTP error while sending email",
-                extra={
-                    "to_email": to_email,
-                    "subject": subject,
-                    "domain": email_domain,
-                    "smtp_host": smtp_config['host'],
-                    "error": str(e)
-                },
-                exc_info=True
-            )
-            return False
         except Exception as e:
-            logger.error(
-                "Unexpected error while sending email",
-                extra={
-                    "to_email": to_email,
-                    "subject": subject,
-                    "domain": email_domain,
-                    "error": str(e)
-                },
-                exc_info=True
-            )
+            logger.error(f"Email gönderme hatası: {to_email} - {subject} - {e}", exc_info=True)
             return False
     
-    # EMAIL VERIFICATION DISABLED - TODO: Re-enable in production
-    # def send_verification_email(
-    #     self,
-    #     to_email: str,
-    #     verification_token: str,
-    #     user_name: str,
-    #     frontend_url: Optional[str] = None
-    # ) -> bool:
-    #     """Send email verification email.
-    #     
-    #     Args:
-    #         to_email: Recipient email address
-    #         verification_token: JWT verification token
-    #         user_name: User's first name
-    #         frontend_url: Frontend base URL (default: from settings or http://localhost:5173)
-    #         
-    #     Returns:
-    #         True if email sent successfully, False otherwise
-    #     """
-    #     # Build verification URL
-    #     if not frontend_url:
-    #         # Try to get from CORS origins (first one)
-    #         cors_origins = self.settings.cors_origins_list
-    #         frontend_url = cors_origins[0] if cors_origins else "http://localhost:5173"
-    #     
-    #     verification_url = f"{frontend_url}/verify-email?token={verification_token}"
-    #     
-    #     # Create email content
-    #     html_content = self._create_verification_email_html(verification_url, user_name)
-    #     text_content = self._create_verification_email_text(verification_url, user_name)
-    #     
-    #     # Send email
-    #     return self._send_email(
-    #         to_email=to_email,
-    #         subject="KAMPÜS+ - Email Adresinizi Doğrulayın",
-    #         html_content=html_content,
-    #         text_content=text_content
-    #     )
+    def send_verification_email(
+        self,
+        to_email: str,
+        verification_token: str,
+        user_name: str,
+        frontend_url: Optional[str] = None
+    ) -> bool:
+        """Email doğrulama email'i gönder.
+        
+        Args:
+            to_email: Alıcı email adresi
+            verification_token: JWT doğrulama token'ı
+            user_name: Kullanıcının adı
+            frontend_url: Frontend base URL (opsiyonel)
+        
+        Returns:
+            Email başarıyla gönderildiyse True
+        """
+        if not frontend_url:
+            frontend_url = self.settings.frontend_url or "http://localhost:5173"
+        
+        verification_url = f"{frontend_url}/verify-email?token={verification_token}"
+        
+        html_content = self._create_verification_email_html(verification_url, user_name)
+        text_content = self._create_verification_email_text(verification_url, user_name)
+        
+        return self._send_email(
+            to_email=to_email,
+            subject="KAMPÜS+ - Email Adresinizi Doğrulayın",
+            html_content=html_content,
+            text_content=text_content
+        )
     
     def send_password_reset_email(
         self,
@@ -389,28 +231,24 @@ Sorularınız için: {self.support_email}
         user_name: str,
         frontend_url: Optional[str] = None
     ) -> bool:
-        """Send password reset email.
+        """Şifre sıfırlama email'i gönder.
         
         Args:
-            to_email: Recipient email address
-            reset_token: JWT password reset token
-            user_name: User's first name
-            frontend_url: Frontend base URL (default: from settings or http://localhost:5173)
-            
+            to_email: Alıcı email adresi
+            reset_token: JWT şifre sıfırlama token'ı
+            user_name: Kullanıcının adı
+            frontend_url: Frontend base URL (opsiyonel)
+        
         Returns:
-            True if email sent successfully, False otherwise
+            Email başarıyla gönderildiyse True
         """
-        # Build reset URL
         if not frontend_url:
-            cors_origins = self.settings.cors_origins_list
-            frontend_url = cors_origins[0] if cors_origins else "http://localhost:5173"
+            frontend_url = self.settings.frontend_url or "http://localhost:5173"
         
         reset_url = f"{frontend_url}/reset-password?token={reset_token}"
         
-        # Create email content
         html_content = self._create_password_reset_email_html(reset_url, user_name)
         
-        # Send email
         return self._send_email(
             to_email=to_email,
             subject="KAMPÜS+ - Şifre Sıfırlama",
@@ -418,18 +256,12 @@ Sorularınız için: {self.support_email}
         )
 
 
-# Singleton instance
 _email_service: Optional[EmailService] = None
 
 
 def get_email_service() -> EmailService:
-    """Get or create email service singleton instance.
-    
-    Returns:
-        EmailService instance
-    """
+    """Email servisi singleton instance'ı al veya oluştur."""
     global _email_service
     if _email_service is None:
         _email_service = EmailService()
     return _email_service
-

@@ -283,7 +283,7 @@ Artık yeni şifrenizle giriş yapabilirsiniz.
 ### Technical Stack
 
 **Same as Register:**
-- PostgreSQL 15+
+- SQLite (mezuniyet projesi için, WAL mode ile concurrent access)
 - JWT tokens (PyJWT)
 - Bcrypt password verification
 - Gmail SMTP (production) + Mailhog (development)
@@ -591,7 +591,7 @@ destek@kampusplus.com
 
 **External Dependencies:**
 - Email Service (Gmail SMTP / Mailhog)
-- Database (PostgreSQL)
+- Database (SQLite - mezuniyet projesi için)
 - JWT library (PyJWT)
 
 ---

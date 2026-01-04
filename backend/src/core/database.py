@@ -1,11 +1,12 @@
-"""Database connection pool and session management.
+"""Veritabanı bağlantı havuzu ve session yönetimi.
 
-This module provides async SQLAlchemy engine and session factory
-for database operations across the application.
+Bu modül uygulama genelinde veritabanı işlemleri için
+async SQLAlchemy engine ve session factory sağlar.
 """
 
 from typing import AsyncGenerator
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -16,19 +17,17 @@ from sqlalchemy.pool import NullPool
 
 from .config import get_settings
 
-# Global engine instance (created on first import)
+
+# Global engine instance (ilk import'ta oluşturulur)
 engine: AsyncEngine | None = None
 async_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_engine() -> AsyncEngine:
-    """Get or create the async database engine.
+    """Async veritabanı engine'ini al veya oluştur.
     
     Returns:
         AsyncEngine: SQLAlchemy async engine instance.
-    
-    Raises:
-        RuntimeError: If engine creation fails.
     """
     global engine
     
@@ -36,34 +35,41 @@ def get_engine() -> AsyncEngine:
         settings = get_settings()
         database_url = settings.get_database_url()
         
-        # SQLite doesn't support connection pooling, configure accordingly
+        # SQLite kullanılır - WAL mode ile concurrent writes desteklenir
+        connect_args = {}
         if database_url.startswith("sqlite"):
-            engine = create_async_engine(
-                database_url,
-                echo=settings.debug,
-                # SQLite-specific: No pool parameters
-                connect_args={"check_same_thread": False}
-            )
-        else:
-            # PostgreSQL/other databases: Use connection pooling
-            engine = create_async_engine(
-                database_url,
-                echo=settings.debug,
-                pool_size=10,
-                max_overflow=20,
-                pool_timeout=30,
-                pool_recycle=3600,
-                pool_pre_ping=True,
-            )
+            connect_args = {
+                "check_same_thread": False,
+                "timeout": 20.0,  # Write lock timeout (saniye)
+            }
+        
+        engine = create_async_engine(
+            database_url,
+            echo=settings.debug,
+            connect_args=connect_args,
+            pool_pre_ping=True,  # Bağlantı sağlığını kontrol et
+        )
+        
+        # WAL mode'u etkinleştir (concurrent reads/writes için)
+        # aiosqlite 0.19.0+ ile uyumlu event listener kullanımı
+        if database_url.startswith("sqlite"):
+            @event.listens_for(engine.sync_engine, "connect")
+            def _enable_wal(dbapi_conn, connection_record):
+                """SQLite bağlantısı oluşturulduğunda WAL modunu etkinleştir."""
+                cursor = dbapi_conn.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA synchronous=NORMAL")  # Performans için
+                cursor.execute("PRAGMA foreign_keys=ON")  # Foreign key desteği
+                cursor.close()
     
     return engine
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
-    """Get or create the async session factory.
+    """Async session factory'yi al veya oluştur.
     
     Returns:
-        async_sessionmaker: Factory for creating async sessions.
+        async_sessionmaker: Async session'lar oluşturmak için factory.
     """
     global async_session_factory
     
@@ -71,27 +77,27 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
         async_session_factory = async_sessionmaker(
             bind=get_engine(),
             class_=AsyncSession,
-            expire_on_commit=False,  # Don't expire objects after commit
-            autoflush=False,  # Manual flush control
-            autocommit=False,  # Manual transaction control
+            expire_on_commit=False,
+            autoflush=False,
+            autocommit=False,
         )
     
     return async_session_factory
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency for getting async database sessions.
+    """Async veritabanı session'ları için dependency.
     
-    Use with FastAPI's Depends() for route handlers:
+    FastAPI route handler'larında Depends() ile kullan:
     ```python
-    @app.get("/users")
-    async def get_users(db: AsyncSession = Depends(get_db)):
-        result = await db.execute(select(User))
+    @router.get("/users")
+    async def get_users(session: AsyncSession = Depends(get_db)):
+        result = await session.execute(select(User))
         return result.scalars().all()
     ```
     
     Yields:
-        AsyncSession: Active database session.
+        AsyncSession: Aktif veritabanı session'ı.
     """
     session_factory = get_session_factory()
     async with session_factory() as session:
@@ -106,28 +112,25 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Initialize database connection pool.
+    """Veritabanı bağlantı havuzunu başlat.
     
-    Call this during application startup to create the engine
-    and verify database connectivity.
-    
-    Raises:
-        Exception: If database connection fails.
+    Uygulama başlangıcında engine'i oluşturmak ve
+    veritabanı bağlantısını doğrulamak için çağır.
     """
     engine = get_engine()
     
-    # Test connection
+    # Bağlantıyı test et
     async with engine.begin() as conn:
-        await conn.run_sync(lambda _: None)  # Ping database
+        await conn.run_sync(lambda _: None)
     
-    print(f"✅ Database connection pool initialized: {engine.url.database}")
+    print(f"✅ Veritabanı bağlantı havuzu başlatıldı: {engine.url.database}")
 
 
 async def close_db() -> None:
-    """Close database connection pool.
+    """Veritabanı bağlantı havuzunu kapat.
     
-    Call this during application shutdown to gracefully close
-    all connections.
+    Uygulama kapanışında tüm bağlantıları düzgün şekilde
+    kapatmak için çağır.
     """
     global engine, async_session_factory
     
@@ -135,15 +138,14 @@ async def close_db() -> None:
         await engine.dispose()
         engine = None
         async_session_factory = None
-        print("✅ Database connection pool closed")
+        print("✅ Veritabanı bağlantı havuzu kapatıldı")
 
 
-# Testing utility: Use NullPool for tests to avoid connection leaks
 def get_test_engine(database_url: str) -> AsyncEngine:
-    """Create a test engine with NullPool (no connection pooling).
+    """Test için NullPool ile engine oluştur (connection pooling yok).
     
     Args:
-        database_url: Database connection URL for tests.
+        database_url: Test için veritabanı bağlantı URL'i.
     
     Returns:
         AsyncEngine: Test-specific engine instance.
@@ -151,5 +153,5 @@ def get_test_engine(database_url: str) -> AsyncEngine:
     return create_async_engine(
         database_url,
         echo=False,
-        poolclass=NullPool,  # No connection pooling for tests
+        poolclass=NullPool,
     )

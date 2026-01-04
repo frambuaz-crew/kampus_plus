@@ -1,12 +1,12 @@
-"""Services package for business logic and external integrations."""
+"""Servisler paketi - İş mantığı ve harici entegrasyonlar."""
 
-from .s3_service import S3Service, get_s3_service
+from .file_storage_service import FileStorageService, get_file_storage_service
 from .vector_service import VectorStoreService, get_vector_service
 from .email_service import EmailService, get_email_service
 
 __all__ = [
-    "S3Service",
-    "get_s3_service",
+    "FileStorageService",  # Local storage servisi (backend/uploads/)
+    "get_file_storage_service",
     "VectorStoreService",
     "get_vector_service",
     "EmailService",

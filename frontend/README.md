@@ -1,6 +1,102 @@
-# React + TypeScript + Vite
+# KAMPÜS+ Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+KAMPÜS+ platformunun frontend uygulaması. React + TypeScript + Vite ile geliştirilmiştir.
+
+## 🎯 Proje Hakkında
+
+KAMPÜS+ öğrenciler için AI destekli öğrenme platformudur. Platform içi forum, pazar, kariyer ilanları ve AI asistan özellikleri sunar.
+
+## 🚀 Hızlı Başlangıç
+
+### Gereksinimler
+- Node.js 20+
+- npm veya yarn
+
+### Kurulum
+
+1. Dependencies yükle:
+```bash
+npm install
+```
+
+2. Environment variables ayarla:
+```bash
+cp .env.example .env
+# .env dosyasını düzenle (VITE_API_URL)
+```
+
+3. Development server'ı başlat:
+```bash
+npm run dev
+```
+
+4. Tarayıcıda aç:
+```
+http://localhost:5173
+```
+
+## 📦 Build
+
+Production build:
+```bash
+npm run build
+```
+
+Build çıktısı `dist/` klasöründe olacak.
+
+## 🧪 Test
+
+MVP için test scriptleri devre dışı. İleride aktif edilecek.
+
+## 🛠️ Teknolojiler
+
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Tailwind CSS** - Styling
+- **React Router** - Routing
+- **Axios** - HTTP client
+
+## 📁 Proje Yapısı
+
+```
+frontend/
+├── src/
+│   ├── components/    # React components
+│   ├── pages/         # Page components
+│   ├── hooks/         # Custom hooks
+│   ├── contexts/      # React Context
+│   ├── api/           # API client
+│   └── types/         # TypeScript types
+├── public/            # Static assets
+└── dist/              # Build output
+```
+
+## 🔧 Configuration
+
+- `vite.config.ts` - Vite configuration
+- `tailwind.config.cjs` - Tailwind CSS configuration
+- `tsconfig.json` - TypeScript configuration
+- `eslint.config.js` - ESLint configuration
+
+## 🐳 Docker
+
+Production build için Docker kullanılabilir:
+
+```bash
+docker build -t kampus-frontend .
+docker run -p 3000:3000 kampus-frontend
+```
+
+## 📝 Notlar
+
+- Environment variables `VITE_` prefix'i ile başlamalı
+- API URL `VITE_API_URL` environment variable'ından alınır
+- React Router için tüm route'lar `index.html`'e yönlendirilir (nginx.conf)
+
+---
+
+**KAMPÜS+ Platform** - AI-Powered Learning Platform
 
 Currently, two official plugins are available:
 

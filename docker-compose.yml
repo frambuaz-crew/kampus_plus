@@ -1,9 +1,5 @@
-version: '3.9'
-
 services:
-  # ============================================================================
   # Backend API (FastAPI)
-  # ============================================================================
   backend:
     build:
       context: ./backend
@@ -12,19 +8,19 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # SQLite kullanıyoruz (PostgreSQL yerine basitlik için)
       - DATABASE_URL=sqlite+aiosqlite:///./kampus_plus.db
       - ENVIRONMENT=development
       - DEBUG=true
     ports:
       - "8000:8000"
     volumes:
-      # Source code - hot reload için (rw for development)
+      # Hot reload için source code mount
       - ./backend/src:/app/src
       - ./backend/alembic:/app/alembic
-      # Data - bind mount for vector metadata access
+      # Vector store ve uploads için data mount
       - ./backend/data:/app/data
-      # DB - persist edilmeli
+      - ./backend/uploads:/app/uploads
+      # Veritabanı persistence
       - backend_db:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -37,16 +33,15 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-        echo '🚀 Starting Kampus+ Backend...' &&
-        python -m alembic upgrade head &&
-        python scripts/seed_data.py &&
-        python scripts/populate_vectors.py &&
+        echo '🚀 Starting KAMPÜS+ Backend...' &&
+        python -m alembic upgrade head || echo '⚠️  Migration hatası (devam ediliyor)' &&
+        python scripts/seed_data.py || echo '⚠️  Seed hatası (devam ediliyor)' &&
+        python scripts/populate_vectors.py || echo '⚠️  Vector populate hatası (devam ediliyor)' &&
+        echo '✅ Starting FastAPI server...' &&
         uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
-  # ============================================================================
   # Frontend (React + Vite)
-  # ============================================================================
   frontend:
     build:
       context: ./frontend
@@ -57,61 +52,32 @@ services:
       backend:
         condition: service_healthy
     environment:
-      - VITE_API_URL=http://localhost:8000/v1
+      # Tarayıcıdan erişim için localhost kullanılır (Docker port mapping sayesinde)
+      - VITE_API_URL=http://localhost:8000/api/v1
       - NODE_ENV=development
     ports:
       - "5173:5173"
     volumes:
-      # Source code - hot reload için (rw for development)
+      # Hot reload için source code mount
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
       - ./frontend/vite.config.ts:/app/vite.config.ts
-      # node_modules'u container'da tut (hız için)
+      # node_modules container'da kalır (performans)
       - frontend_node_modules:/app/node_modules
     networks:
       - kampus-network
     restart: unless-stopped
     command: npm run dev -- --host 0.0.0.0
 
-  # ============================================================================
-  # MinIO (S3-compatible local storage)
-  # ============================================================================
-  minio:
-    image: minio/minio:latest
-    container_name: kampus-minio
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
-    ports:
-      - "9000:9000"  # API
-      - "9001:9001"  # Console
-    volumes:
-      - minio_data:/data
-    networks:
-      - kampus-network
-    command: server /data --console-address ":9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-# ============================================================================
-# Volumes (Data Persistence)
-# ============================================================================
+# Volumes (Veri kalıcılığı)
 volumes:
   backend_db:
     driver: local
   frontend_node_modules:
     driver: local
-  minio_data:
-    driver: local
 
-# ============================================================================
 # Networks
-# ============================================================================
 networks:
   kampus-network:
     driver: bridge

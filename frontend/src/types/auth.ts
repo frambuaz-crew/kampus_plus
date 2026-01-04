@@ -1,6 +1,9 @@
 /**
- * Authentication Types
- * Type definitions for authentication-related data structures
+ * Authentication Type Definitions
+ * 
+ * Spec: 002-register-page/spec.md, 003-login-page/spec.md, 010-profile/spec.md
+ * 
+ * Authentication ile ilgili TypeScript type tanımları.
  */
 
 export interface User {
@@ -10,13 +13,17 @@ export interface User {
   last_name: string;
   role: 'student' | 'instructor' | 'admin';
   student_id?: string | null;
+  university?: string | null;
+  department?: string | null;
   is_verified: boolean;
+  profile_picture_url?: string | null;
   created_at: string;
 }
 
 export interface LoginCredentials {
   email: string;
   password: string;
+  remember_me?: boolean;
 }
 
 export interface RegisterData {
@@ -24,7 +31,9 @@ export interface RegisterData {
   password: string;
   first_name: string;
   last_name: string;
-  student_id: string;  // Required for students
+  student_id: string;
+  department: string;
+  terms_accepted: boolean;
 }
 
 export interface LoginResponse {

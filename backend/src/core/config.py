@@ -1,15 +1,18 @@
+"""Yapılandırma yönetimi - Pydantic Settings kullanarak.
+
+Environment variable'ları .env dosyasından yükler.
 """
-Configuration management using Pydantic Settings.
-Loads environment variables from .env file.
-"""
+
 from functools import lru_cache
+from pathlib import Path
 from typing import List, Optional
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Environment variable'lardan yüklenen uygulama ayarları."""
     
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -18,89 +21,74 @@ class Settings(BaseSettings):
         extra="ignore"
     )
     
-    # Application
+    # Uygulama
     app_name: str = "KAMPÜS+ AI Platform"
     app_version: str = "0.1.0"
     environment: str = "development"
     debug: bool = False
     
-    # Database
-    database_url: str | None = None  # Can be set directly for SQLite or other databases
-    postgres_host: str = "localhost"
-    postgres_port: int = 5432
-    postgres_db: str = "kampus_plus"
-    postgres_user: str = "kampus_user"
-    postgres_password: str | None = None
+    # Veritabanı - SQLite kullanılır
+    database_url: str = "sqlite+aiosqlite:///./kampus_plus.db"
     
     def get_database_url(self) -> str:
-        """Get database URL - either from DATABASE_URL env or construct from postgres settings."""
-        if self.database_url:
-            return self.database_url
-        
-        # Fallback to PostgreSQL construction
-        if not self.postgres_password:
-            raise ValueError("Either DATABASE_URL or postgres_password must be set")
-        
-        return (
-            f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
+        """Veritabanı URL'ini al - SQLite kullanılır."""
+        return self.database_url
     
     def get_database_url_sync(self) -> str:
-        """Get sync database URL for Alembic migrations."""
-        if self.database_url:
-            # Convert async SQLite URL to sync for Alembic
-            if self.database_url.startswith("sqlite+aiosqlite"):
-                return self.database_url.replace("sqlite+aiosqlite", "sqlite")
-            return self.database_url
-        
-        # Fallback to PostgreSQL construction
-        if not self.postgres_password:
-            raise ValueError("Either DATABASE_URL or postgres_password must be set")
-        
-        return (
-            f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
-            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
-        )
+        """Alembic migration'ları için sync veritabanı URL'ini al."""
+        # SQLite için async -> sync dönüşümü
+        if self.database_url.startswith("sqlite+aiosqlite"):
+            return self.database_url.replace("sqlite+aiosqlite", "sqlite")
+        return self.database_url
     
-    # JWT Authentication
+    # JWT Kimlik Doğrulama
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 7
+    jwt_refresh_token_expire_days_remember_me: int = 30  # "Beni Hatırla" için 30 gün
     
-    # AI Provider Settings
-    ai_provider: str = "gemini"  # Options: "openai", "gemini"
-    
-    # OpenAI
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4"
-    openai_embedding_model: str = "text-embedding-ada-002"
-    openai_max_tokens: int = 2000
-    openai_temperature: float = 0.7
+    # AI Provider Ayarları
+    ai_provider: str = "gemini"
     
     # Google Gemini
     google_api_key: str = ""
-    gemini_model: str = "gemini-1.5-pro"
+    gemini_model: str = "models/gemini-2.5-flash"  # Spec: 009-ai-assistant
     gemini_temperature: float = 0.7
     gemini_max_tokens: int = 8192
     
-    # AWS S3
-    aws_access_key_id: str
-    aws_secret_access_key: str
-    aws_region: str = "eu-central-1"
-    aws_s3_bucket: str
-    aws_s3_endpoint_url: Optional[str] = None  # For MinIO/LocalStack
-    s3_presigned_url_expiry_seconds: int = 900
+    # Dosya Depolama - LOCAL STORAGE KULLANILIR
+    # NOT: Bu proje S3, MinIO veya cloud storage kullanmaz.
+    # Tüm dosyalar backend sunucusunun disk'inde saklanır (backend/uploads/).
+    upload_dir: str = "backend/uploads"  # Local storage klasörü (relative to project root)
+    
+    def get_upload_dir_absolute(self) -> Path:
+        """Upload dizininin absolute path'ini al.
+        
+        Docker container içinde veya local'de çalışabilir.
+        - Docker: /app/uploads (container içinde)
+        - Local: proje_root/backend/uploads
+        """
+        # Docker container içinde miyiz? (WORKDIR /app)
+        if Path("/app").exists() and Path("/app/src").exists():
+            # Docker container içindeyiz
+            return Path("/app/uploads")
+        
+        # Local development: proje root'una göre
+        # Backend klasörünü bul (config.py'nin bulunduğu yer: backend/src/core/)
+        # 3 seviye yukarı çık: core -> src -> backend -> project_root
+        backend_dir = Path(__file__).parent.parent.parent
+        project_root = backend_dir.parent  # backend/ klasörünün bir üstü
+        return project_root / self.upload_dir
     
     # FAISS Vector Store
     vector_store_path: str = "./data/vectors"
     faiss_index_official: str = "vdb_official.index"
     faiss_index_user: str = "vdb_user.index"
-    vector_dimension: int = 1536
+    vector_dimension: int = 768  # Google Gemini text-embedding-004 için 768
     vector_search_k: int = 5
     
-    # PDF Processing
+    # PDF İşleme
     max_file_size_mb: int = 25
     allowed_file_types: str = "pdf"
     pdf_chunk_size: int = 512
@@ -108,10 +96,10 @@ class Settings(BaseSettings):
     
     @property
     def max_file_size_bytes(self) -> int:
-        """Convert MB to bytes."""
+        """MB'ı byte'a çevir."""
         return self.max_file_size_mb * 1024 * 1024
     
-    # Data Sync
+    # Veri Senkronizasyonu
     sync_enabled: bool = True
     sync_interval_hours: int = 2
     sync_start_hour: int = 8
@@ -121,7 +109,7 @@ class Settings(BaseSettings):
     announcements_rss_url: str = ""
     schedule_csv_url: str = ""
     
-    # Security
+    # Güvenlik
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
     allowed_hosts: str = "localhost,127.0.0.1"
     rate_limit_per_minute: int = 100
@@ -129,12 +117,12 @@ class Settings(BaseSettings):
     
     @property
     def cors_origins_list(self) -> List[str]:
-        """Parse CORS origins from comma-separated string."""
+        """CORS origin'lerini virgülle ayrılmış string'den parse et."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
     
     @property
     def allowed_hosts_list(self) -> List[str]:
-        """Parse allowed hosts from comma-separated string."""
+        """İzin verilen host'ları virgülle ayrılmış string'den parse et."""
         return [host.strip() for host in self.allowed_hosts.split(",")]
     
     # Logging
@@ -143,63 +131,58 @@ class Settings(BaseSettings):
     enable_metrics: bool = True
     metrics_port: int = 9090
     
-    # Email - Default SMTP (used for all universities)
+    # Email - SMTP (Resend için)
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from_email: str = ""
     smtp_from_name: str = "KAMPÜS+ Platform"
+    frontend_url: str = "http://localhost:5173"  # Email link'leri için
     
-    # Email - University-specific SMTP settings (deprecated - using Resend for all universities)
-    # Resend tek bir SMTP sunucusu üzerinden tüm 5 üniversiteye email gönderebilir.
-    # Her üniversite için ayrı yapılandırma gerekmez.
-    university_smtp_config: str = ""
-    
-    # University Specific - Konya Universities
+    # Üniversite Özel Ayarlar - Konya Üniversiteleri
     university_name: str = "Konya Universities"
-    university_email_domain: str = "example.edu.tr"
     support_email: str = "support@kampusplus.edu.tr"
     
-    # Allowed email domains for Konya universities (comma-separated)
+    # Kayıt için izin verilen email domain'leri (virgülle ayrılmış)
     allowed_email_domains: str = Field(
         default="ogr.selcuk.edu.tr,ktun.edu.tr,ogr.erbakan.edu.tr,karatay.edu.tr,ogr.gidatarim.edu.tr",
-        description="Comma-separated list of allowed email domains for registration"
+        description="Kayıt için izin verilen email domain'leri (virgülle ayrılmış)"
     )
     
     @property
     def allowed_email_domains_list(self) -> List[str]:
-        """Parse allowed email domains from comma-separated string."""
+        """İzin verilen email domain'lerini virgülle ayrılmış string'den parse et."""
         return [domain.strip().lower() for domain in self.allowed_email_domains.split(",") if domain.strip()]
     
     @field_validator("environment")
     @classmethod
     def validate_environment(cls, v: str) -> str:
-        """Validate environment value."""
+        """Environment değerini doğrula."""
         allowed = ["development", "staging", "production"]
         if v not in allowed:
-            raise ValueError(f"Environment must be one of {allowed}")
+            raise ValueError(f"Environment şunlardan biri olmalı: {allowed}")
         return v
     
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
-        """Validate log level."""
+        """Log level değerini doğrula."""
         allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         v_upper = v.upper()
         if v_upper not in allowed:
-            raise ValueError(f"Log level must be one of {allowed}")
+            raise ValueError(f"Log level şunlardan biri olmalı: {allowed}")
         return v_upper
 
 
 @lru_cache()
 def get_settings() -> Settings:
-    """
-    Get cached settings instance.
-    Uses lru_cache to avoid reloading .env on every call.
+    """Cache'lenmiş settings instance'ını al.
+    
+    Her çağrıda .env dosyasını yeniden yüklememek için lru_cache kullanır.
     """
     return Settings()
 
 
-# Convenience export
+# Kolaylık export
 settings = get_settings()

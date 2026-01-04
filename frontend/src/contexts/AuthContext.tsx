@@ -1,12 +1,15 @@
 /**
- * Authentication Context (T047)
+ * AuthContext Component
  * 
- * Provides:
- * - User state management
- * - JWT token storage
- * - Login/logout/register functions
- * - Automatic token refresh (via API interceptor)
+ * Spec: 003-login-page/spec.md, 004-dashboard/spec.md
+ * 
+ * Authentication state yönetimi:
+ * - User state ve JWT token storage
+ * - Login/logout/register fonksiyonları
+ * - Token validation (localStorage'dan token varsa, API'den user bilgisi çek)
  * - isAuthenticated flag
+ * 
+ * NOT: Refresh token httpOnly cookie olarak backend'den gelir (localStorage'da saklanmaz)
  */
 
 import React, { createContext, useState, useEffect } from 'react';
@@ -27,15 +30,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state from localStorage on mount
   useEffect(() => {
-    const storedToken = localStorage.getItem('access_token');
-    const storedUser = localStorage.getItem('user');
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('access_token');
+      const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
+      if (storedToken && storedUser) {
+        try {
+          // Validate token by fetching current user
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+          const response = await apiClient.get('/auth/me');
+          
+          setToken(storedToken);
+          setUser(response.data);
+          // Update localStorage with fresh user data
+          localStorage.setItem('user', JSON.stringify(response.data));
+        } catch (error) {
+          // Token invalid or expired, clear storage
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user');
+          setToken(null);
+          setUser(null);
+        }
+      }
 
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (credentials: LoginCredentials): Promise<User> => {
@@ -50,12 +71,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
     
+    // Set default Authorization header for future requests
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+    
     return userData;
   };
 
   const logout = async (): Promise<void> => {
     try {
-      // Call logout endpoint to revoke refresh token
+      // Call logout endpoint to revoke refresh token (httpOnly cookie)
       await apiClient.post('/auth/logout');
     } catch (error) {
       // Log error but continue with local logout
@@ -66,6 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(null);
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
+      delete apiClient.defaults.headers.common['Authorization'];
     }
   };
 
@@ -87,5 +112,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Export context for custom hooks
 export { AuthContext };

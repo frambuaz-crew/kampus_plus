@@ -1,8 +1,15 @@
 /**
  * Main Layout Component
  * 
- * Professional layout with Header + Sidebar + Main Content
- * Used across all authenticated pages
+ * Spec: 004-dashboard/spec.md
+ * 
+ * Dashboard sayfalarının ortak layout yapısı:
+ * - Header (üst bar): Logo, Arama, Bildirimler, Mesajlar, Profil
+ * - Sidebar (sol menü): Navigation items
+ * - Main Content (sağ alan): Sayfa içeriği
+ * 
+ * Kullanım: Tüm authenticated dashboard sayfalarında kullanılır
+ * - Dashboard, AI Assistant, Forum, Marketplace, Career, vb.
  */
 
 import React from 'react';
@@ -16,15 +23,9 @@ interface MainLayoutProps {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header - Fixed at top */}
       <Header />
-      
-      {/* Main container with Sidebar + Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Fixed width */}
         <Sidebar />
-        
-        {/* Main Content Area - Flexible */}
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>

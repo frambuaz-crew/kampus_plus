@@ -1,86 +1,180 @@
 /**
- * ThreadView Component - T105
+ * ThreadView Component
  * 
- * Displays full thread with replies, nested reply structure, anonymous identities.
- * Includes ReplyForm for adding new replies.
+ * Spec: 005-forum-page/spec.md
+ * 
+ * Konu detay sayfası:
+ * - Thread (ana konu) kartı
+ * - Yazar profil bilgisi
+ * - Dosya ekleri
+ * - Etiketler
+ * - Yararlı butonu
+ * - Düzenle/Sil butonları (sadece sahibine + 10 dakika içinde)
+ * - Cevaplar listesi
+ * - Cevap yazma formu
+ * 
+ * NOT: Tüm kullanıcılar profilli (anonim paylaşım yok)
  */
 
 import React, { useState } from 'react';
 import type { ThreadWithReplies, ForumPost } from '../../types/forum';
 import { ReplyForm } from './ReplyForm';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '../../hooks/useAuth';
 
 interface ThreadViewProps {
   threadData: ThreadWithReplies;
-  onReplySubmit: (content: string) => Promise<void>;
-  onFlagPost: (postId: string) => void;
+  onReplySubmit: (data: { content: string; files: File[]; mentions?: string[] }) => Promise<void>;
+  onHelpful: (postId: string) => Promise<void>;
+  onReport: (postId: string) => void;
+  onEdit?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
   loading?: boolean;
   isSubmitting?: boolean;
 }
 
-// PostCard component extracted outside to avoid re-creation on each render
-const PostCard: React.FC<{ post: ForumPost; isThread?: boolean; onFlagPost: (postId: string) => void }> = ({ 
+const PostCard: React.FC<{
+  post: ForumPost;
+  isThread?: boolean;
+  onHelpful: (postId: string) => Promise<void>;
+  onReport: (postId: string) => void;
+  onEdit?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
+  currentUserId?: string;
+}> = ({ 
   post, 
   isThread = false,
-  onFlagPost
-}) => (
-  <div 
-    className={`bg-white rounded-lg shadow p-6 ${isThread ? 'border-l-4 border-indigo-500' : ''}`}
-    data-testid={isThread ? "thread-content" : "reply-content"}
-  >
-    {post.title && (
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h2>
-    )}
-    
-    <div className="prose max-w-none mb-4">
-      <p className="text-gray-700 whitespace-pre-wrap">{post.content}</p>
-    </div>
+  onHelpful,
+  onReport,
+  onEdit,
+  onDelete,
+  currentUserId
+}) => {
+  const [isHelpful, setIsHelpful] = useState(false);
+  const canEdit = currentUserId === post.author.id && 
+    new Date().getTime() - new Date(post.created_at).getTime() < 10 * 60 * 1000; // 10 dakika
 
-    <div className="flex items-center justify-between text-sm text-gray-500">
-      <div className="flex items-center space-x-4">
-        <span className="font-mono bg-gray-100 px-2 py-1 rounded">
-          {post.anonymous_id.substring(0, 8)}
+  const handleHelpful = async () => {
+    await onHelpful(post.id);
+    setIsHelpful(!isHelpful);
+  };
+
+  return (
+    <div className={`bg-white rounded-lg shadow p-6 ${isThread ? 'border-l-4 border-indigo-500' : ''}`}>
+      {post.title && (
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h2>
+      )}
+
+      {/* Author Info */}
+      <div className="mb-4 text-sm text-gray-600">
+        <span className="font-medium">
+          👤 {post.author.first_name} {post.author.last_name}
         </span>
-        <span>
-          {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-        </span>
+        <span className="mx-2">•</span>
+        <span>🎓 {post.author.university}</span>
+        {post.author.department && (
+          <>
+            <span className="mx-2">•</span>
+            <span>{post.author.department}</span>
+          </>
+        )}
+        <span className="mx-2">•</span>
+        <span>🕐 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
       </div>
-      
-      <button
-        onClick={() => onFlagPost(post.id)}
-        className={`flex items-center space-x-1 px-3 py-1 rounded hover:bg-gray-100 ${
-          post.is_flagged ? 'text-red-600' : 'text-gray-400'
-        }`}
-        title="Flag inappropriate content"
-        data-testid="flag-button"
-      >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          strokeWidth={1.5} 
-          stroke="currentColor" 
-          className="w-5 h-5"
-        >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" 
-          />
-        </svg>
-        {post.is_flagged && <span className="text-xs">Flagged</span>}
-      </button>
+
+      {/* Content */}
+      <div className="prose max-w-none mb-4">
+        <div className="text-gray-700 whitespace-pre-wrap">{post.content}</div>
+      </div>
+
+      {/* Attachments */}
+      {post.attachments && post.attachments.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <div className="text-sm font-medium text-gray-700">📎 Eklenen Dosyalar:</div>
+          {post.attachments.map((file) => (
+            <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <span className="text-sm text-gray-700">
+                {file.filename} ({(file.file_size / 1024).toFixed(1)} KB)
+              </span>
+              <a
+                href={file.file_url}
+                download
+                className="text-sm text-indigo-600 hover:text-indigo-800"
+              >
+                İndir
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tags */}
+      {post.tags && post.tags.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {post.tags.map((tag) => (
+            <span key={tag.id} className="text-sm bg-indigo-100 text-indigo-800 px-3 py-1 rounded">
+              #{tag.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleHelpful}
+            className="flex items-center space-x-1 px-3 py-1 rounded hover:bg-gray-100 text-gray-600"
+          >
+            <span>👍</span>
+            <span>{post.helpful_count} Yararlı</span>
+          </button>
+          <button
+            onClick={() => onReport(post.id)}
+            className="flex items-center space-x-1 px-3 py-1 rounded hover:bg-gray-100 text-gray-400"
+          >
+            <span>🚩</span>
+            <span>Rapor Et</span>
+          </button>
+        </div>
+
+        {/* Edit/Delete (only for owner, within 10 minutes) */}
+        {canEdit && (onEdit || onDelete) && (
+          <div className="flex items-center space-x-2">
+            {onEdit && (
+              <button
+                onClick={() => onEdit(post.id)}
+                className="text-sm text-indigo-600 hover:text-indigo-800"
+              >
+                ✏️ Düzenle
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(post.id)}
+                className="text-sm text-red-600 hover:text-red-800"
+              >
+                🗑️ Sil
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const ThreadView: React.FC<ThreadViewProps> = ({ 
   threadData, 
   onReplySubmit, 
-  onFlagPost,
+  onHelpful,
+  onReport,
+  onEdit,
+  onDelete,
   loading = false,
   isSubmitting = false
 }) => {
+  const { user } = useAuth();
   const [showReplyForm, setShowReplyForm] = useState(false);
 
   if (loading) {
@@ -95,24 +189,31 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
 
   const { thread, replies } = threadData;
 
-  const handleReplySubmit = async (content: string) => {
-    await onReplySubmit(content);
+  const handleReplySubmit = async (data: { content: string; files: File[]; mentions?: string[] }) => {
+    await onReplySubmit(data);
     setShowReplyForm(false);
   };
 
   return (
     <div className="space-y-4">
       {/* Thread Post */}
-      <PostCard post={thread} isThread onFlagPost={onFlagPost} />
+      <PostCard
+        post={thread}
+        isThread
+        onHelpful={onHelpful}
+        onReport={onReport}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        currentUserId={user?.id}
+      />
 
       {/* Reply Button */}
       {!showReplyForm && (
         <button
           onClick={() => setShowReplyForm(true)}
           className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-3 px-4 rounded-lg transition-colors"
-          data-testid="show-reply-form"
         >
-          💬 Reply to this thread
+          💬 Bu Konuya Cevap Yaz
         </button>
       )}
 
@@ -129,12 +230,20 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
 
       {/* Replies */}
       {replies.length > 0 && (
-        <div className="space-y-3 pl-6 border-l-2 border-gray-200">
+        <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-700">
-            {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
+            CEVAPLAR ({replies.length})
           </h3>
           {replies.map((reply) => (
-            <PostCard key={reply.id} post={reply} onFlagPost={onFlagPost} />
+            <PostCard
+              key={reply.id}
+              post={reply}
+              onHelpful={onHelpful}
+              onReport={onReport}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              currentUserId={user?.id}
+            />
           ))}
         </div>
       )}
@@ -142,7 +251,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
       {/* No replies state */}
       {replies.length === 0 && !showReplyForm && (
         <div className="text-center py-8 text-gray-500">
-          <p>No replies yet. Be the first to reply!</p>
+          <p>Henüz cevap yok. İlk cevabı sen yaz!</p>
         </div>
       )}
     </div>

@@ -315,7 +315,7 @@
 │  📄 AÇIKLAMA                                                        │
 │  ─────────────────────────────────────────────────────────────────  │
 │  E-ticaret startup'ım için CTO arıyorum. Node.js, React,           │
-│  PostgreSQL bilgisi gerekli. Hisse ortaklığı ile çalışacağız.      │
+│  SQLite kullanılır (mezuniyet projesi için). Hisse ortaklığı ile çalışacağız.      │
 │                                                                     │
 │  [✅ İlgileniyorum] → DM gönderir                                   │
 │                                                                     │

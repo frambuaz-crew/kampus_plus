@@ -1183,7 +1183,7 @@ async def search_forum(
         query = query.order_by(Thread.reply_count.desc())
     elif sort_by == "most_helpful":
         query = query.order_by(Thread.helpful_count.desc())
-    # relevance için PostgreSQL full-text search kullanılabilir (gelecek iyileştirme)
+    # relevance için SQLite LIKE query kullanılır (PostgreSQL full-text search kullanılmaz)
     
     # Sayfalama
     total = query.count()

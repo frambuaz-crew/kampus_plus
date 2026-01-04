@@ -1,24 +1,23 @@
 /**
- * ChatInterface Component - KAMPÜS+ Phase 4 (T066)
+ * ChatInterface Component
  * 
- * Main chat interface with AI assistant.
+ * Spec: 009-ai-assistant/spec.md
  * 
- * Features:
- * - Message list rendering (user/assistant with data-role attributes)
- * - Message input with multi-line support (textarea)
- * - Send button with Enter/Shift+Enter handling
- * - Typing indicator during AI response
- * - Source citations display with expandable cards
- * - Loading states (initial load, AI response)
- * - Error handling (API errors, network failures)
- * - Auto-scroll to latest message
- * - Empty state when no messages
- * - Message timestamps
+ * AI Asistan chat arayüzü:
+ * - Mesaj listesi (user/assistant bubble design)
+ * - Mesaj input (multiline, max 500 karakter)
+ * - Gönder butonu (Enter/Shift+Enter)
+ * - Kalan mesaj sayacı (50/gün)
+ * - Loading state ("🤖 Düşünüyor...")
+ * - Zaman damgası
+ * - References (linkler)
+ * - Empty state
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/config';
-import type { ChatMessage, SendMessageResponse, Source } from '../../types/chat';
+import type { ChatMessage, SendMessageResponse, Reference } from '../../types/chat';
 import axios from 'axios';
 
 interface ChatInterfaceProps {
@@ -32,31 +31,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   initialMessages = [], 
   onMessageSent 
 }) => {
-  console.log('ChatInterface rendered with sessionId:', sessionId);
-  
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages.filter(msg => msg !== undefined));
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
+  const [remainingMessages, setRemainingMessages] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sync initialMessages with local state
   useEffect(() => {
     if (initialMessages && initialMessages.length > 0) {
       setMessages(initialMessages.filter(msg => msg !== undefined));
       setIsLoading(false);
     } else if (sessionId) {
-      // Only load from API if no initialMessages provided
       loadMessages();
     } else {
       setMessages([]);
       setIsLoading(false);
     }
+    loadRemainingMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]); // Only re-run when sessionId changes, not initialMessages
+  }, [sessionId]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -65,7 +62,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const loadMessages = async () => {
     if (!sessionId) {
-      // Don't clear messages if we have initialMessages
       if (!initialMessages || initialMessages.length === 0) {
         setMessages([]);
       }
@@ -76,16 +72,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiClient.get(`/chat/sessions/${sessionId}`);
-      // API can return either {messages: [...]} or [...] directly
-      const messagesData = response.data.messages || response.data;
+      const response = await apiClient.get(`/ai/conversation`);
+      const messagesData = response.data.messages || [];
       setMessages(Array.isArray(messagesData) ? messagesData : []);
     } catch (err) {
-      console.error('Failed to load messages:', err);
-      setError('Failed to load messages');
+      console.error('Mesajlar yüklenemedi:', err);
+      setError('Mesajlar yüklenemedi');
       setMessages([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadRemainingMessages = async () => {
+    try {
+      const response = await apiClient.get(`/ai/remaining-messages`);
+      setRemainingMessages(response.data.remaining || 50);
+    } catch (err) {
+      setRemainingMessages(50);
     }
   };
 
@@ -101,21 +105,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsSending(true);
     setError(null);
 
-    // Optimistically add user message to show immediately
+    // Optimistic user message
     const tempUserMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
       session_id: sessionId,
       role: 'user',
       content: messageContent,
       created_at: new Date().toISOString(),
-      sources: null,
+      references: null,
     };
     setMessages((prev) => [...prev, tempUserMessage]);
 
     try {
       const response = await apiClient.post<SendMessageResponse>(
-        `/chat/sessions/${sessionId}/messages`,
-        { content: messageContent }
+        `/ai/chat`,
+        { message: messageContent }
       );
 
       // Replace temp message with real messages from API
@@ -127,30 +131,33 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           response.data.assistant_message,
         ];
       });
+
+      setRemainingMessages(response.data.remaining_messages);
       
-      // Notify parent component (e.g., ChatPage to refresh session list)
       if (onMessageSent) {
         onMessageSent();
       }
     } catch (err) {
-      console.error('Failed to send message:', err);
-      
       // Remove temp message on error
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
       
       if (axios.isAxiosError(err)) {
-        if (err.message === 'Network Error') {
-          setError('Network error. Please check your connection and try again.');
-        } else if (err.response?.status === 500) {
-          setError('Server error. Please try again later.');
+        const status = err.response?.status;
+        if (status === 429) {
+          setError('Günlük mesaj limitine ulaştınız (50 mesaj/gün). Yarın tekrar deneyin.');
+        } else if (status === 400) {
+          setError('Geçersiz mesaj. Lütfen tekrar deneyin.');
+        } else if (status === 500) {
+          setError('Sunucu hatası. Lütfen daha sonra tekrar deneyin.');
+        } else if (err.message === 'Network Error') {
+          setError('Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.');
         } else {
-          setError('Failed to send message. Please try again.');
+          setError('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
         }
       } else {
-        setError('An unexpected error occurred. Please try again.');
+        setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.');
       }
       
-      // Restore input value on error
       setInputValue(messageContent);
     } finally {
       setIsSending(false);
@@ -165,42 +172,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  const toggleSourceExpansion = (sourceId: string) => {
-    setExpandedSources((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(sourceId)) {
-        newSet.delete(sourceId);
-      } else {
-        newSet.add(sourceId);
-      }
-      return newSet;
-    });
-  };
-
   const formatTimestamp = (timestamp: string): string => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 1) return 'just now';
-    if (diffMins === 1) return '1 minute ago';
-    if (diffMins < 60) return `${diffMins} minutes ago`;
+    if (diffMins < 1) return 'az önce';
+    if (diffMins === 1) return '1 dakika önce';
+    if (diffMins < 60) return `${diffMins} dakika önce`;
     
-    // Show time if today
     const isToday = date.toDateString() === now.toDateString();
     if (isToday) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     }
     
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
   };
 
   const renderMessage = (message: ChatMessage) => {
     if (!message || !message.role) return null;
     
     const isUser = message.role === 'user';
-    const sourceId = `${message.id}-sources`;
+    const references: Reference[] = message.references || [];
 
     return (
       <div
@@ -215,37 +209,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         </div>
 
-        {/* Source citations for assistant messages */}
-        {!isUser && message.sources && message.sources.length > 0 && (
-          <div className="mt-2 text-left">
-            <div className="text-sm text-gray-600 mb-1">Sources:</div>
-            {message.sources.map((source: Source, index: number) => {
-              const uniqueSourceId = `${sourceId}-${index}`;
-              const isExpanded = expandedSources.has(uniqueSourceId);
-
-              return (
-                <div
-                  key={index}
-                  className="bg-gray-50 border border-gray-200 rounded p-2 mb-1 cursor-pointer hover:bg-gray-100"
-                  onClick={() => toggleSourceExpansion(uniqueSourceId)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{source.title}</div>
-                      <div className="text-xs text-gray-500">{source.source_type}</div>
-                    </div>
-                    <div className="text-gray-400 ml-2">
-                      {isExpanded ? '▼' : '▶'}
-                    </div>
-                  </div>
-                  {isExpanded && (
-                    <div className="mt-2 text-sm text-gray-700 border-t border-gray-200 pt-2">
-                      {source.content_preview}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        {/* References (linkler) - Spec'e göre */}
+        {!isUser && references.length > 0 && (
+          <div className="mt-2 text-left space-y-1">
+            {references.map((ref, index) => (
+              <button
+                key={index}
+                onClick={() => navigate(ref.url)}
+                className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline bg-indigo-50 px-3 py-1 rounded border border-indigo-200"
+              >
+                {ref.label}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -255,7 +230,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">Loading messages...</div>
+        <div className="text-gray-500">Mesajlar yükleniyor...</div>
       </div>
     );
   }
@@ -267,8 +242,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400">
             <div className="text-center">
-              <p className="text-lg">No messages yet</p>
-              <p className="text-sm">Start a conversation with KAMPÜS+ AI Assistant</p>
+              <p className="text-lg mb-2">🤖 Merhaba! Ben senin kampüs asistanınım.</p>
+              <p className="text-sm mb-1">Ders programın, akademik takvim, forum, pazar ve</p>
+              <p className="text-sm">kariyer ilanları hakkında sorularını yanıtlayabilirim.</p>
+              <p className="text-sm mt-2 text-gray-500">Nasıl yardımcı olabilirim?</p>
             </div>
           </div>
         ) : (
@@ -278,7 +255,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <div data-role="assistant" className="mb-4 text-left">
                 <div className="inline-block bg-gray-100 text-gray-900 rounded-lg px-4 py-2">
                   <div className="flex items-center space-x-2">
-                    <div className="animate-pulse">AI is thinking...</div>
+                    <span className="animate-pulse">🤖 Düşünüyor...</span>
                   </div>
                 </div>
               </div>
@@ -300,23 +277,40 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="flex space-x-2">
           <textarea
             ref={textareaRef}
-            aria-label="Message input"
-            placeholder="Type your message... (Shift+Enter for new line)"
+            aria-label="Mesaj girişi"
+            placeholder="Mesajınızı yazın... (Shift+Enter ile yeni satır)"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value.length <= 500) {
+                setInputValue(e.target.value);
+              }
+            }}
             onKeyDown={handleKeyDown}
             disabled={isSending}
-            className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             rows={3}
+            maxLength={500}
           />
           <button
-            aria-label="Send"
+            aria-label="Gönder"
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isSending}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            Send
+            Gönder
           </button>
+        </div>
+        
+        {/* Remaining Messages Counter */}
+        <div className="mt-2 flex justify-between items-center text-xs text-gray-500">
+          <span>
+            {inputValue.length}/500 karakter
+          </span>
+          {remainingMessages !== null && (
+            <span>
+              {remainingMessages}/50 mesaj kaldı bugün
+            </span>
+          )}
         </div>
       </div>
     </div>

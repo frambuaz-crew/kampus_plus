@@ -1,58 +1,81 @@
-"""Forum and AnonymousMapping models."""
+"""Forum modelleri - Spec'lere göre.
 
+Spec: specs/SYSTEM_OVERVIEW.md - forum_categories, forum_topics, forum_replies tabloları
+"""
+
+import enum
 from datetime import datetime
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-from sqlalchemy import (
-    Boolean,
-    DateTime,
-    ForeignKey,
-    String,
-    Text,
-    UniqueConstraint,
-    text,
-)
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
 
-class ForumPost(Base):
-    """ForumPost model - anonymous forum posts and replies."""
+class ForumCategory(Base):
+    """Forum kategori modeli."""
     
-    __tablename__ = "forum_posts"
+    __tablename__ = "forum_categories"
     
-    # Primary Key
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+    id: Mapped[str] = mapped_column(
+        String(36),
         primary_key=True,
-        default=uuid4,
+        default=lambda: str(uuid4()),
     )
     
-    # Foreign Keys
-    author_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    icon: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    order_index: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    
+    topics = relationship("ForumTopic", back_populates="category", cascade="all, delete-orphan")
+
+
+class ForumTopic(Base):
+    """Forum konu modeli."""
+    
+    __tablename__ = "forum_topics"
+    
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid4()),
+    )
+    
+    category_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("forum_categories.id"),
         nullable=False,
         index=True,
     )
-    thread_id: Mapped[Optional[UUID]] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("forum_posts.id", ondelete="CASCADE"),
+    author_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
         nullable=True,
         index=True,
     )
     
-    # Content
-    title: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     
-    # Moderation
-    is_flagged: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     
-    # Timestamps
+    view_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    reply_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    helpful_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    
+    last_reply_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
@@ -65,58 +88,51 @@ class ForumPost(Base):
         nullable=False,
     )
     
-    # Relationships
-    author = relationship("User", back_populates="forum_posts")
-    parent_thread = relationship("ForumPost", remote_side=[id], back_populates="replies")
-    replies = relationship("ForumPost", back_populates="parent_thread", cascade="all, delete-orphan")
-    anonymous_mappings = relationship("AnonymousMapping", back_populates="thread", cascade="all, delete-orphan")
-    
-    def __repr__(self) -> str:
-        return f"<ForumPost(id={self.id}, author_id={self.author_id}, title={self.title})>"
+    category = relationship("ForumCategory", back_populates="topics")
+    author = relationship("User", foreign_keys=[author_id])
+    replies = relationship("ForumReply", back_populates="topic", cascade="all, delete-orphan")
 
 
-class AnonymousMapping(Base):
-    """AnonymousMapping model - secure user-to-anonymous-id mappings."""
+class ForumReply(Base):
+    """Forum cevap modeli."""
     
-    __tablename__ = "anonymous_mappings"
+    __tablename__ = "forum_replies"
     
-    # Primary Key
-    id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+    id: Mapped[str] = mapped_column(
+        String(36),
         primary_key=True,
-        default=uuid4,
+        default=lambda: str(uuid4()),
     )
     
-    # Foreign Keys
-    user_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+    topic_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("forum_topics.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
-    thread_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("forum_posts.id", ondelete="CASCADE"),
-        nullable=False,
+    author_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
     )
     
-    # Anonymous Identity
-    anonymous_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    helpful_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     
-    # Timestamp
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+        index=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
     
-    # Relationships
-    user = relationship("User", back_populates="anonymous_mappings")
-    thread = relationship("ForumPost", back_populates="anonymous_mappings")
-    
-    # Constraints
-    __table_args__ = (
-        UniqueConstraint("user_id", "thread_id", name="uq_user_thread_mapping"),
-    )
-    
-    def __repr__(self) -> str:
-        return f"<AnonymousMapping(id={self.id}, anonymous_id={self.anonymous_id})>"
+    topic = relationship("ForumTopic", back_populates="replies")
+    author = relationship("User", foreign_keys=[author_id])
+

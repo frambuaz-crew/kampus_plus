@@ -1,11 +1,17 @@
 /**
- * ThreadList Component - T104
+ * ThreadList Component
  * 
- * Displays forum threads in list/card format with:
- * - Anonymous author display
- * - Reply count
- * - Timestamps
- * - Click to view thread details
+ * Spec: 005-forum-page/spec.md
+ * 
+ * Forum konu listesi:
+ * - Pin ikonu (pinli konular en üstte)
+ * - Başlık
+ * - Yazar (ad soyad + üniversite)
+ * - Dosya ekleri (varsa, max 3)
+ * - İstatistikler (cevap sayısı, yararlı sayısı, zaman)
+ * - Etiketler (max 5)
+ * 
+ * NOT: Tüm kullanıcılar profilli (anonim paylaşım yok)
  */
 
 import React from 'react';
@@ -41,80 +47,86 @@ export const ThreadList: React.FC<ThreadListProps> = ({
       <div className="bg-white rounded-lg shadow p-12 text-center">
         <div className="text-6xl mb-4">💬</div>
         <h3 className="text-xl font-semibold text-gray-700 mb-2">
-          No threads yet
+          Henüz konu yok
         </h3>
         <p className="text-gray-500">
-          Be the first to start a discussion!
+          İlk konuyu sen başlat!
         </p>
       </div>
     );
   }
 
+  // Sort: pinned threads first
+  const sortedThreads = [...threads].sort((a, b) => {
+    if (a.is_pinned && !b.is_pinned) return -1;
+    if (!a.is_pinned && b.is_pinned) return 1;
+    return 0;
+  });
+
   return (
     <div className="space-y-4">
-      {threads.map((thread) => (
+      {sortedThreads.map((thread) => (
         <button
           key={thread.id}
           onClick={() => onThreadClick(thread.id)}
-          className="w-full bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 text-left"
-          data-testid={`thread-${thread.id}`}
+          className={`w-full bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6 text-left ${
+            thread.is_pinned ? 'border-l-4 border-indigo-500' : ''
+          }`}
         >
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {thread.title || '(No title)'}
-          </h3>
-          
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              {thread.is_pinned && <span className="text-indigo-600">📌</span>}
+              {thread.title}
+            </h3>
+          </div>
+
+          {/* Author Info */}
+          <div className="mb-2 text-sm text-gray-600">
+            <span className="font-medium">
+              👤 {thread.author.first_name} {thread.author.last_name}
+            </span>
+            <span className="mx-2">•</span>
+            <span>🎓 {thread.author.university}</span>
+            {thread.author.department && (
+              <>
+                <span className="mx-2">•</span>
+                <span>{thread.author.department}</span>
+              </>
+            )}
+          </div>
+
+          {thread.attachment_count > 0 && (
+            <div className="mb-2 flex items-center">
+              <span className="text-xs text-gray-500">📎 {thread.attachment_count} dosya</span>
+            </div>
+          )}
+
+          {/* Tags */}
+          {thread.tags.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1">
+              {thread.tags.slice(0, 5).map((tag) => (
+                <span key={tag.id} className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
+                  #{tag.name}
+                </span>
+              ))}
+              {thread.tags.length > 5 && (
+                <span className="text-xs text-gray-500">+{thread.tags.length - 5} daha</span>
+              )}
+            </div>
+          )}
+
+          {/* Stats */}
+          <div className="flex items-center justify-between text-sm text-gray-500 mt-3">
             <div className="flex items-center space-x-4">
               <span className="flex items-center">
-                <svg 
-                  className="w-4 h-4 mr-1" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
-                  />
-                </svg>
-                {thread.anonymous_id.slice(0, 8)}...
+                💬 {thread.reply_count} {thread.reply_count === 1 ? 'cevap' : 'cevap'}
               </span>
-              
               <span className="flex items-center">
-                <svg 
-                  className="w-4 h-4 mr-1" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" 
-                  />
-                </svg>
-                {thread.reply_count} {thread.reply_count === 1 ? 'reply' : 'replies'}
+                👍 {thread.helpful_count} {thread.helpful_count === 1 ? 'yararlı' : 'yararlı'}
               </span>
             </div>
-            
             <span className="flex items-center">
-              <svg 
-                className="w-4 h-4 mr-1" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" 
-                />
-              </svg>
-              {formatDistanceToNow(new Date(thread.last_activity), { addSuffix: true })}
+              🕐 {formatDistanceToNow(new Date(thread.last_activity), { addSuffix: true })}
             </span>
           </div>
         </button>

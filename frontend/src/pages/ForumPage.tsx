@@ -1,7 +1,16 @@
 /**
- * ForumPage Component - T109
+ * ForumPage Component
  * 
- * Full forum interface with thread list, search, create button, and thread view.
+ * Spec: 005-forum-page/spec.md
+ * 
+ * Forum ana sayfası:
+ * - Kategori listesi (3 grup: Üniversite, Bölüm, Genel)
+ * - Thread listesi (kategoriye göre)
+ * - Thread detay sayfası
+ * - Arama
+ * - Yeni konu açma
+ * 
+ * NOT: Tüm kullanıcılar profilli (anonim paylaşım yok)
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,13 +20,14 @@ import { ThreadView } from '../components/forum/ThreadView';
 import { NewThreadForm } from '../components/forum/NewThreadForm';
 import { SearchBar } from '../components/forum/SearchBar';
 import { MainLayout } from '../components/layout/MainLayout';
-import type { ThreadListItem, ThreadWithReplies, SearchResult } from '../types/forum';
+import type { ThreadListItem, ThreadWithReplies, SearchResult, Category } from '../types/forum';
 
 export const ForumPage: React.FC = () => {
   const [view, setView] = useState<'list' | 'thread' | 'new' | 'search'>('list');
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [currentThread, setCurrentThread] = useState<ThreadWithReplies | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,19 +35,29 @@ export const ForumPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
+    loadCategories();
     loadThreads();
   }, [page]);
+
+  const loadCategories = async () => {
+    try {
+      const response = await apiClient.get('/forum/categories');
+      setCategories(response.data.categories || []);
+    } catch (err) {
+      console.error('Kategoriler yüklenemedi:', err);
+    }
+  };
 
   const loadThreads = async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await apiClient.get(`/forum/threads?page=${page}&page_size=20`);
-      setThreads(response.data.items);
-      setHasMore(response.data.items.length === 20);
+      setThreads(response.data.items || []);
+      setHasMore((response.data.items || []).length === 20);
     } catch (err) {
-      console.error('Failed to load threads:', err);
-      setError('Failed to load threads');
+      console.error('Konular yüklenemedi:', err);
+      setError('Konular yüklenemedi');
     } finally {
       setLoading(false);
     }
@@ -51,41 +71,71 @@ export const ForumPage: React.FC = () => {
       setCurrentThread(response.data);
       setView('thread');
     } catch (err) {
-      console.error('Failed to load thread:', err);
-      setError('Failed to load thread');
+      console.error('Konu yüklenemedi:', err);
+      setError('Konu yüklenemedi');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateThread = async (title: string | null, content: string) => {
+  const handleCreateThread = async (data: {
+    title: string;
+    content: string;
+    category_id: string;
+    tags: string[];
+    files: File[];
+  }) => {
     try {
       setIsSubmitting(true);
       setError(null);
-      await apiClient.post('/forum/threads', { title, content });
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('content', data.content);
+      formData.append('category_id', data.category_id);
+      if (data.tags.length > 0) {
+        formData.append('tags', JSON.stringify(data.tags));
+      }
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+      
+      await apiClient.post('/forum/threads', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       setView('list');
       setPage(1);
       await loadThreads();
     } catch (err) {
-      console.error('Failed to create thread:', err);
-      throw new Error('Failed to create thread');
+      console.error('Konu oluşturulamadı:', err);
+      throw new Error('Konu oluşturulamadı');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleReplySubmit = async (content: string) => {
+  const handleReplySubmit = async (data: { content: string; files: File[]; mentions?: string[] }) => {
     if (!currentThread) return;
 
     try {
       setIsSubmitting(true);
       setError(null);
-      await apiClient.post(`/forum/threads/${currentThread.thread.id}/replies`, { content });
+      const formData = new FormData();
+      formData.append('content', data.content);
+      if (data.mentions) {
+        formData.append('mentions', JSON.stringify(data.mentions));
+      }
+      data.files.forEach((file) => {
+        formData.append('files', file);
+      });
+      
+      await apiClient.post(`/forum/threads/${currentThread.thread.id}/replies`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       // Reload thread to show new reply
       await loadThread(currentThread.thread.id);
     } catch (err) {
-      console.error('Failed to post reply:', err);
-      throw new Error('Failed to post reply');
+      console.error('Cevap gönderilemedi:', err);
+      throw new Error('Cevap gönderilemedi');
     } finally {
       setIsSubmitting(false);
     }
@@ -94,18 +144,17 @@ export const ForumPage: React.FC = () => {
   const handleFlagPost = async (postId: string) => {
     try {
       await apiClient.post(`/forum/posts/${postId}/flag`);
-      // Reload current thread if viewing one
       if (currentThread) {
         await loadThread(currentThread.thread.id);
       }
     } catch (err) {
-      console.error('Failed to flag post:', err);
-      setError('Failed to flag post');
+      console.error('Gönderi rapor edilemedi:', err);
+      setError('Gönderi rapor edilemedi');
     }
   };
 
   const handleSearch = async (query: string) => {
-    if (!query) {
+    if (!query.trim()) {
       setView('list');
       setSearchResults([]);
       return;
@@ -115,11 +164,11 @@ export const ForumPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await apiClient.get(`/forum/search?q=${encodeURIComponent(query)}`);
-      setSearchResults(response.data.results);
+      setSearchResults(response.data.results || []);
       setView('search');
     } catch (err) {
-      console.error('Search failed:', err);
-      setError('Search failed');
+      console.error('Arama başarısız:', err);
+      setError('Arama başarısız');
     } finally {
       setLoading(false);
     }
@@ -137,7 +186,7 @@ export const ForumPage: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold text-gray-900">
-              💬 Anonymous Forum
+              💬 KAMPÜS+ Forum
             </h1>
             {view !== 'list' && (
               <button
@@ -148,35 +197,31 @@ export const ForumPage: React.FC = () => {
                 }}
                 className="text-indigo-600 hover:text-indigo-800 font-medium"
               >
-                ← Back to threads
+                ← Konulara Dön
               </button>
             )}
           </div>
 
-          {/* Search Bar */}
           <div className="mb-4">
             <SearchBar onSearch={handleSearch} disabled={loading} />
           </div>
 
-          {/* New Thread Button */}
           {view === 'list' && (
             <button
               onClick={() => setView('new')}
               className="w-full bg-indigo-600 text-white font-medium py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              ✨ Start New Thread
+              ✨ Yeni Konu Aç
             </button>
           )}
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-700">{error}</p>
           </div>
         )}
 
-        {/* Content */}
         {view === 'list' && (
           <div>
             <ThreadList
@@ -189,7 +234,7 @@ export const ForumPage: React.FC = () => {
                 onClick={() => setPage(page + 1)}
                 className="mt-4 w-full py-2 text-indigo-600 hover:text-indigo-800 font-medium"
               >
-                Load more threads
+                Daha Fazla Yükle
               </button>
             )}
           </div>
@@ -197,6 +242,7 @@ export const ForumPage: React.FC = () => {
 
         {view === 'new' && (
           <NewThreadForm
+            categories={categories}
             onSubmit={handleCreateThread}
             onCancel={() => setView('list')}
             isSubmitting={isSubmitting}
@@ -207,7 +253,15 @@ export const ForumPage: React.FC = () => {
           <ThreadView
             threadData={currentThread}
             onReplySubmit={handleReplySubmit}
-            onFlagPost={handleFlagPost}
+            onHelpful={async (postId) => {
+              try {
+                await apiClient.post(`/forum/posts/${postId}/helpful`);
+                await loadThread(currentThread.thread.id);
+              } catch (err) {
+                console.error('Yararlı işaretlenemedi:', err);
+              }
+            }}
+            onReport={handleFlagPost}
             loading={loading}
             isSubmitting={isSubmitting}
           />
@@ -216,12 +270,12 @@ export const ForumPage: React.FC = () => {
         {view === 'search' && (
           <div>
             <h2 className="text-xl font-semibold text-gray-700 mb-4">
-              Search Results ({searchResults.length})
+              Arama Sonuçları ({searchResults.length})
             </h2>
             {searchResults.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-12 text-center">
                 <div className="text-6xl mb-4">🔍</div>
-                <p className="text-gray-500">No results found</p>
+                <p className="text-gray-500">Sonuç bulunamadı</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -236,9 +290,9 @@ export const ForumPage: React.FC = () => {
                     )}
                     <p className="text-gray-700 line-clamp-2">{result.content}</p>
                     <div className="mt-2 flex items-center text-sm text-gray-500">
-                      <span>Anonymous {result.anonymous_id.slice(0, 8)}</span>
+                      <span>👤 {result.author.first_name} {result.author.last_name}</span>
                       <span className="mx-2">•</span>
-                      <span>{new Date(result.created_at).toLocaleDateString()}</span>
+                      <span>{new Date(result.created_at).toLocaleDateString('tr-TR')}</span>
                     </div>
                   </button>
                 ))}

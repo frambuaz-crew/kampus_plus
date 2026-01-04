@@ -1,19 +1,11 @@
-"""Authentication service for user registration, login, and token management.
+"""Kimlik doğrulama servisi - Kullanıcı kaydı, giriş ve token yönetimi.
 
-This module provides:
-- User registration with email validation
-- User authentication (login) with password verification
-- Refresh token rotation for security
-- Email verification token generation
-- Token revocation support
-
-All password operations use bcrypt with cost factor ≥12.
-All tokens use JWT with HS256 signature.
+Spec: specs/002-register-page, specs/003-login-page
 """
 
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,21 +16,18 @@ from src.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_email_verification_token,
     decode_token,
 )
 from src.models.user import User, RefreshToken, UserRole
 
 
 class AuthService:
-    """Authentication service for user management and token operations."""
+    """Kimlik doğrulama servisi."""
     
     def __init__(self):
-        """Initialize authentication service."""
+        """Kimlik doğrulama servisini başlat."""
         self.settings = get_settings()
-    
-    # ============================================================================
-    # USER REGISTRATION
-    # ============================================================================
     
     async def register_user(
         self,
@@ -47,60 +36,61 @@ class AuthService:
         password: str,
         first_name: str,
         last_name: str,
-        student_id: str,
+        student_number: str,
+        department: str,
+        university: Optional[str] = None,
+        username: Optional[str] = None,
+        terms_accepted_at: Optional[datetime] = None,
     ) -> User:
-        """Register new student user with hashed password.
-        
-        All users are registered as 'student' role. Platform is student-only.
+        """Yeni öğrenci kullanıcısı kaydet.
         
         Args:
-            session: Database session.
-            email: User's email address (must be unique, from allowed Konya university domains).
-            password: Plain text password to hash.
-            first_name: User's first name.
-            last_name: User's last name.
-            student_id: University student ID (required).
+            session: Veritabanı oturumu
+            email: Kullanıcı email adresi (.edu.tr domain)
+            password: Düz metin şifre
+            first_name: Ad
+            last_name: Soyad
+            student_number: Öğrenci numarası
+            department: Bölüm
+            university: Üniversite adı (opsiyonel, email'den çıkarılabilir)
+            username: Kullanıcı adı (opsiyonel)
         
         Returns:
-            Created User instance with role='student'.
+            Oluşturulan User instance (role='student', is_verified=False)
         
         Raises:
-            ValueError: If email already exists or validation fails.
-        
-        Example:
-            >>> async with session_factory() as session:
-            ...     user = await auth_service.register_user(
-            ...         session,
-            ...         email="student@ogr.selcuk.edu.tr",
-            ...         password="SecurePass123!",
-            ...         first_name="Ali",
-            ...         last_name="Yılmaz",
-            ...         student_id="202112345"
-            ...     )
+            ValueError: Email zaten kayıtlıysa veya validasyon başarısızsa
         """
-        # Check if email already exists
         result = await session.execute(
             select(User).where(User.email == email)
         )
         existing_user = result.scalar_one_or_none()
         
         if existing_user:
-            raise ValueError(f"User with email {email} already exists")
+            raise ValueError(f"Bu email adresi zaten kayıtlı: {email}")
         
-        # Hash password with bcrypt
         password_hash = hash_password(password)
         
-        # Create user (always as student)
+        if not university:
+            # Email'den otomatik olarak üniversite ismini çıkar
+            from src.services.university_service import get_university_service
+            university_service = get_university_service()
+            university = await university_service.get_university_from_email(email, session)
+        
         user = User(
-            id=uuid4(),
+            id=str(uuid4()),  # String olarak kaydet
             email=email,
             password_hash=password_hash,
-            role=UserRole("student"),  # Always student
+            role=UserRole.STUDENT,
             first_name=first_name,
             last_name=last_name,
-            student_id=student_id,
-            is_verified=True,  # Email verification temporarily disabled for development
+            username=username or email.split("@")[0],
+            student_number=student_number,
+            department=department,
+            university=university,
+            is_verified=False,
             is_active=True,
+            terms_accepted_at=terms_accepted_at or datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -111,72 +101,66 @@ class AuthService:
         
         return user
     
-    # ============================================================================
-    # USER AUTHENTICATION (LOGIN)
-    # ============================================================================
-    
     async def authenticate_user(
         self,
         session: AsyncSession,
         email: str,
         password: str,
+        remember_me: bool = False,
     ) -> Tuple[User, str, str]:
-        """Authenticate user and return access + refresh tokens.
+        """Kullanıcıyı doğrula ve token'ları döndür.
         
         Args:
-            session: Database session.
-            email: User's email.
-            password: Plain text password.
+            session: Veritabanı oturumu
+            email: Kullanıcı email'i
+            password: Düz metin şifre
+            remember_me: "Beni Hatırla" seçeneği (refresh token süresini uzatır)
         
         Returns:
-            Tuple of (user, access_token, refresh_token).
+            (user, access_token, refresh_token) tuple
         
         Raises:
-            ValueError: If credentials are invalid or user is inactive.
-        
-        Example:
-            >>> user, access_token, refresh_token = await auth_service.authenticate_user(
-            ...     session,
-            ...     email="student@university.edu.tr",
-            ...     password="SecurePass123!"
-            ... )
+            ValueError: Kimlik bilgileri geçersizse veya kullanıcı aktif değilse
         """
-        # Find user by email
         result = await session.execute(
             select(User).where(User.email == email)
         )
         user = result.scalar_one_or_none()
         
         if not user:
-            raise ValueError("Invalid email or password")
+            raise ValueError("Geçersiz email veya şifre")
         
-        # Verify password
         if not verify_password(password, user.password_hash):
-            raise ValueError("Invalid email or password")
+            raise ValueError("Geçersiz email veya şifre")
         
-        # Email verification temporarily disabled for development
-        # TODO: Re-enable email verification in production
-        # if not user.is_verified:
-        #     raise ValueError("Email not verified. Please verify your email address before logging in.")
+        if not user.is_verified:
+            raise ValueError("Email doğrulanmamış. Lütfen email adresinizi doğrulayın.")
         
-        # Check if user is active
         if not user.is_active:
-            raise ValueError("User account is inactive")
+            raise ValueError("Kullanıcı hesabı aktif değil")
         
-        # Generate tokens
         access_token = create_access_token(
             user_id=user.id,
             role=user.role.value
         )
-        refresh_token_str = create_refresh_token(user_id=user.id)
         
-        # Store refresh token in database
-        refresh_token = RefreshToken(
-            id=uuid4(),
+        # Remember me için refresh token süresini uzat
+        refresh_expire_days = (
+            self.settings.jwt_refresh_token_expire_days_remember_me
+            if remember_me
+            else self.settings.jwt_refresh_token_expire_days
+        )
+        refresh_token_str = create_refresh_token(
             user_id=user.id,
-            token_hash=hash_password(refresh_token_str),  # Hash for security
-            expires_at=datetime.now(timezone.utc) + timedelta(days=self.settings.jwt_refresh_token_expire_days),
-            is_revoked=False,
+            expires_delta=timedelta(days=refresh_expire_days)
+        )
+        
+        # Refresh token'ı veritabanına kaydet (spec'e göre token string olarak)
+        refresh_token = RefreshToken(
+            id=str(uuid4()),
+            user_id=user.id,
+            token=refresh_token_str,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=refresh_expire_days),
             created_at=datetime.now(timezone.utc),
         )
         
@@ -185,194 +169,132 @@ class AuthService:
         
         return user, access_token, refresh_token_str
     
-    # ============================================================================
-    # TOKEN REFRESH
-    # ============================================================================
-    
     async def refresh_access_token(
         self,
         session: AsyncSession,
         refresh_token_str: str,
     ) -> Tuple[str, str]:
-        """Generate new access token using refresh token.
-        
-        Implements token rotation: old refresh token is revoked,
-        new refresh token is issued.
+        """Refresh token ile yeni access token oluştur.
         
         Args:
-            session: Database session.
-            refresh_token_str: Current refresh token.
+            session: Veritabanı oturumu
+            refresh_token_str: Mevcut refresh token
         
         Returns:
-            Tuple of (new_access_token, new_refresh_token).
+            (new_access_token, new_refresh_token) tuple
         
         Raises:
-            ValueError: If refresh token is invalid, expired, or revoked.
-        
-        Example:
-            >>> new_access, new_refresh = await auth_service.refresh_access_token(
-            ...     session,
-            ...     refresh_token=old_refresh_token
-            ... )
+            ValueError: Refresh token geçersiz, süresi dolmuş veya iptal edilmişse
         """
-        # Decode refresh token
         try:
             payload = decode_token(refresh_token_str)
         except Exception as e:
-            raise ValueError(f"Invalid refresh token: {e}")
+            raise ValueError(f"Geçersiz refresh token: {e}")
         
-        # Verify token type
         if payload.get("type") != "refresh":
-            raise ValueError("Token is not a refresh token")
+            raise ValueError("Token bir refresh token değil")
         
-        # Extract user_id
         user_id_str = payload.get("user_id")
         if not user_id_str:
-            raise ValueError("Token missing user_id")
+            raise ValueError("Token'da user_id eksik")
         
-        user_id = UUID(user_id_str)
-        
-        # Find user
+        # User ID string olarak kullanılıyor
         result = await session.execute(
-            select(User).where(User.id == user_id)
+            select(User).where(User.id == user_id_str)
         )
         user = result.scalar_one_or_none()
         
         if not user:
-            raise ValueError("User not found")
+            raise ValueError("Kullanıcı bulunamadı")
         
         if not user.is_active:
-            raise ValueError("User account is deactivated")
+            raise ValueError("Kullanıcı hesabı devre dışı")
         
-        # Check if refresh token is revoked (simplified - in production, check hash)
-        # For now, we trust the JWT expiration
+        # Veritabanında refresh token'ı kontrol et
+        result = await session.execute(
+            select(RefreshToken).where(
+                RefreshToken.token == refresh_token_str,
+                RefreshToken.user_id == user_id_str
+            )
+        )
+        token_record = result.scalar_one_or_none()
         
-        # Generate new tokens
+        if not token_record:
+            raise ValueError("Refresh token bulunamadı")
+        
+        if token_record.expires_at < datetime.now(timezone.utc):
+            raise ValueError("Refresh token süresi dolmuş")
+        
+        # Yeni token'lar oluştur
         new_access_token = create_access_token(
             user_id=user.id,
             role=user.role.value
         )
         new_refresh_token_str = create_refresh_token(user_id=user.id)
         
-        # Store new refresh token
+        # Eski token'ı sil, yeni token'ı kaydet
+        await session.delete(token_record)
+        
         new_refresh_token = RefreshToken(
-            id=uuid4(),
+            id=str(uuid4()),
             user_id=user.id,
-            token_hash=hash_password(new_refresh_token_str),
+            token=new_refresh_token_str,
             expires_at=datetime.now(timezone.utc) + timedelta(days=self.settings.jwt_refresh_token_expire_days),
-            is_revoked=False,
             created_at=datetime.now(timezone.utc),
         )
         
         session.add(new_refresh_token)
-        
-        # Revoke old refresh token (if we were tracking it)
-        # In simplified version, old token expires naturally via JWT exp
-        
         await session.commit()
         
         return new_access_token, new_refresh_token_str
     
-    # ============================================================================
-    # EMAIL VERIFICATION - DISABLED - TODO: Re-enable in production
-    # ============================================================================
+    def generate_verification_token(self, user_id: str) -> str:
+        """Email doğrulama token'ı oluştur."""
+        return create_email_verification_token(user_id=user_id)
     
-    # async def generate_verification_token(self, user_id: UUID) -> str:
-    #     """Generate email verification token.
-    #     
-    #     Args:
-    #         user_id: User's UUID.
-    #     
-    #     Returns:
-    #         JWT verification token (1-day expiration).
-    #     
-    #     Example:
-    #         >>> token = await auth_service.generate_verification_token(user.id)
-    #     """
-    #     from datetime import timedelta
-    #     
-    #     # Create special verification token (1 day expiration)
-    #     return create_access_token(
-    #         user_id=user_id,
-    #         role="verification",  # Special role for verification tokens
-    #         expires_delta=timedelta(days=1)
-    #     )
+    async def verify_email(
+        self,
+        session: AsyncSession,
+        verification_token: str,
+    ) -> User:
+        """Email doğrulama token'ı ile kullanıcı email'ini doğrula."""
+        try:
+            payload = decode_token(verification_token)
+        except Exception as e:
+            raise ValueError(f"Geçersiz doğrulama token'ı: {e}")
+        
+        if payload.get("type") != "email_verification":
+            raise ValueError("Token bir email doğrulama token'ı değil")
+        
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise ValueError("Token'da user_id eksik")
+        
+        # User ID string olarak kullanılıyor
+        result = await session.execute(
+            select(User).where(User.id == user_id_str)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("Kullanıcı bulunamadı")
+        
+        if user.is_verified:
+            raise ValueError("Email adresi zaten doğrulanmış")
+        
+        user.is_verified = True
+        user.updated_at = datetime.now(timezone.utc)
+        
+        await session.commit()
+        await session.refresh(user)
+        
+        return user
     
-    # async def verify_email(
-    #     self,
-    #     session: AsyncSession,
-    #     verification_token: str,
-    # ) -> User:
-    #     """Verify user email with verification token.
-    #     
-    #     Args:
-    #         session: Database session.
-    #         verification_token: JWT verification token.
-    #     
-    #     Returns:
-    #         Updated User instance with is_verified=True.
-    #     
-    #     Raises:
-    #         ValueError: If token is invalid or expired.
-    #     
-    #     Example:
-    #         >>> user = await auth_service.verify_email(session, token)
-    #     """
-    #     # Decode token
-    #     try:
-    #         payload = decode_token(verification_token)
-    #     except Exception as e:
-    #         raise ValueError(f"Invalid verification token: {e}")
-    #     
-    #     # Extract user_id
-    #     user_id_str = payload.get("user_id")
-    #     if not user_id_str:
-    #         raise ValueError("Token missing user_id")
-    #     
-    #     user_id = UUID(user_id_str)
-    #     
-    #     # Find user
-    #     result = await session.execute(
-    #         select(User).where(User.id == user_id)
-    #     )
-    #     user = result.scalar_one_or_none()
-    #     
-    #     if not user:
-    #         raise ValueError("User not found")
-    #     
-    #     # Mark as verified
-    #     user.is_verified = True
-    #     user.updated_at = datetime.now(timezone.utc)
-    #     
-    #     await session.commit()
-    #     await session.refresh(user)
-    #     
-    #     return user
-    
-    # ============================================================================
-    # PASSWORD RESET
-    # ============================================================================
-    
-    def create_password_reset_token(self, email: str) -> str:
-        """Generate password reset token for email.
-        
-        This is a synchronous method that creates a JWT token without
-        database interaction. The token contains the email and has a
-        1-hour expiration.
-        
-        Args:
-            email: User's email address.
-        
-        Returns:
-            JWT token string.
-        
-        Example:
-            >>> token = auth_service.create_password_reset_token("student@university.edu.tr")
-        """
-        from datetime import timedelta
+    def create_password_reset_token(self, user_id: str) -> str:
+        """Şifre sıfırlama token'ı oluştur (1 saat süre)."""
         return create_access_token(
-            user_id=email,  # Store email in user_id field
-            role="password_reset",  # Special role for password reset
+            user_id=user_id,
+            role="password_reset",
             expires_delta=timedelta(hours=1)
         )
     
@@ -381,44 +303,27 @@ class AuthService:
         session: AsyncSession,
         token: str,
     ) -> User:
-        """Verify password reset token and return user.
-        
-        Args:
-            session: Database session.
-            token: JWT password reset token.
-        
-        Returns:
-            User instance if token is valid.
-        
-        Raises:
-            ValueError: If token is invalid, expired, or user not found.
-        
-        Example:
-            >>> user = await auth_service.verify_password_reset_token(session, token)
-        """
-        # Decode token
+        """Şifre sıfırlama token'ını doğrula ve kullanıcıyı döndür."""
         try:
             payload = decode_token(token)
         except Exception as e:
-            raise ValueError(f"Invalid password reset token: {e}")
+            raise ValueError(f"Geçersiz şifre sıfırlama token'ı: {e}")
         
-        # Verify token role
         if payload.get("role") != "password_reset":
-            raise ValueError("Token is not a password reset token")
+            raise ValueError("Token bir şifre sıfırlama token'ı değil")
         
-        # Extract email (stored in user_id field)
-        email = payload.get("user_id")
-        if not email:
-            raise ValueError("Token missing email")
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise ValueError("Token'da user_id eksik")
         
-        # Find user by email
+        # User ID string olarak kullanılıyor
         result = await session.execute(
-            select(User).where(User.email == email)
+            select(User).where(User.id == user_id_str)
         )
         user = result.scalar_one_or_none()
         
         if not user:
-            raise ValueError("User not found")
+            raise ValueError("Kullanıcı bulunamadı")
         
         return user
     
@@ -428,119 +333,71 @@ class AuthService:
         token: str,
         new_password: str,
     ) -> User:
-        """Reset user password with token.
-        
-        Args:
-            session: Database session.
-            token: JWT password reset token.
-            new_password: New password (will be hashed).
-        
-        Returns:
-            Updated User instance.
-        
-        Raises:
-            ValueError: If token is invalid or password requirements not met.
-        
-        Example:
-            >>> user = await auth_service.reset_password(session, token, "NewPass123!")
-        """
-        # Verify token and get user
+        """Token ile kullanıcı şifresini sıfırla."""
         user = await self.verify_password_reset_token(session, token)
         
-        # Validate password length (minimum 8 characters)
+        # Şifre güçlülük kontrolü
         if len(new_password) < 8:
-            raise ValueError("Password must be at least 8 characters")
+            raise ValueError("Şifre en az 8 karakter olmalı")
         
-        # Hash new password
+        has_letter = any(c.isalpha() for c in new_password)
+        has_digit = any(c.isdigit() for c in new_password)
+        
+        if not has_letter:
+            raise ValueError("Şifre en az bir harf içermeli")
+        
+        if not has_digit:
+            raise ValueError("Şifre en az bir rakam içermeli")
+        
         user.password_hash = hash_password(new_password)
         user.updated_at = datetime.now(timezone.utc)
         
-        # Revoke all existing refresh tokens for security
-        await session.execute(
-            select(RefreshToken)
-            .where(RefreshToken.user_id == user.id)
-            .where(RefreshToken.is_revoked == False)
-        )
+        # Güvenlik için tüm refresh token'ları sil
         result = await session.execute(
-            select(RefreshToken)
-            .where(RefreshToken.user_id == user.id)
-            .where(RefreshToken.is_revoked == False)
+            select(RefreshToken).where(RefreshToken.user_id == user.id)
         )
         tokens = result.scalars().all()
         for token_record in tokens:
-            token_record.is_revoked = True
-            token_record.revoked_at = datetime.now(timezone.utc)
+            await session.delete(token_record)
         
         await session.commit()
         await session.refresh(user)
         
         return user
     
-    # ============================================================================
-    # TOKEN REVOCATION
-    # ============================================================================
-    
     async def revoke_refresh_token(
         self,
         session: AsyncSession,
         refresh_token_str: str,
     ) -> None:
-        """Revoke refresh token (logout).
-        
-        Args:
-            session: Database session.
-            refresh_token_str: Refresh token to revoke.
-        
-        Raises:
-            ValueError: If token is invalid.
-        
-        Example:
-            >>> await auth_service.revoke_refresh_token(session, refresh_token)
-        """
-        # Decode token to get user_id
+        """Refresh token'ı iptal et (logout)."""
         try:
             payload = decode_token(refresh_token_str)
         except Exception as e:
-            raise ValueError(f"Invalid refresh token: {e}")
+            raise ValueError(f"Geçersiz refresh token: {e}")
         
-        user_id = UUID(payload.get("user_id"))
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise ValueError("Token'da user_id eksik")
         
-        # Find and revoke all refresh tokens for this user
-        # (simplified - in production, track specific token hashes)
         result = await session.execute(
             select(RefreshToken).where(
-                RefreshToken.user_id == user_id,
-                RefreshToken.is_revoked == False
+                RefreshToken.token == refresh_token_str,
+                RefreshToken.user_id == user_id_str
             )
         )
-        tokens = result.scalars().all()
+        token = result.scalar_one_or_none()
         
-        for token in tokens:
-            token.is_revoked = True
-        
-        await session.commit()
-    
-    # ============================================================================
-    # USER LOOKUP
-    # ============================================================================
+        if token:
+            await session.delete(token)
+            await session.commit()
     
     async def get_user_by_id(
         self,
         session: AsyncSession,
-        user_id: UUID,
+        user_id: str,  # String olarak kullanılıyor
     ) -> Optional[User]:
-        """Get user by ID.
-        
-        Args:
-            session: Database session.
-            user_id: User's UUID.
-        
-        Returns:
-            User instance or None if not found.
-        
-        Example:
-            >>> user = await auth_service.get_user_by_id(session, user_id)
-        """
+        """ID ile kullanıcı getir."""
         result = await session.execute(
             select(User).where(User.id == user_id)
         )
@@ -551,18 +408,7 @@ class AuthService:
         session: AsyncSession,
         email: str,
     ) -> Optional[User]:
-        """Get user by email.
-        
-        Args:
-            session: Database session.
-            email: User's email address.
-        
-        Returns:
-            User instance or None if not found.
-        
-        Example:
-            >>> user = await auth_service.get_user_by_email(session, "student@university.edu.tr")
-        """
+        """Email ile kullanıcı getir."""
         result = await session.execute(
             select(User).where(User.email == email)
         )

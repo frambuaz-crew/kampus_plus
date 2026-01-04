@@ -413,7 +413,7 @@ From `spec.md`:
 
 **External Services:**
 - Email service (Gmail SMTP / Mailhog)
-- Database (PostgreSQL)
+- Database (SQLite - mezuniyet projesi için)
 
 ---
 
@@ -448,7 +448,7 @@ Backend and frontend can work in parallel after T001-T003 complete (API contract
 - Bcrypt (password verification)
 - PyJWT (JWT tokens)
 - Gmail SMTP (email service)
-- PostgreSQL (database)
+- SQLite (database - mezuniyet projesi için)
 
 **Frontend:**
 - React 19+ with TypeScript
@@ -464,7 +464,7 @@ Backend and frontend can work in parallel after T001-T003 complete (API contract
 **Backend (.env):**
 ```bash
 # Database
-DATABASE_URL=postgresql+psycopg://kampus_user:kampus_pass_dev@localhost:5432/kampus_plus_dev
+DATABASE_URL=sqlite+aiosqlite:///./kampus_plus_dev.db
 
 # Email (Mailhog for local)
 SMTP_HOST=localhost
