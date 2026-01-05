@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import type { LoginCredentials, User } from '../../types/auth';
-import { apiClient } from '../../api/config';
+import { EmailNotVerifiedError } from './login';
 import axios from 'axios';
 
 interface LoginFormProps {
@@ -31,7 +31,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [emailNotVerified, setEmailNotVerified] = useState(false);
 
   const validateForm = (): boolean => {
@@ -113,31 +112,17 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleResendVerification = async () => {
-    setIsResendingEmail(true);
-    try {
-      await apiClient.post('/auth/resend-verification', { email });
-      setErrors({ general: 'Doğrulama email\'i gönderildi. Lütfen email\'inizi kontrol edin.' });
-      setEmailNotVerified(false);
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
-        if (status === 429) {
-          setErrors({ general: 'Çok fazla deneme yaptınız. Lütfen 1 saat sonra tekrar deneyin.' });
-        } else {
-          setErrors({ general: 'Email gönderilemedi. Lütfen tekrar deneyin.' });
-        }
-      }
-    } finally {
-      setIsResendingEmail(false);
-    }
+  const handleResendSuccess = () => {
+    // Email gönderildiğinde hata mesajını temizle
+    setErrors({});
+    setEmailNotVerified(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md">
       {/* Email Input */}
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
           Email
         </label>
         <input
@@ -151,19 +136,19 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               setErrors(rest);
             }
           }}
-          placeholder="Email adresiniz"
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="ornek@selcuk.edu.tr"
+          className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
           disabled={isLoading}
           autoComplete="email"
         />
         {errors.email && (
-          <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+          <p className="mt-2 text-sm text-red-600 font-medium">{errors.email}</p>
         )}
       </div>
 
       {/* Password Input */}
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
           Şifre
         </label>
         <div className="relative">
@@ -178,22 +163,32 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 setErrors(rest);
               }
             }}
-            placeholder="Şifreniz"
-            className="mt-1 block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="••••••••"
+            className="mt-1 block w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
             disabled={isLoading}
             autoComplete="current-password"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200 focus:outline-none"
             tabIndex={-1}
+            aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
           >
-            {showPassword ? '🙈' : '👁️'}
+            {showPassword ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            )}
           </button>
         </div>
         {errors.password && (
-          <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+          <p className="mt-2 text-sm text-red-600 font-medium">{errors.password}</p>
         )}
       </div>
 
@@ -204,35 +199,26 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           type="checkbox"
           checked={rememberMe}
           onChange={(e) => setRememberMe(e.target.checked)}
-          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+          className="h-5 w-5 text-indigo-600 focus:ring-2 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer transition-all duration-200"
           disabled={isLoading}
         />
-        <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+        <label htmlFor="remember-me" className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
           Beni Hatırla (30 gün)
         </label>
       </div>
 
+      {/* Email Not Verified Error */}
+      {emailNotVerified && (
+        <EmailNotVerifiedError 
+          email={email} 
+          onResendSuccess={handleResendSuccess}
+        />
+      )}
+
       {/* General Error Message */}
-      {errors.general && (
+      {errors.general && !emailNotVerified && (
         <div className="rounded-md bg-red-50 p-4">
           <p className="text-sm text-red-800">{errors.general}</p>
-          
-          {/* Email Not Verified - Resend Button */}
-          {emailNotVerified && (
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={handleResendVerification}
-                disabled={isResendingEmail}
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                {isResendingEmail ? 'Gönderiliyor...' : 'Email Tekrar Gönder'}
-              </button>
-              <p className="mt-2 text-xs text-gray-600">
-                Email'inizi kontrol edin. Spam/Junk klasörünü de kontrol edin.
-              </p>
-            </div>
-          )}
         </div>
       )}
 
@@ -240,22 +226,32 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-base font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
       >
-        {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+        {isLoading ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Giriş yapılıyor...
+          </>
+        ) : (
+          'Giriş Yap'
+        )}
       </button>
 
       {/* Links */}
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm pt-2">
         <Link
           to="/forgot-password"
-          className="text-indigo-600 hover:text-indigo-700"
+          className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors duration-200 hover:underline"
         >
           Şifremi Unuttum?
         </Link>
         <div className="text-gray-600">
           Hesabın yok mu?{' '}
-          <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-medium">
+          <Link to="/register" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors duration-200 hover:underline">
             Kayıt ol
           </Link>
         </div>

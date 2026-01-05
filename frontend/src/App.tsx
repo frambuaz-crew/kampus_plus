@@ -1,7 +1,5 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { LoginForm } from './components/auth/LoginForm';
-import { RegisterForm } from './components/auth/RegisterForm';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { NewDashboard } from './pages/NewDashboard';
 import { ChatPage } from './pages/ChatPage';
@@ -9,6 +7,8 @@ import { ForumPage } from './pages/ForumPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
@@ -188,87 +188,6 @@ function App() {
   );
 }
 
-const LoginPage: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            🎓 KAMPÜS+
-          </h1>
-          <p className="text-xl text-blue-100">
-            AI Destekli Öğrenme Platformu
-          </p>
-        </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-            Tekrar Hoş Geldin
-          </h2>
-          <LoginForm
-            onSuccess={() => {
-              window.location.href = '/dashboard';
-            }}
-          />
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Hesabın yok mu?{' '}
-              <a href="/register" className="text-indigo-600 hover:text-indigo-700 font-semibold">
-                Kayıt ol
-              </a>
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-8 grid grid-cols-3 gap-4">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-white text-center">
-            <div className="text-2xl mb-1">🔐</div>
-            <p className="text-xs">Güvenli</p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-white text-center">
-            <div className="text-2xl mb-1">🤖</div>
-            <p className="text-xs">AI Destekli</p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-white text-center">
-            <div className="text-2xl mb-1">⚡</div>
-            <p className="text-xs">Hızlı</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const RegisterPage: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            🎓 KAMPÜS+
-          </h1>
-          <p className="text-xl text-purple-100">
-            Öğrenmenin Geleceğine Katıl
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-            Hesap Oluştur
-          </h2>
-          <RegisterForm />
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Zaten hesabın var mı?{' '}
-              <a href="/login" className="text-purple-600 hover:text-purple-700 font-semibold">
-                Giriş yap
-              </a>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default App;
