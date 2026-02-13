@@ -118,8 +118,13 @@ export const Header: React.FC = () => {
     try {
       setIsLoadingMessages(true);
       const response = await apiClient.get('/messages/conversations?limit=3');
-      setConversations(response.data.conversations || []);
-      setUnreadMessagesCount(response.data.unread_count || 0);
+      const raw = response.data.conversations || [];
+      setConversations(raw.map((c: Record<string, unknown>) => ({
+        ...c,
+        source: c.type ?? c.source,
+        last_message: c.last_message_obj ?? { content: c.last_message ?? '', created_at: c.last_message_at ?? '' },
+      })));
+      setUnreadMessagesCount(response.data.unread_count ?? response.data.total_unread ?? 0);
     } catch (err) {
       console.error('Mesajlar yüklenemedi:', err);
     } finally {

@@ -19,6 +19,8 @@ from src.api.routes.health import router as health_router
 from src.api.routes.auth import router as auth_router
 from src.api.routes.chat import router as chat_router
 from src.api.routes.forum import router as forum_router
+from src.api.routes.notifications import router as notifications_router
+from src.api.routes.messages import router as messages_router
 from src.services import get_vector_service
 
 
@@ -119,6 +121,8 @@ app.include_router(health_router)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(forum_router, prefix="/api/v1")
+app.include_router(notifications_router, prefix="/api/v1")
+app.include_router(messages_router, prefix="/api/v1")
 
 
 @app.get("/")
