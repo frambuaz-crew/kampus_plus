@@ -48,7 +48,7 @@ class User(Base):
     department: Mapped[str] = mapped_column(String(255), nullable=False)
     
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, values_callable=lambda obj: [e.value for e in obj]),
+        Enum(UserRole, values_callable=lambda obj: [e.value for e in obj], native_enum=False),
         nullable=False,
         index=True,
     )

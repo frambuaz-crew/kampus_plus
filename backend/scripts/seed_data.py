@@ -21,6 +21,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from datetime import datetime, timezone
+
+def _utc_naive() -> datetime:
+    """PostgreSQL TIMESTAMP WITHOUT TIME ZONE ile uyumlu naive UTC."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,9 +106,9 @@ async def seed_users(session: AsyncSession) -> None:
             role=role,
             is_verified=True,
             is_active=True,
-            terms_accepted_at=datetime.now(timezone.utc),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            terms_accepted_at=_utc_naive(),
+            created_at=_utc_naive(),
+            updated_at=_utc_naive(),
         )
         session.add(user)
         created_count += 1

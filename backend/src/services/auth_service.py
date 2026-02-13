@@ -7,6 +7,11 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 from uuid import uuid4
 
+
+def _utc_naive() -> datetime:
+    """PostgreSQL TIMESTAMP WITHOUT TIME ZONE ile uyumlu naive UTC."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,9 +95,9 @@ class AuthService:
             university=university,
             is_verified=False,
             is_active=True,
-            terms_accepted_at=terms_accepted_at or datetime.now(timezone.utc),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            terms_accepted_at=terms_accepted_at or _utc_naive(),
+            created_at=_utc_naive(),
+            updated_at=_utc_naive(),
         )
         
         session.add(user)
@@ -160,8 +165,8 @@ class AuthService:
             id=str(uuid4()),
             user_id=user.id,
             token=refresh_token_str,
-            expires_at=datetime.now(timezone.utc) + timedelta(days=refresh_expire_days),
-            created_at=datetime.now(timezone.utc),
+            expires_at=_utc_naive() + timedelta(days=refresh_expire_days),
+            created_at=_utc_naive(),
         )
         
         session.add(refresh_token)
@@ -222,7 +227,7 @@ class AuthService:
         if not token_record:
             raise ValueError("Refresh token bulunamadı")
         
-        if token_record.expires_at < datetime.now(timezone.utc):
+        if token_record.expires_at < _utc_naive():
             raise ValueError("Refresh token süresi dolmuş")
         
         # Yeni token'lar oluştur
@@ -239,8 +244,8 @@ class AuthService:
             id=str(uuid4()),
             user_id=user.id,
             token=new_refresh_token_str,
-            expires_at=datetime.now(timezone.utc) + timedelta(days=self.settings.jwt_refresh_token_expire_days),
-            created_at=datetime.now(timezone.utc),
+            expires_at=_utc_naive() + timedelta(days=self.settings.jwt_refresh_token_expire_days),
+            created_at=_utc_naive(),
         )
         
         session.add(new_refresh_token)
@@ -283,7 +288,7 @@ class AuthService:
             raise ValueError("Email adresi zaten doğrulanmış")
         
         user.is_verified = True
-        user.updated_at = datetime.now(timezone.utc)
+        user.updated_at = _utc_naive()
         
         await session.commit()
         await session.refresh(user)
@@ -350,7 +355,7 @@ class AuthService:
             raise ValueError("Şifre en az bir rakam içermeli")
         
         user.password_hash = hash_password(new_password)
-        user.updated_at = datetime.now(timezone.utc)
+        user.updated_at = _utc_naive()
         
         # Güvenlik için tüm refresh token'ları sil
         result = await session.execute(
