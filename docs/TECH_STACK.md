@@ -61,24 +61,11 @@ docker compose up --build -d
 # API docs: http://localhost:8000/docs
 ```
 
-### Ortak image kullanımı (opsiyonel)
-
-Image’ları registry’e itip ekipça kullanmak için:
-
-```bash
-# Örnek: GitLab / GitHub Container Registry
-docker compose build
-docker tag kampus_plus-backend:latest registry.example.com/kampus-plus/backend:latest
-docker tag kampus_plus-frontend:latest registry.example.com/kampus-plus/frontend:latest
-docker push registry.example.com/kampus-plus/backend:latest
-docker push registry.example.com/kampus-plus/frontend:latest
-```
-
-Ekip üyeleri `docker compose pull` veya `image: registry.example.com/kampus-plus/backend:latest` ile aynı image’ı kullanır.
+Detaylı kurulum: `docs/DOCKER_SETUP.md`
 
 ---
 
-## Veritabanı: PostgreSQL (SQLite yerine)
+## Veritabanı: PostgreSQL (Docker) / SQLite (yerel opsiyonel)
 
 - **Docker ile çalıştırınca:** Backend tamamen **PostgreSQL** kullanır. `docker-compose.yml` içinde `DATABASE_URL=postgresql+asyncpg://kampus:kampus@postgres:5432/kampus_plus` tanımlı; container’daki `.env` bu değerle override edilir. Yani Docker ortamında SQLite yok.
 - **Docker olmadan (yerel):** `backend/.env` içindeki `DATABASE_URL` geçerli olur. İstersen yerel Postgres veya SQLite kullanabilirsin (opsiyonel).
