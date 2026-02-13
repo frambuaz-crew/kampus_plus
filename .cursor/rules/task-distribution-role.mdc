@@ -1,0 +1,39 @@
+---
+description: Dosya düzenlerken ilgili görev alanını (Kişi 1-5) belirt; TASK_DISTRIBUTION_5_PEOPLE.md ile uyumlu çalış.
+alwaysApply: true
+---
+
+# Görev Alanı (Kişi) Belirtme Kuralı
+
+Bu projede 5 kişilik görev dağılımı `docs/TASK_DISTRIBUTION_5_PEOPLE.md` dosyasında tanımlıdır. Aynı dosyaya aynı anda sadece bir kişi dokunmalıdır.
+
+## Senin davranışın
+
+Bir dosyada **düzenleme, oluşturma veya değişiklik önerme** yapacaksan, yanıtının **en başında** ilgili görev alanını açıkça belirt:
+
+- **"Görev alanı: Kişi 1 (Auth & Temel Akış)"**
+- **"Görev alanı: Kişi 2 (Public Sayfalar & Dashboard Layout)"**
+- **"Görev alanı: Kişi 3 (Forum & Akademik)"**
+- **"Görev alanı: Kişi 4 (Marketplace, Kariyer, Mesajlar)"**
+- **"Görev alanı: Kişi 5 (AI, Profil, Ayarlar, Bildirimler, Arama, Admin)"**
+- **"Görev alanı: Entegratör"** (sadece main.py / App.tsx route entegrasyonu için)
+
+Böylece hangi ekip üyesinin alanında çalışıldığı her zaman net olur ve çakışma riski azalır.
+
+## Dosya → Kişi eşlemesi (kısa referans)
+
+| Dosya / path pattern | Görev alanı |
+|----------------------|-------------|
+| `backend/**/auth*.py`, `**/routes/auth.py`, register/login/verify/forgot/reset ile ilgili backend | Kişi 1 |
+| `frontend/**/Landing*`, `**/Terms*`, `**/Error*`, `**/Layout/**`, `**/DashboardLayout*`, `**/Header*`, `**/Sidebar*`, `**/AuthContext*`, `**/ProtectedRoute*`, `**/pages/Dashboard/Home*` | Kişi 2 |
+| `frontend/src/App.tsx`, `**/routes*.tsx` (route tanımları), `backend/src/main.py` (router include) | Entegratör (genelde Kişi 2) |
+| `**/forum/**`, `**/Forum/**`, `**/academic/**`, `**/Academic/**` (005, 006) | Kişi 3 |
+| `**/marketplace/**`, `**/Marketplace/**`, `**/career/**`, `**/Career/**`, `**/messages/**`, `**/Messages/**` (007, 008, 013) | Kişi 4 |
+| `**/ai/**`, `**/AI*`, `**/profile/**`, `**/Profile/**`, `**/settings/**`, `**/Settings/**`, `**/notifications/**`, `**/Notifications/**`, `**/search/**`, `**/Search/**`, `**/admin/**`, `**/Admin/**` (009, 010, 011, 012, 019, 014) | Kişi 5 |
+
+Bir dosya birden fazla pattern’e düşüyorsa (örn. Header hem Kişi 2 hem 012/019 için): Layout/Header’ı ilk kuran Kişi 2; bildirim/arama ekleyen Kişi 5. Hangi değişikliği yaptığına göre ilgili kişiyi yaz.
+
+## Özet
+
+- Her dosya işleminde yanıtın başında **"Görev alanı: Kişi X (…)"** veya **"Görev alanı: Entegratör"** yaz.
+- Detaylı dağılım ve entegratör modeli için her zaman `docs/TASK_DISTRIBUTION_5_PEOPLE.md` dosyasına bak.
