@@ -27,19 +27,22 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = False
     
-    # Veritabanı - SQLite kullanılır
-    database_url: str = "sqlite+aiosqlite:///./kampus_plus.db"
+    # Veritabanı - PostgreSQL (ekip) veya SQLite (yerel)
+    # Örnek PostgreSQL: postgresql+asyncpg://kampus:secret@postgres:5432/kampus_plus
+    database_url: str = "postgresql+asyncpg://kampus:kampus@localhost:5432/kampus_plus"
     
     def get_database_url(self) -> str:
-        """Veritabanı URL'ini al - SQLite kullanılır."""
+        """Async uygulama için veritabanı URL'ini al."""
         return self.database_url
     
     def get_database_url_sync(self) -> str:
         """Alembic migration'ları için sync veritabanı URL'ini al."""
-        # SQLite için async -> sync dönüşümü
-        if self.database_url.startswith("sqlite+aiosqlite"):
-            return self.database_url.replace("sqlite+aiosqlite", "sqlite")
-        return self.database_url
+        url = self.database_url
+        if url.startswith("sqlite+aiosqlite"):
+            return url.replace("sqlite+aiosqlite", "sqlite")
+        if url.startswith("postgresql+asyncpg"):
+            return url.replace("postgresql+asyncpg", "postgresql+psycopg2", 1)
+        return url
     
     # JWT Kimlik Doğrulama
     jwt_secret_key: str

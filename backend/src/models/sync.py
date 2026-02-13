@@ -9,7 +9,7 @@ from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, ForeignKey, String, text
-from sqlalchemy.dialects.sqlite import JSON
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base

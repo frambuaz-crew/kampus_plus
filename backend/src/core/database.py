@@ -35,31 +35,32 @@ def get_engine() -> AsyncEngine:
         settings = get_settings()
         database_url = settings.get_database_url()
         
-        # SQLite kullanılır - WAL mode ile concurrent writes desteklenir
-        connect_args = {}
+        connect_args: dict = {}
         if database_url.startswith("sqlite"):
-            connect_args = {
-                "check_same_thread": False,
-                "timeout": 20.0,  # Write lock timeout (saniye)
-            }
+            connect_args = {"check_same_thread": False, "timeout": 20.0}
         
-        engine = create_async_engine(
-            database_url,
-            echo=settings.debug,
-            connect_args=connect_args,
-            pool_pre_ping=True,  # Bağlantı sağlığını kontrol et
-        )
+        engine_kw: dict = {
+            "echo": settings.debug,
+            "pool_pre_ping": True,
+        }
+        if connect_args:
+            engine_kw["connect_args"] = connect_args
+        if database_url.startswith("sqlite"):
+            engine_kw["poolclass"] = NullPool
+        else:
+            engine_kw["pool_size"] = 5
+            engine_kw["max_overflow"] = 10
         
-        # WAL mode'u etkinleştir (concurrent reads/writes için)
-        # aiosqlite 0.19.0+ ile uyumlu event listener kullanımı
+        engine = create_async_engine(database_url, **engine_kw)
+        
+        # SQLite: WAL mode (concurrent reads/writes)
         if database_url.startswith("sqlite"):
             @event.listens_for(engine.sync_engine, "connect")
             def _enable_wal(dbapi_conn, connection_record):
-                """SQLite bağlantısı oluşturulduğunda WAL modunu etkinleştir."""
                 cursor = dbapi_conn.cursor()
                 cursor.execute("PRAGMA journal_mode=WAL")
-                cursor.execute("PRAGMA synchronous=NORMAL")  # Performans için
-                cursor.execute("PRAGMA foreign_keys=ON")  # Foreign key desteği
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.execute("PRAGMA foreign_keys=ON")
                 cursor.close()
     
     return engine

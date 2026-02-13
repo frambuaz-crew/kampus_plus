@@ -1,27 +1,54 @@
+# KAMPÜS+ - Ekip ortamı: Backend + Frontend + PostgreSQL
+# 5 kişi aynı docker-compose ile çalışır; ortak image için TECH_STACK.md'ye bakın.
+
 services:
+  # PostgreSQL - Ekip veritabanı
+  postgres:
+    image: postgres:15-alpine
+    container_name: kampus-postgres
+    environment:
+      POSTGRES_USER: kampus
+      POSTGRES_PASSWORD: kampus
+      POSTGRES_DB: kampus_plus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kampus -d kampus_plus || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
   # Backend API (FastAPI)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: kampus_plus-backend:latest
     container_name: kampus-backend
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./kampus_plus.db
+      # PostgreSQL - postgres servisine bağlan (Docker ağı)
+      - DATABASE_URL=postgresql+asyncpg://kampus:kampus@postgres:5432/kampus_plus
       - ENVIRONMENT=development
       - DEBUG=true
     ports:
       - "8000:8000"
     volumes:
-      # Hot reload için source code mount
       - ./backend/src:/app/src
       - ./backend/alembic:/app/alembic
-      # Vector store ve uploads için data mount
+      - ./backend/scripts:/app/scripts
       - ./backend/data:/app/data
       - ./backend/uploads:/app/uploads
-      # Veritabanı persistence
-      - backend_db:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -47,6 +74,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: development
+    image: kampus_plus-frontend:latest
     container_name: kampus-frontend
     depends_on:
       backend:
@@ -72,7 +100,7 @@ services:
 
 # Volumes (Veri kalıcılığı)
 volumes:
-  backend_db:
+  postgres_data:
     driver: local
   frontend_node_modules:
     driver: local
