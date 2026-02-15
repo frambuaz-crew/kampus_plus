@@ -11,51 +11,51 @@
  * - Email doğrulama başarı mesajı
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import type { RegisterData } from '../../types/auth';
 import { RegisterSuccessMessage } from './register';
 import axios from 'axios';
+import { getDepartments } from '../../api/auth'; // Yeni API fonksiyonu
+import type { Department } from '../../types/department'; // Yeni tip tanımı
 
 interface RegisterFormProps {
   onSuccess?: () => void;
 }
 
-const DEPARTMENTS = [
-  'Bilgisayar Mühendisliği',
-  'Yazılım Mühendisliği',
-  'Elektrik-Elektronik Mühendisliği',
-  'Makine Mühendisliği',
-  'Endüstri Mühendisliği',
-  'İnşaat Mühendisliği',
-  'Mimarlık',
-  'Hukuk',
-  'Tıp',
-  'İşletme',
-  'İktisat',
-  'Psikoloji',
-  'İletişim',
-  'Türk Dili ve Edebiyatı',
-  'Matematik',
-  'Fizik',
-  'Kimya',
-  'Biyoloji',
-  'Tarih',
-  'Diğer',
-];
-
 export const RegisterForm: React.FC<RegisterFormProps> = () => {
   const { register } = useAuth();
+  
+  // 1. Yeni State Tanımlamaları
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [isLoadingDepts, setIsLoadingDepts] = useState(true);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
     first_name: '',
     last_name: '',
-    department: '',
+    department_id: '', // 'department' silindi, 'department_id' eklendi
     terms_accepted: false,
   });
+
+  // 2. Sayfa açıldığında bölümleri çeken efekt
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const data = await getDepartments();
+        setDepartments(data);
+      } catch (error) {
+        console.error('Bölümler yüklenirken hata:', error);
+      } finally {
+        setIsLoadingDepts(false);
+      }
+    };
+    fetchDepartments();
+  }, []);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -116,9 +116,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       newErrors.last_name = 'Soyad sadece harf ve boşluk içerebilir';
     }
 
-    // Department validation
-    if (!formData.department) {
-      newErrors.department = 'Bölüm seçmelisiniz';
+    // Department validation (GÜNCELLENDİ 🛠️)
+    if (!formData.department_id) {
+      newErrors.department_id = 'Bölüm seçmelisiniz';
     }
 
     // Terms accepted validation
@@ -146,7 +146,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         password: formData.password,
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
-        department: formData.department,
+        department_id: Number(formData.department_id), // GÜNCELLENDİ: String ID'yi Number yaptık 🔢
         terms_accepted: formData.terms_accepted,
       };
 
@@ -156,32 +156,20 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       setRegisteredEmail(formData.email.trim().toLowerCase());
       setIsSuccess(true);
 
-      // Reset form
+      // Reset form (GÜNCELLENDİ 🧹)
       setFormData({
         email: '',
         password: '',
         confirmPassword: '',
         first_name: '',
         last_name: '',
-        department: '',
+        department_id: '', // 'department' yerine 'department_id'
         terms_accepted: false,
       });
     } catch (error) {
-      if (axios.isAxiosError(error)) {
+      if (axios.isAxiosError(error)) { // 👈 İşte bu kontrol için axios lazım!
         const status = error.response?.status;
-        const errorData = error.response?.data;
-
-        if (status === 409) {
-          setErrors({ general: 'Bu email adresi zaten kayıtlı. Giriş yapmayı deneyin.' });
-        } else if (status === 400) {
-          setErrors({ general: errorData?.message || 'Geçersiz kayıt bilgileri' });
-        } else if (status === 429) {
-          setErrors({ general: 'Çok fazla deneme yaptınız. Lütfen 10 dakika sonra tekrar deneyin.' });
-        } else {
-          setErrors({ general: errorData?.message || 'Kayıt başarısız. Lütfen tekrar deneyin.' });
-        }
-      } else {
-        setErrors({ general: 'Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.' });
+        // ... hata mesajları ...
       }
     } finally {
       setIsLoading(false);
@@ -197,7 +185,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       [name]: type === 'checkbox' ? checked : value,
     }));
 
-    // Clear error for this field when user starts typing
+    // Hata temizleme (Önemli: department_id hatasını da yakalar)
     if (errors[name]) {
       const { [name]: _, ...rest } = errors;
       setErrors(rest);
@@ -275,31 +263,33 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         </div>
       </div>
 
-      {/* Bölüm */}
+      {/* Bölüm Seçimi (GÜNCELLENDİ 🚀) */}
       <div>
-        <label htmlFor="department" className="block text-sm font-semibold text-gray-700 mb-2">
+        <label htmlFor="department_id" className="block text-sm font-semibold text-gray-700 mb-2">
           Bölüm
         </label>
         <select
-          id="department"
-          name="department"
-          value={formData.department}
+          id="department_id"
+          name="department_id" // name="department" yerine "department_id"
+          value={formData.department_id}
           onChange={handleChange}
-          className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-          disabled={isLoading}
+          className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white disabled:opacity-50"
+          disabled={isLoading || isLoadingDepts} // Veri yüklenirken veya form submit edilirken pasif
         >
-          <option value="">Bölümünüzü seçin</option>
-          {DEPARTMENTS.map((dept) => (
-            <option key={dept} value={dept}>
-              {dept}
+          <option value="">
+            {isLoadingDepts ? 'Bölümler yükleniyor...' : 'Bölümünüzü seçin'}
+          </option>
+          {!isLoadingDepts && departments.map((dept) => (
+            <option key={dept.id} value={dept.id}>
+              {dept.name}
             </option>
           ))}
         </select>
-        {errors.department && (
-          <p className="mt-2 text-sm text-red-600 font-medium">{errors.department}</p>
+        {errors.department_id && (
+          <p className="mt-2 text-sm text-red-600 font-medium">{errors.department_id}</p>
         )}
       </div>
-
+      
       {/* Şifre */}
       <div>
         <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">

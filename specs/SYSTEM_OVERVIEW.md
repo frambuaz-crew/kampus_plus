@@ -152,7 +152,6 @@ CREATE TABLE users (
     last_name VARCHAR(100) NOT NULL,
     username VARCHAR(50) UNIQUE NOT NULL,
     username_last_changed_at TIMESTAMP DEFAULT NULL,
-    student_number VARCHAR(50),
     university VARCHAR(255) NOT NULL,
     department VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'student',  -- 'student', 'instructor', 'admin'
@@ -583,7 +582,7 @@ CREATE TABLE contact_messages (
 
 #### `POST /api/v1/auth/register`
 - **Açıklama:** Yeni kullanıcı kaydı
-- **Request:** `{email, password, first_name, last_name, student_number, university, department}`
+- **Request:** `{email, password, first_name, last_name, university, department}`
 - **Response:** `{success, message, user_id}`
 - **Rate Limit:** 5 kayıt / 10 dakika / IP
 - **Validasyon:** Email format, `.edu.tr` domain, password rules

@@ -8,17 +8,14 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, text
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, text, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
 
 class UserRole(str, enum.Enum):
-    """Kullanıcı rolü enum.
-    
-    Spec: specs/SYSTEM_OVERVIEW.md - users tablosu
-    """
+    """Kullanıcı rolü enum."""
     STUDENT = "student"
     INSTRUCTOR = "instructor"
     ADMIN = "admin"
@@ -43,9 +40,14 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     username_last_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
-    # student_number alanı buradan kaldırıldı 🗑️
     university: Mapped[str] = mapped_column(String(255), nullable=False)
-    department: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    # ⬇️ DEĞİŞİKLİK BURADA: Metin alanını sildik, Foreign Key ekledik
+    department_id: Mapped[int] = mapped_column(
+        Integer, 
+        ForeignKey("departments.id", ondelete="RESTRICT"), 
+        nullable=False
+    )
     
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, values_callable=lambda obj: [e.value for e in obj], native_enum=False),
@@ -75,6 +77,9 @@ class User(Base):
         nullable=False,
     )
     
+    # ⬇️ YENİ İLİŞKİ: Bölüm nesnesine erişim sağlar
+    department_rel = relationship("Department", back_populates="users")
+
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     
     # Forum relationships

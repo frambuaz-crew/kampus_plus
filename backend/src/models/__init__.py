@@ -6,6 +6,7 @@ veritabanı şemasına uygun tüm modelleri içerir.
 
 from .base import Base
 from .user import User, RefreshToken
+from .department import Department
 from .forum import ForumCategory, ForumTopic, ForumReply
 from .marketplace import MarketplaceListing, MarketplaceReport, MarketplaceMessage
 from .career import CareerListing, CareerApplication, CareerReport, CareerMessage
@@ -21,6 +22,7 @@ __all__ = [
     # Core
     "User",
     "RefreshToken",
+    "Department",
     # Forum
     "ForumCategory",
     "ForumTopic",

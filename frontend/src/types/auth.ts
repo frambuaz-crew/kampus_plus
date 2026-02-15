@@ -1,19 +1,20 @@
 /**
  * Authentication Type Definitions
- * 
- * Spec: 002-register-page/spec.md, 003-login-page/spec.md, 010-profile/spec.md
- * 
- * Authentication ile ilgili TypeScript type tanımları.
+ * * Spec: 002-register-page/spec.md, 003-login-page/spec.md, 010-profile/spec.md
  */
+
+import type { Department } from './department'; // Yeni oluşturduğun tipi import ediyoruz
 
 export interface User {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
+  username: string; // Backend'de eklediğimiz için buraya da ekledik
   role: 'student' | 'instructor' | 'admin';
-  university?: string | null;
-  department?: string | null;
+  university: string; 
+  department_id: number; // Artik string değil, number (ID)
+  department?: Department | null; // Opsiyonel olarak ilişki nesnesini de tutabiliriz
   is_verified: boolean;
   profile_picture_url?: string | null;
   created_at: string;
@@ -30,7 +31,7 @@ export interface RegisterData {
   password: string;
   first_name: string;
   last_name: string;
-  department: string;
+  department_id: number; // Kullanıcı seçim yaptığında ID göndereceğiz
   terms_accepted: boolean;
 }
 
@@ -50,4 +51,3 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
 }
-

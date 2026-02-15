@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.core.security import decode_token
 from src.models.user import User, UserRole
-
+from sqlalchemy.orm import selectinload # ⬅️ Bunu ekliyoruz
 
 # Bearer token kimlik doğrulama şeması
 security = HTTPBearer(auto_error=False)
@@ -68,7 +68,7 @@ async def get_current_user(
             )
         
         # User ID string olarak kullanılıyor (UUID değil)
-        stmt = select(User).where(User.id == user_id_str)
+        stmt = select(User).where(User.id == user_id_str).options(selectinload(User.department_rel))
         result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         

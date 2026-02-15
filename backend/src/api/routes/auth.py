@@ -54,7 +54,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8)
     first_name: str = Field(..., min_length=2, max_length=100)
     last_name: str = Field(..., min_length=2, max_length=100)
-    department: str = Field(..., min_length=1, max_length=255)
+    department_id: int = Field(..., description="Seçilen bölümün ID'si") # GÜNCELLENDİ 🔢
     terms_accepted: bool = Field(..., description="Kullanım koşulları kabul edilmeli")
     
     @field_validator('email')
@@ -126,14 +126,14 @@ class LoginRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    """User information in responses."""
     id: str
     email: str
     first_name: str
     last_name: str
     role: str
     university: Optional[str]
-    department: Optional[str]
+    department_id: Optional[int] = None # Yeni: Sayısal ID
+    department: Optional[str] = None    # Yeni: Bölümün ismi (Metin)
     is_verified: bool
     profile_picture_url: Optional[str] = None
     created_at: datetime
@@ -234,7 +234,7 @@ async def register(
             password=request.password,
             first_name=request.first_name,
             last_name=request.last_name,
-            department=request.department,
+            department_id=request.department_id,
             terms_accepted_at=datetime.now(timezone.utc)  # Spec: terms_accepted_at timestamp
         )
         
@@ -315,7 +315,8 @@ async def login(
                 last_name=user.last_name,
                 role=user.role.value,
                 university=user.university,
-                department=user.department,
+                department_id=user.department_id, # ID'yi direkt veriyoruz
+                department=user.department_rel.name if user.department_rel else None, # ⬅️ İlişkiden ismi çekiyoruz
                 is_verified=user.is_verified,
                 profile_picture_url=user.profile_picture_url,
                 created_at=user.created_at
@@ -641,10 +642,8 @@ async def reset_password(
 async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ) -> UserResponse:
-    """Mevcut kullanıcının bilgilerini getir.
+    """Mevcut kullanıcının bilgilerini getir."""
     
-    Spec: Frontend AuthContext için gerekli
-    """
     return UserResponse(
         id=str(current_user.id),
         email=current_user.email,
@@ -652,8 +651,22 @@ async def get_current_user_info(
         last_name=current_user.last_name,
         role=current_user.role.value,
         university=current_user.university,
-        department=current_user.department,
+        # ID'yi direkt alıyoruz
+        department_id=current_user.department_id,
+        # İsmi ise ilişkili tablodan çekiyoruz (Safe Check ile)
+        department=current_user.department_rel.name if current_user.department_rel else None,
         is_verified=current_user.is_verified,
         profile_picture_url=current_user.profile_picture_url,
         created_at=current_user.created_at
     )
+
+# auth.py içine eklenecek (Dosyanın sonuna ekleyebilirsin)
+from sqlalchemy import select
+from src.models.department import Department
+
+@router.get("/departments", response_model=list[dict])
+async def get_departments(session: AsyncSession = Depends(get_db)):
+    """Kayıt formundaki dropdown için bölümleri listeler."""
+    result = await session.execute(select(Department).order_by(Department.name))
+    departments = result.scalars().all()
+    return [{"id": d.id, "name": d.name} for d in departments]

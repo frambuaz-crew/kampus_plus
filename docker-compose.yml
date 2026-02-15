@@ -65,7 +65,7 @@ services:
         python scripts/seed_data.py || echo '⚠️  Seed hatası (devam ediliyor)' &&
         python scripts/populate_vectors.py || echo '⚠️  Vector populate hatası (devam ediliyor)' &&
         echo '✅ Starting FastAPI server...' &&
-        uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+        uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --log-level warning
       "
 
   # Frontend (React + Vite)
@@ -97,6 +97,17 @@ services:
       - kampus-network
     restart: unless-stopped
     command: npm run dev -- --host 0.0.0.0
+
+# Mailhog - Yerel Email Test Sunucusu
+  mailhog:
+    image: mailhog/mailhog
+    container_name: kampus-mailhog
+    ports:
+      - "1025:1025" # SMTP Portu
+      - "8025:8025" # Web Arayüzü (Emailleri buradan göreceğiz)
+    networks:
+      - kampus-network
+    restart: unless-stopped
 
 # Volumes (Veri kalıcılığı)
 volumes:
