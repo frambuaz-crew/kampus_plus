@@ -43,7 +43,6 @@
 **T004** - Update User model for register feature
 - [ ] Update `backend/src/models/user.py`:
   - ✅ Zaten var: email, password_hash, first_name, last_name, is_verified
-  - ✅ Zaten var: student_id (nullable olabilir, register'da zorunlu yapacağız)
   - ✅ Zaten var: role, is_active, created_at, updated_at
   - ❌ Ekle: department (VARCHAR(255), NOT NULL)
 - [ ] Create Alembic migration: `alembic revision -m "add_department_to_users"`
@@ -93,7 +92,6 @@
   - password: str (min_length=8)
   - first_name: str (min_length=2, max_length=100)
   - last_name: str (min_length=2, max_length=100)
-  - student_id: str (min_length=6, max_length=15, pattern="^[0-9]+$")
   - department: str (enum: 20 bölüm listesi)
   - terms_accepted: bool
 - [ ] Add RegisterResponse model: success, message, email
@@ -101,7 +99,6 @@
   - Check email ends with `.edu.tr`
   - Check email not already registered
   - Check password: min 8 char, en az 1 harf, en az 1 rakam
-  - Check student_id: sadece rakam, 6-15 karakter
   - Check department: dropdown'dan seçilmiş değer
   - Check terms_accepted == true
 - [ ] Hash password with bcrypt (cost factor 12)
@@ -116,7 +113,6 @@
   - 400: Invalid email domain (.edu.tr değil)
   - 409: Email already exists
   - 400: Weak password (< 8 karakter veya harf/rakam yok)
-  - 400: Invalid student_id (harf içeriyor veya 6-15 karakter değil)
   - 400: Terms not accepted
   - 429: Rate limit exceeded (5 deneme / 10 dk / IP)
   - 500: Server error
@@ -180,7 +176,7 @@
 - [ ] Add route `/register` in `App.tsx` router
 - [ ] Basic layout:
   - Header with "Zaten hesabın var mı? Giriş yap" link
-  - Form fields (email, password, first_name, last_name, student_id, department dropdown, terms checkbox)
+  - Form fields (email, password, first_name, last_name, department dropdown, terms checkbox)
   - Submit button
   - Footer
 - [ ] Test: Page renders, accessible at /register
@@ -208,12 +204,6 @@
   - Min 2 characters
   - Only letters and spaces
   - Placeholder: "Soyadınız"
-- [ ] Student ID input:
-  - Required field
-  - Only digits (0-9)
-  - 6-15 characters
-  - Error: "Öğrenci numarası 6-15 karakter arası olmalı ve sadece rakam içermelidir"
-  - Placeholder: "Örnek: 123456789"
 - [ ] Department dropdown (select):
   - Required field
   - Options: 20 bölüm listesi (spec.md'den al)
@@ -248,7 +238,7 @@
 **T015** - Implement form submission logic
 - [ ] Add form state management (useState or React Hook Form)
 - [ ] Prepare request payload:
-  - email, password, first_name, last_name, student_id, department, terms_accepted
+  - email, password, first_name, last_name, department, terms_accepted
 - [ ] On submit:
   - Validate all fields
   - Show loading state (disable button, show spinner)
@@ -330,7 +320,6 @@
 
 **T020** - Implement real-time field validation
 - [ ] Email validation on blur (unfocus) → .edu.tr check
-- [ ] Student ID validation on blur → sadece rakam, 6-15 karakter
 - [ ] Show check mark (✓) for valid fields (green)
 - [ ] Show X mark (✗) for invalid fields (red)
 - [ ] Debounce validation (300ms) for better UX
@@ -363,9 +352,6 @@
 - [ ] Try weak password (e.g., "123") → Should fail (< 8 karakter)
 - [ ] Try password without letter (e.g., "12345678") → Should fail (harf yok)
 - [ ] Try password without digit (e.g., "abcdefgh") → Should fail (rakam yok)
-- [ ] Try invalid student ID (e.g., "123abc") → Should fail (harf içeriyor)
-- [ ] Try student ID too short (e.g., "12345") → Should fail (5 karakter, min 6)
-- [ ] Try student ID too long (e.g., "1234567890123456") → Should fail (16 karakter, max 15)
 - [ ] Try empty first name → Should fail
 - [ ] Try empty last name → Should fail
 - [ ] Try without selecting department → Should fail (dropdown boş)
@@ -402,7 +388,7 @@
 **T025** - Performance testing
 - [ ] Test email sending speed (Mailhog instant, Gmail <5 seconds)
 - [ ] Test form submission speed (<1 second response)
-- [ ] Check database query performance (indexes on email, student_id)
+- [ ] Check database query performance (indexes on email)
 - [ ] Run Lighthouse audit on register page
 - [ ] Target: Performance ≥ 85, Accessibility ≥ 90
 - [ ] Fix any performance issues
@@ -414,7 +400,7 @@
 **T026** - Write API documentation
 - [ ] Document register endpoint in OpenAPI/Swagger
   - POST /api/v1/auth/register
-  - Request body: email, password, first_name, last_name, student_id, department, terms_accepted
+  - Request body: email, password, first_name, last_name, department, terms_accepted
   - Response: success, message, email
 - [ ] Document resend-verification endpoint
   - POST /api/v1/auth/resend-verification
@@ -454,9 +440,8 @@
 From `spec.md`:
 
 - [ ] ✅ Sadece `.edu.tr` uzantılı email'ler kabul edilir
-- [ ] ✅ Kullanıcı email, şifre, ad, soyad, öğrenci no, bölüm girer
+- [ ] ✅ Kullanıcı email, şifre, ad, soyad, bölüm girer
 - [ ] ✅ Şifre en az 8 karakter, en az 1 harf, 1 rakam içermeli
-- [ ] ✅ Öğrenci numarası sadece rakam, 6-15 karakter
 - [ ] ✅ Bölüm dropdown'dan seçilir (20 yaygın bölüm + "Diğer")
 - [ ] ✅ Form validasyonu client-side çalışır (anlık feedback)
 - [ ] ✅ Kayıt sonrası aynı sayfada başarı mesajı gösterilir (form kaybolur)

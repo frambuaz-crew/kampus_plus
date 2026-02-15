@@ -24,9 +24,8 @@ KAMPÜS+ platformuna kayıt sayfası. Sadece **Türkiye'deki üniversite öğren
 
 **Kabul Kriterleri:**
 1. ✅ Sadece `.edu.tr` uzantılı email'ler kabul edilir
-2. ✅ Kullanıcı email, şifre, ad, soyad, öğrenci no, bölüm girer
+2. ✅ Kullanıcı email, şifre, ad, soyad, bölüm girer
 3. ✅ Şifre en az 8 karakter, en az 1 harf, en az 1 rakam içermeli
-4. ✅ Öğrenci numarası sadece rakam, 6-15 karakter arası
 5. ✅ Bölüm dropdown'dan seçilir (20 yaygın bölüm + "Diğer")
 6. ✅ Form validasyonu client-side çalışır (anlık feedback)
 7. ✅ Kayıt sonrası doğrulama email'i gönderilir
@@ -49,7 +48,6 @@ KAMPÜS+ platformuna kayıt sayfası. Sadece **Türkiye'deki üniversite öğren
    - Şifre (min 8 karakter, 1 harf, 1 rakam)
    - Ad (örn: Ali)
    - Soyad (örn: Yılmaz)
-   - Öğrenci Numarası (sadece rakam, 6-15 karakter)
    - Bölüm (dropdown: Bilgisayar Mühendisliği, Yazılım Mühendisliği, vs.)
    - [✓] Kullanım koşulları (zorunlu)
    ↓
@@ -59,7 +57,6 @@ KAMPÜS+ platformuna kayıt sayfası. Sadece **Türkiye'deki üniversite öğren
    ✅ Email .edu.tr ile bitiyor mu?
    ✅ Email daha önce kullanılmış mı?
    ✅ Şifre min 8 karakter, 1 harf, 1 rakam var mı?
-   ✅ Öğrenci no sadece rakam mı, 6-15 karakter arası mı?
    ✅ Bölüm dropdown'dan seçilmiş mi?
    ✅ Kullanım koşulları kabul edilmiş mi?
    ↓
@@ -127,15 +124,6 @@ KAMPÜS+ platformuna kayıt sayfası. Sadece **Türkiye'deki üniversite öğren
      - Boş olamaz
      - Minimum 2 karakter
      - Sadece harf ve boşluk
-
-5. **Öğrenci Numarası**
-   - Type: `text`
-   - Placeholder: `Örnek: 123456789`
-   - Validation:
-     - Boş olamaz
-     - Sadece rakam (0-9)
-     - 6-15 karakter arası
-   - Hata mesajı: "Öğrenci numarası 6-15 karakter arası olmalı ve sadece rakam içermelidir"
 
 6. **Bölüm**
    - Type: `select` (dropdown)
@@ -251,7 +239,6 @@ Email'deki linke tıklandığında açılan sayfa:
 **FR-001:** Form sadece `.edu.tr` ile biten email'leri kabul etmeli  
 **FR-002:** Email client-side ve server-side validate edilmeli  
 **FR-003:** Şifre en az 8 karakter, en az 1 harf, en az 1 rakam içermeli  
-**FR-004:** Öğrenci numarası sadece rakam içermeli (6-15 karakter)  
 **FR-005:** Bölüm dropdown'dan seçilmeli (20 yaygın bölüm + "Diğer")  
 **FR-006:** Kullanım koşulları checkbox'ı zorunlu olmalı  
 **FR-007:** Aynı email ile birden fazla kayıt engellenmelidir  
@@ -313,7 +300,6 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    student_id VARCHAR(20),
     department VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'student' NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
@@ -324,7 +310,6 @@ CREATE TABLE users (
 );
 
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_student_id ON users(student_id);
 CREATE INDEX idx_users_is_verified ON users(is_verified);
 ```
 
@@ -353,7 +338,6 @@ Token backend'de `jwt.encode()` ile oluşturulur, email'de gönderilir, frontend
   "password": "SecurePass123",
   "first_name": "Ali",
   "last_name": "Yılmaz",
-  "student_id": "123456789",
   "department": "Bilgisayar Mühendisliği",
   "terms_accepted": true
 }
@@ -364,7 +348,6 @@ Token backend'de `jwt.encode()` ile oluşturulur, email'de gönderilir, frontend
 - `password`: Min 8 karakter, en az 1 harf, en az 1 rakam
 - `first_name`: Min 2 karakter, sadece harf ve boşluk
 - `last_name`: Min 2 karakter, sadece harf ve boşluk
-- `student_id`: Sadece rakam, 6-15 karakter arası
 - `department`: Dropdown'dan seçilmiş değer (boş olamaz)
 - `terms_accepted`: `true` olmalı
 
@@ -403,15 +386,6 @@ Token backend'de `jwt.encode()` ile oluşturulur, email'de gönderilir, frontend
   "success": false,
   "error": "weak_password",
   "message": "Şifre en az 8 karakter, en az 1 harf ve 1 rakam içermelidir."
-}
-```
-
-**Response (Error - 400 Bad Request - Invalid Student ID):**
-```json
-{
-  "success": false,
-  "error": "invalid_student_id",
-  "message": "Öğrenci numarası 6-15 karakter arası olmalı ve sadece rakam içermelidir."
 }
 ```
 
@@ -617,18 +591,6 @@ def is_valid_university_email(email: str) -> bool:
     
     return False
 
-def is_valid_student_number(student_number: str) -> bool:
-    """
-    Öğrenci numarası sadece rakam içermeli, 6-15 karakter arası
-    """
-    if not student_number.isdigit():
-        return False
-    
-    if len(student_number) < 6 or len(student_number) > 15:
-        return False
-    
-    return True
-
 # Test cases
 assert is_valid_university_email('ali@selcuk.edu.tr') == True
 assert is_valid_university_email('ayse@ktun.edu.tr') == True
@@ -642,12 +604,6 @@ assert is_valid_password('12345678') == False  # Sadece rakam
 assert is_valid_password('abcdefgh') == False  # Sadece harf
 assert is_valid_password('abc123') == False  # 8 karakterden az
 
-assert is_valid_student_number('123456') == True  # 6 karakter (min)
-assert is_valid_student_number('123456789') == True  # 9 karakter
-assert is_valid_student_number('123456789012345') == True  # 15 karakter (max)
-assert is_valid_student_number('12345') == False  # 5 karakter (çok kısa)
-assert is_valid_student_number('1234567890123456') == False  # 16 karakter (çok uzun)
-assert is_valid_student_number('123abc789') == False  # Harf içeriyor
 ```
 
 ### Supported Universities (Examples)
@@ -866,7 +822,6 @@ SELECT email, first_name, last_name, is_verified FROM users;
 
 ❌ Sosyal medya ile kayıt (Google, Facebook OAuth)  
 ❌ Telefon numarası ile kayıt  
-❌ Öğrenci numarası doğrulama  
 ❌ Üniversite ID kartı upload  
 ❌ Profil fotoğrafı upload (kayıt sırasında)  
 ❌ İki faktörlü kimlik doğrulama (2FA)  
