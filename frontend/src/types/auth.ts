@@ -12,7 +12,6 @@ export interface User {
   first_name: string;
   last_name: string;
   role: 'student' | 'instructor' | 'admin';
-  student_id?: string | null;
   university?: string | null;
   department?: string | null;
   is_verified: boolean;
@@ -31,7 +30,6 @@ export interface RegisterData {
   password: string;
   first_name: string;
   last_name: string;
-  student_id: string;
   department: string;
   terms_accepted: boolean;
 }

@@ -43,7 +43,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     username_last_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
-    student_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # student_number alanı buradan kaldırıldı 🗑️
     university: Mapped[str] = mapped_column(String(255), nullable=False)
     department: Mapped[str] = mapped_column(String(255), nullable=False)
     

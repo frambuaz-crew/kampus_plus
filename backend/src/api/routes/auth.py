@@ -54,7 +54,6 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8)
     first_name: str = Field(..., min_length=2, max_length=100)
     last_name: str = Field(..., min_length=2, max_length=100)
-    student_id: str = Field(..., min_length=6, max_length=15)
     department: str = Field(..., min_length=1, max_length=255)
     terms_accepted: bool = Field(..., description="Kullanım koşulları kabul edilmeli")
     
@@ -103,18 +102,6 @@ class RegisterRequest(BaseModel):
         
         return v
     
-    @field_validator('student_id')
-    @classmethod
-    def validate_student_id(cls, v: str) -> str:
-        """Validate student ID: sadece rakam, 6-15 karakter."""
-        if not v.isdigit():
-            raise ValueError('Student ID must contain only digits')
-        
-        if len(v) < 6 or len(v) > 15:
-            raise ValueError('Student ID must be between 6 and 15 characters')
-        
-        return v
-    
     @field_validator('terms_accepted')
     @classmethod
     def validate_terms_accepted(cls, v: bool) -> bool:
@@ -145,7 +132,6 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
     role: str
-    student_id: Optional[str]
     university: Optional[str]
     department: Optional[str]
     is_verified: bool
@@ -248,7 +234,6 @@ async def register(
             password=request.password,
             first_name=request.first_name,
             last_name=request.last_name,
-            student_number=request.student_id,  # Spec'te student_number
             department=request.department,
             terms_accepted_at=datetime.now(timezone.utc)  # Spec: terms_accepted_at timestamp
         )
@@ -329,7 +314,6 @@ async def login(
                 first_name=user.first_name,
                 last_name=user.last_name,
                 role=user.role.value,
-                student_id=user.student_number,  # User modelinde student_number
                 university=user.university,
                 department=user.department,
                 is_verified=user.is_verified,
@@ -667,7 +651,6 @@ async def get_current_user_info(
         first_name=current_user.first_name,
         last_name=current_user.last_name,
         role=current_user.role.value,
-        student_id=current_user.student_number,
         university=current_user.university,
         department=current_user.department,
         is_verified=current_user.is_verified,

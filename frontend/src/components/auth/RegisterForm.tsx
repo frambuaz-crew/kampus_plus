@@ -6,7 +6,6 @@
  * Özellikler:
  * - .edu.tr email validation (Türkiye geneli)
  * - Şifre validation (min 8 karakter, 1 harf, 1 rakam)
- * - Öğrenci numarası validation (6-15 karakter, sadece rakam)
  * - Bölüm dropdown (20 yaygın bölüm + "Diğer")
  * - Kullanım koşulları checkbox (zorunlu)
  * - Email doğrulama başarı mesajı
@@ -54,7 +53,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
     confirmPassword: '',
     first_name: '',
     last_name: '',
-    student_id: '',
     department: '',
     terms_accepted: false,
   });
@@ -118,15 +116,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       newErrors.last_name = 'Soyad sadece harf ve boşluk içerebilir';
     }
 
-    // Student ID validation (sadece rakam, 6-15 karakter)
-    if (!formData.student_id) {
-      newErrors.student_id = 'Öğrenci numarası gereklidir';
-    } else if (!/^\d+$/.test(formData.student_id)) {
-      newErrors.student_id = 'Öğrenci numarası sadece rakam içermelidir';
-    } else if (formData.student_id.length < 6 || formData.student_id.length > 15) {
-      newErrors.student_id = 'Öğrenci numarası 6-15 karakter arası olmalıdır';
-    }
-
     // Department validation
     if (!formData.department) {
       newErrors.department = 'Bölüm seçmelisiniz';
@@ -157,7 +146,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         password: formData.password,
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
-        student_id: formData.student_id,
         department: formData.department,
         terms_accepted: formData.terms_accepted,
       };
@@ -175,7 +163,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         confirmPassword: '',
         first_name: '',
         last_name: '',
-        student_id: '',
         department: '',
         terms_accepted: false,
       });
@@ -286,26 +273,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
             <p className="mt-2 text-sm text-red-600 font-medium">{errors.last_name}</p>
           )}
         </div>
-      </div>
-
-      {/* Öğrenci Numarası */}
-      <div>
-        <label htmlFor="student_id" className="block text-sm font-semibold text-gray-700 mb-2">
-          Öğrenci Numarası
-        </label>
-        <input
-          id="student_id"
-          name="student_id"
-          type="text"
-          value={formData.student_id}
-          onChange={handleChange}
-          placeholder="Örnek: 123456789"
-          className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-          disabled={isLoading}
-        />
-        {errors.student_id && (
-          <p className="mt-2 text-sm text-red-600 font-medium">{errors.student_id}</p>
-        )}
       </div>
 
       {/* Bölüm */}

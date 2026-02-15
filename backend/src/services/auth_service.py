@@ -41,7 +41,6 @@ class AuthService:
         password: str,
         first_name: str,
         last_name: str,
-        student_number: str,
         department: str,
         university: Optional[str] = None,
         username: Optional[str] = None,
@@ -55,7 +54,6 @@ class AuthService:
             password: Düz metin şifre
             first_name: Ad
             last_name: Soyad
-            student_number: Öğrenci numarası
             department: Bölüm
             university: Üniversite adı (opsiyonel, email'den çıkarılabilir)
             username: Kullanıcı adı (opsiyonel)
@@ -90,7 +88,6 @@ class AuthService:
             first_name=first_name,
             last_name=last_name,
             username=username or email.split("@")[0],
-            student_number=student_number,
             department=department,
             university=university,
             is_verified=False,

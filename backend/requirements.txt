@@ -1,40 +1,38 @@
 # Core - FastAPI & Web
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-pydantic==2.12.4
-pydantic-settings==2.12.0
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
 
-# Database - PostgreSQL + optional SQLite
-sqlalchemy==2.0.35
-alembic==1.17.1
-asyncpg==0.30.0
-psycopg2-binary==2.9.10
-aiosqlite==0.19.0
+# Database
+sqlalchemy
+alembic
+asyncpg
+psycopg2-binary
+aiosqlite
 
-# Auth & Security
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.1.1
-python-dotenv==1.0.0
+# Auth & Security (Hata veren bcrypt burada)
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+python-dotenv
 
-# AI & Vector
-google-generativeai==0.8.3
-faiss-cpu==1.12.0
-langchain==0.3.7
-langchain-core>=0.3.34
-langchain-community==0.3.7
-langchain-google-genai==2.0.5
+# AI & Vector (Hata veren faiss burada)
+google-generativeai
+faiss-cpu
+langchain
+langchain-core
+langchain-community
+langchain-google-genai
 
 # HTTP & Utils
-httpx==0.27.0
-beautifulsoup4==4.12.3
-email-validator==2.3.0
+httpx
+beautifulsoup4
+email-validator
 
-# Dev - Testing & Linting
-pytest==8.0.0
-pytest-asyncio==0.23.3
-pytest-cov==4.1.0
-pytest-mock==3.12.0
-ruff==0.1.15
-black==24.1.1
+# Dev
+pytest
+pytest-asyncio
+ruff
+black

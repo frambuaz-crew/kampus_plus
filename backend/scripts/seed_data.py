@@ -45,7 +45,6 @@ async def seed_users(session: AsyncSession) -> None:
             "role": UserRole.STUDENT,
             "first_name": "Ahmet",
             "last_name": "Yılmaz",
-            "student_id": "123456789",
             "department": "Bilgisayar Mühendisliği",
         },
         {
@@ -54,7 +53,6 @@ async def seed_users(session: AsyncSession) -> None:
             "role": UserRole.STUDENT,
             "first_name": "Ayşe",
             "last_name": "Demir",
-            "student_id": "987654321",
             "department": "Elektrik-Elektronik Mühendisliği",
         },
         {
@@ -63,7 +61,6 @@ async def seed_users(session: AsyncSession) -> None:
             "role": UserRole.ADMIN,
             "first_name": "Admin",
             "last_name": "User",
-            "student_id": "000000000",  # Admin için de student_id gerekli
             "department": "Sistem Yönetimi",
         },
     ]
@@ -100,7 +97,6 @@ async def seed_users(session: AsyncSession) -> None:
             first_name=user_data["first_name"],
             last_name=user_data["last_name"],
             username=username,
-            student_number=user_data.get("student_id"),
             university=university,
             department=user_data["department"],
             role=role,
