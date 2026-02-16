@@ -6,7 +6,7 @@ Spec: specs/002-register-page, specs/003-login-page
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 from uuid import uuid4
-
+from sqlalchemy.orm import selectinload
 
 def _utc_naive() -> datetime:
     """PostgreSQL TIMESTAMP WITHOUT TIME ZONE ile uyumlu naive UTC."""
@@ -41,7 +41,7 @@ class AuthService:
         password: str,
         first_name: str,
         last_name: str,
-        department: str,
+        department_id: int, # ✅ department -> department_id olarak güncellendi
         university: Optional[str] = None,
         username: Optional[str] = None,
         terms_accepted_at: Optional[datetime] = None,
@@ -54,16 +54,11 @@ class AuthService:
             password: Düz metin şifre
             first_name: Ad
             last_name: Soyad
-            department: Bölüm
-            university: Üniversite adı (opsiyonel, email'den çıkarılabilir)
-            username: Kullanıcı adı (opsiyonel)
-        
-        Returns:
-            Oluşturulan User instance (role='student', is_verified=False)
-        
-        Raises:
-            ValueError: Email zaten kayıtlıysa veya validasyon başarısızsa
+            department_id: Bölüm ID (GÜNCELLENDİ)
+            university: Üniversite adı
+            username: Kullanıcı adı
         """
+        # Email kontrolü kısmı aynı kalıyor
         result = await session.execute(
             select(User).where(User.email == email)
         )
@@ -75,24 +70,24 @@ class AuthService:
         password_hash = hash_password(password)
         
         if not university:
-            # Email'den otomatik olarak üniversite ismini çıkar
             from src.services.university_service import get_university_service
             university_service = get_university_service()
             university = await university_service.get_university_from_email(email, session)
         
+        # Kullanıcı nesnesi oluşturma (GÜNCELLENDİ 🚀)
         user = User(
-            id=str(uuid4()),  # String olarak kaydet
+            id=str(uuid4()),
             email=email,
             password_hash=password_hash,
             role=UserRole.STUDENT,
             first_name=first_name,
             last_name=last_name,
             username=username or email.split("@")[0],
-            department=department,
+            department_id=department_id, # ✅ department -> department_id
             university=university,
             is_verified=False,
             is_active=True,
-            terms_accepted_at=terms_accepted_at or _utc_naive(),
+            terms_accepted_at=terms_accepted_at.replace(tzinfo=None) if terms_accepted_at else _utc_naive(),
             created_at=_utc_naive(),
             updated_at=_utc_naive(),
         )
@@ -101,7 +96,11 @@ class AuthService:
         await session.commit()
         await session.refresh(user)
         
-        return user
+        # İlişkiyi (department_rel) yükleyerek döndürmek hata payını sıfırlar
+        from sqlalchemy.orm import selectinload
+        stmt = select(User).where(User.id == user.id).options(selectinload(User.department_rel))
+        res = await session.execute(stmt)
+        return res.scalar_one()
     
     async def authenticate_user(
         self,
@@ -110,25 +109,19 @@ class AuthService:
         password: str,
         remember_me: bool = False,
     ) -> Tuple[User, str, str]:
-        """Kullanıcıyı doğrula ve token'ları döndür.
+        """Kullanıcıyı doğrula ve ilişkisel verilerle birlikte token'ları döndür."""
         
-        Args:
-            session: Veritabanı oturumu
-            email: Kullanıcı email'i
-            password: Düz metin şifre
-            remember_me: "Beni Hatırla" seçeneği (refresh token süresini uzatır)
-        
-        Returns:
-            (user, access_token, refresh_token) tuple
-        
-        Raises:
-            ValueError: Kimlik bilgileri geçersizse veya kullanıcı aktif değilse
-        """
-        result = await session.execute(
-            select(User).where(User.email == email)
+        # SORGULAMA: Bölüm bilgisini (department_rel) peşin yüklüyoruz (Eager Loading)
+        stmt = (
+            select(User)
+            .where(User.email == email)
+            .options(selectinload(User.department_rel))
         )
+        
+        result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         
+        # Temel kontroller
         if not user:
             raise ValueError("Geçersiz email veya şifre")
         
@@ -141,23 +134,25 @@ class AuthService:
         if not user.is_active:
             raise ValueError("Kullanıcı hesabı aktif değil")
         
+        # Token üretimi
         access_token = create_access_token(
             user_id=user.id,
             role=user.role.value
         )
         
-        # Remember me için refresh token süresini uzat
+        # Refresh token süresi hesaplama
         refresh_expire_days = (
             self.settings.jwt_refresh_token_expire_days_remember_me
             if remember_me
             else self.settings.jwt_refresh_token_expire_days
         )
+        
         refresh_token_str = create_refresh_token(
             user_id=user.id,
             expires_delta=timedelta(days=refresh_expire_days)
         )
         
-        # Refresh token'ı veritabanına kaydet (spec'e göre token string olarak)
+        # Refresh token'ı veritabanına işle
         refresh_token = RefreshToken(
             id=str(uuid4()),
             user_id=user.id,
@@ -169,6 +164,7 @@ class AuthService:
         session.add(refresh_token)
         await session.commit()
         
+        # user objesi artık department_rel bilgisine sahip olarak döner
         return user, access_token, refresh_token_str
     
     async def refresh_access_token(
@@ -176,18 +172,7 @@ class AuthService:
         session: AsyncSession,
         refresh_token_str: str,
     ) -> Tuple[str, str]:
-        """Refresh token ile yeni access token oluştur.
-        
-        Args:
-            session: Veritabanı oturumu
-            refresh_token_str: Mevcut refresh token
-        
-        Returns:
-            (new_access_token, new_refresh_token) tuple
-        
-        Raises:
-            ValueError: Refresh token geçersiz, süresi dolmuş veya iptal edilmişse
-        """
+        """Refresh token ile yeni access token oluştur."""
         try:
             payload = decode_token(refresh_token_str)
         except Exception as e:
@@ -200,10 +185,13 @@ class AuthService:
         if not user_id_str:
             raise ValueError("Token'da user_id eksik")
         
-        # User ID string olarak kullanılıyor
-        result = await session.execute(
-            select(User).where(User.id == user_id_str)
+        # SORGULAMA GÜNCELLENDİ: department_rel ilişkisini peşin yüklüyoruz 🚀
+        stmt = (
+            select(User)
+            .where(User.id == user_id_str)
+            .options(selectinload(User.department_rel))
         )
+        result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         
         if not user:
@@ -212,7 +200,7 @@ class AuthService:
         if not user.is_active:
             raise ValueError("Kullanıcı hesabı devre dışı")
         
-        # Veritabanında refresh token'ı kontrol et
+        # Veritabanında refresh token'ı kontrol et (Bu kısım aynı kalabilir)
         result = await session.execute(
             select(RefreshToken).where(
                 RefreshToken.token == refresh_token_str,
@@ -272,10 +260,13 @@ class AuthService:
         if not user_id_str:
             raise ValueError("Token'da user_id eksik")
         
-        # User ID string olarak kullanılıyor
-        result = await session.execute(
-            select(User).where(User.id == user_id_str)
+        # SORGULAMA GÜNCELLENDİ: İlişkiyi peşin yüklüyoruz 🚀
+        stmt = (
+            select(User)
+            .where(User.id == user_id_str)
+            .options(selectinload(User.department_rel))
         )
+        result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         
         if not user:
@@ -318,10 +309,13 @@ class AuthService:
         if not user_id_str:
             raise ValueError("Token'da user_id eksik")
         
-        # User ID string olarak kullanılıyor
-        result = await session.execute(
-            select(User).where(User.id == user_id_str)
+        # SORGULAMA GÜNCELLENDİ: İlişkiyi peşin yüklüyoruz 🚀
+        stmt = (
+            select(User)
+            .where(User.id == user_id_str)
+            .options(selectinload(User.department_rel))
         )
+        result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         
         if not user:
@@ -336,6 +330,8 @@ class AuthService:
         new_password: str,
     ) -> User:
         """Token ile kullanıcı şifresini sıfırla."""
+        # verify_password_reset_token zaten selectinload kullanıyor, 
+        # bu yüzden 'user' objesi sağlıklı geliyor.
         user = await self.verify_password_reset_token(session, token)
         
         # Şifre güçlülük kontrolü
@@ -354,7 +350,7 @@ class AuthService:
         user.password_hash = hash_password(new_password)
         user.updated_at = _utc_naive()
         
-        # Güvenlik için tüm refresh token'ları sil
+        # Güvenlik için tüm refresh token'ları sil (Mevcut mantık aynı)
         result = await session.execute(
             select(RefreshToken).where(RefreshToken.user_id == user.id)
         )
@@ -363,16 +359,21 @@ class AuthService:
             await session.delete(token_record)
         
         await session.commit()
-        await session.refresh(user)
-        
-        return user
+        # Refresh yaparken ilişkiyi kaybetmemek için tekrar yükleyerek refresh ediyoruz
+        stmt = (
+            select(User)
+            .where(User.id == user.id)
+            .options(selectinload(User.department_rel))
+        )
+        res = await session.execute(stmt)
+        return res.scalar_one()
     
     async def revoke_refresh_token(
         self,
         session: AsyncSession,
         refresh_token_str: str,
     ) -> None:
-        """Refresh token'ı iptal et (logout)."""
+        """Refresh token'ı iptal et (logout). Herhangi bir User dönmediği için değişiklik gerekmez."""
         try:
             payload = decode_token(refresh_token_str)
         except Exception as e:
@@ -397,11 +398,13 @@ class AuthService:
     async def get_user_by_id(
         self,
         session: AsyncSession,
-        user_id: str,  # String olarak kullanılıyor
+        user_id: str,
     ) -> Optional[User]:
-        """ID ile kullanıcı getir."""
+        """ID ile kullanıcı getir (İlişki yüklenmiş şekilde)."""
         result = await session.execute(
-            select(User).where(User.id == user_id)
+            select(User)
+            .where(User.id == user_id)
+            .options(selectinload(User.department_rel)) # 🚀 GÜNCELLENDİ
         )
         return result.scalar_one_or_none()
     
@@ -410,8 +413,10 @@ class AuthService:
         session: AsyncSession,
         email: str,
     ) -> Optional[User]:
-        """Email ile kullanıcı getir."""
+        """Email ile kullanıcı getir (İlişki yüklenmiş şekilde)."""
         result = await session.execute(
-            select(User).where(User.email == email)
+            select(User)
+            .where(User.email == email)
+            .options(selectinload(User.department_rel)) # 🚀 GÜNCELLENDİ
         )
         return result.scalar_one_or_none()

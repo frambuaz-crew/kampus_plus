@@ -28,6 +28,9 @@ from src.services.auth_service import AuthService
 from src.services.email_service import get_email_service
 from src.models.user import User
 
+from sqlalchemy import select
+from src.models.department import Department
+
 logger = logging.getLogger(__name__)
 
 
@@ -235,10 +238,10 @@ async def register(
             first_name=request.first_name,
             last_name=request.last_name,
             department_id=request.department_id,
-            terms_accepted_at=datetime.now(timezone.utc)  # Spec: terms_accepted_at timestamp
+            terms_accepted_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         
-        verification_token = await auth_service.generate_verification_token(user.id)
+        verification_token = auth_service.generate_verification_token(user.id)
         email_service = get_email_service()
         email_service.send_verification_email(
             to_email=user.email,
@@ -462,17 +465,21 @@ async def verify_email(
         await auth_service.verify_email(session=session, verification_token=request.token)
         return {
             "success": True,
-            "message": "Email doğrulandı. Giriş yapabilirsiniz.",
+            "message": "Email başarıyla doğrulandı. Giriş yapabilirsiniz.",
             "redirect_url": "/login"
         }
     
     except ValueError as e:
         error_msg = str(e).lower()
+        # 💡 BURAYI GÜNCELLEDİK: Zaten doğrulanmışsa 409 fırlatmak yerine BAŞARI dönüyoruz.
+        # Bu sayede frontend'deki 'catch' bloğuna düşmez ve yeşil onay ekranı görünür.
         if "already verified" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "ALREADY_VERIFIED", "message": "Bu email adresi zaten doğrulanmış."}}
-            )
+            return {
+                "success": True,
+                "message": "Hesabınız zaten onaylanmış. Giriş sayfasına yönlendiriliyorsunuz.",
+                "redirect_url": "/login"
+            }
+            
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": {"code": "INVALID_TOKEN", "message": "Doğrulama linki geçersiz veya süresi dolmuş."}}
@@ -529,7 +536,7 @@ async def resend_verification(
         }
     
     try:
-        verification_token = await auth_service.generate_verification_token(user.id)
+        verification_token = auth_service.generate_verification_token(user.id)
         email_service = get_email_service()
         email_service.send_verification_email(
             to_email=user.email,
@@ -660,9 +667,6 @@ async def get_current_user_info(
         created_at=current_user.created_at
     )
 
-# auth.py içine eklenecek (Dosyanın sonuna ekleyebilirsin)
-from sqlalchemy import select
-from src.models.department import Department
 
 @router.get("/departments", response_model=list[dict])
 async def get_departments(session: AsyncSession = Depends(get_db)):

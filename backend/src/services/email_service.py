@@ -162,26 +162,36 @@ Sorularınız için: {self.support_email}
         text_content: Optional[str] = None
     ) -> bool:
         """SMTP ile email gönder."""
-        if not self.smtp_host or not self.smtp_user or not self.smtp_password:
-            logger.warning(f"SMTP yapılandırılmamış. Email gönderilmedi: {to_email}")
+        # Host yoksa gönderimi durdur (MailHog için Host yeterlidir, User/Pass şart değil)
+        if not self.smtp_host:
+            logger.warning(f"SMTP Host yapılandırılmamış. Email gönderilmedi: {to_email}")
             return False
         
         try:
+            # Mail objesini oluştur
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
             msg["From"] = formataddr((self.from_name, self.from_email))
             msg["To"] = to_email
             
+            # ÖNCE düz metin (plain text) kısmını ekle (Daha az öncelikli)
             if text_content:
-                text_part = MIMEText(text_content, "plain", "utf-8")
-                msg.attach(text_part)
+                msg.attach(MIMEText(text_content, "plain", "utf-8"))
+            else:
+                # Düz metin yoksa HTML'den bir kopya üretilebilir veya boş bırakılabilir
+                msg.attach(MIMEText("Lütfen bu maili görüntülemek için HTML destekli bir istemci kullanın.", "plain", "utf-8"))
             
-            html_part = MIMEText(html_content, "html", "utf-8")
-            msg.attach(html_part)
+            # SONRA HTML kısmını ekle (Daha çok öncelikli - Mail istemcileri bunu gösterir)
+            msg.attach(MIMEText(html_content, "html", "utf-8"))
             
+            # SMTP Sunucusuna bağlan
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_password)
+                # Sadece kullanıcı adı ve şifre varsa (Production ortamı) TLS ve Login yap
+                if self.smtp_user and self.smtp_password:
+                    server.starttls() # Güvenli bağlantıyı başlat
+                    server.login(self.smtp_user, self.smtp_password)
+                
+                # Maili gönder
                 server.send_message(msg)
             
             logger.info(f"Email başarıyla gönderildi: {to_email} - {subject}")

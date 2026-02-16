@@ -168,7 +168,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       });
     } catch (error) {
       if (axios.isAxiosError(error)) { // 👈 İşte bu kontrol için axios lazım!
-        const status = error.response?.status;
         // ... hata mesajları ...
       }
     } finally {
