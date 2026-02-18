@@ -355,7 +355,56 @@ async def login(
             detail={"error": {"code": "INTERNAL_ERROR", "message": "Giriş işlemi başarısız oldu."}}
         )
 
-
+@router.get(
+    "/reset-password/validate",
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {"model": ErrorResponse, "description": "Geçersiz veya süresi dolmuş token"},
+        500: {"model": ErrorResponse, "description": "Sunucu hatası"}
+    }
+)
+async def validate_reset_token(
+    token: str,
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Şifre sıfırlama linkine tıklandığında token'ın hala geçerli olup olmadığını kontrol eder.
+    Frontend'deki ResetPasswordPage mount edildiğinde bu endpoint'i çağırır.
+    """
+    try:
+        # AuthService içindeki mevcut doğrulama mantığını kullanıyoruz.
+        # Bu metod token'ı decode eder, rolünü kontrol eder ve kullanıcıyı DB'den çeker.
+        await auth_service.verify_password_reset_token(session=session, token=token)
+        
+        return {
+            "success": True, 
+            "message": "Token geçerli. Lütfen yeni şifrenizi belirleyin."
+        }
+        
+    except ValueError as e:
+        # Token geçersizse, süresi dolmuşsa veya kullanıcı bulunamadıysa burası çalışır.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": {
+                    "code": "INVALID_TOKEN", 
+                    "message": str(e)
+                }
+            }
+        )
+    except Exception as e:
+        # Beklenmedik sistem hataları için log tutulur.
+        logger.error(f"Şifre sıfırlama token doğrulama hatası: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR", 
+                    "message": "İşlem sırasında bir hata oluştu."
+                }
+            }
+        )
+    
 @router.post(
     "/refresh",
     response_model=RefreshResponse,
@@ -564,12 +613,15 @@ async def forgot_password(
     request: ForgotPasswordRequest,
     session: AsyncSession = Depends(get_db)
 ):
-    """Request password reset email. Always returns 200 to prevent email enumeration."""
+    """Şifre sıfırlama maili isteği. Güvenlik için her zaman 200 döner."""
     try:
         user = await auth_service.get_user_by_email(session=session, email=request.email)
         
         if user:
-            reset_token = auth_service.create_password_reset_token(user.email)
+            # 💡 DÜZELTME: user.email yerine user.id gönderilmeli
+            # Backend bu ID'yi token içine gömer ve doğrularken bu ID ile DB'den kullanıcıyı çeker.
+            reset_token = auth_service.create_password_reset_token(user.id)
+            
             email_service = get_email_service()
             email_service.send_password_reset_email(
                 to_email=user.email,

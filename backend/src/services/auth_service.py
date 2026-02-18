@@ -109,9 +109,9 @@ class AuthService:
         password: str,
         remember_me: bool = False,
     ) -> Tuple[User, str, str]:
-        """Kullanıcıyı doğrula ve ilişkisel verilerle birlikte token'ları döndür."""
+        """Kullanıcıyı doğrula, last_login tarihini güncelle ve token'ları döndür."""
         
-        # SORGULAMA: Bölüm bilgisini (department_rel) peşin yüklüyoruz (Eager Loading)
+        # 1. Kullanıcıyı ve Bölüm bilgisini peşin yüklüyoruz (Eager Loading)
         stmt = (
             select(User)
             .where(User.email == email)
@@ -121,26 +121,27 @@ class AuthService:
         result = await session.execute(stmt)
         user = result.scalar_one_or_none()
         
-        # Temel kontroller
-        if not user:
-            raise ValueError("Geçersiz email veya şifre")
-        
-        if not verify_password(password, user.password_hash):
+        # 2. Temel Güvenlik ve Durum Kontrolleri
+        if not user or not verify_password(password, user.password_hash):
             raise ValueError("Geçersiz email veya şifre")
         
         if not user.is_verified:
-            raise ValueError("Email doğrulanmamış. Lütfen email adresinizi doğrulayın.")
+            # Frontend'deki sarı uyarı kutusunu tetiklemek için bu kodu dönüyoruz
+            raise ValueError("EMAIL_NOT_VERIFIED") 
         
         if not user.is_active:
-            raise ValueError("Kullanıcı hesabı aktif değil")
+            raise ValueError("ACCOUNT_INACTIVE")
         
-        # Token üretimi
+        # 3. [YENİ] Son Giriş Tarihini Güncelle (Spec 003 gereği)
+        user.last_login = _utc_naive()
+        
+        # 4. Token Üretimi ve Süre Hesaplama
         access_token = create_access_token(
             user_id=user.id,
             role=user.role.value
         )
         
-        # Refresh token süresi hesaplama
+        # "Beni Hatırla" seçeneğine göre süreyi belirliyoruz
         refresh_expire_days = (
             self.settings.jwt_refresh_token_expire_days_remember_me
             if remember_me
@@ -152,8 +153,8 @@ class AuthService:
             expires_delta=timedelta(days=refresh_expire_days)
         )
         
-        # Refresh token'ı veritabanına işle
-        refresh_token = RefreshToken(
+        # 5. Yeni Refresh Token'ı veritabanına hazırla
+        new_refresh_token = RefreshToken(
             id=str(uuid4()),
             user_id=user.id,
             token=refresh_token_str,
@@ -161,10 +162,10 @@ class AuthService:
             created_at=_utc_naive(),
         )
         
-        session.add(refresh_token)
+        # 6. Tek bir Commit ile hem last_login hem de refresh_token'ı mühürle
+        session.add(new_refresh_token)
         await session.commit()
         
-        # user objesi artık department_rel bilgisine sahip olarak döner
         return user, access_token, refresh_token_str
     
     async def refresh_access_token(

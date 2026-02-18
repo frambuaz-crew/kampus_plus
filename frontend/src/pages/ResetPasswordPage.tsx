@@ -1,11 +1,3 @@
-/**
- * Reset Password Page
- * 
- * Spec: 017-reset-password/spec.md
- * 
- * Şifre sıfırlama sayfası (token ile)
- */
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { apiClient } from '../api/config';
@@ -23,6 +15,7 @@ export const ResetPasswordPage: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // Token geçerliliğini kontrol et
   useEffect(() => {
     const validateToken = async () => {
       if (!token) {
@@ -50,6 +43,7 @@ export const ResetPasswordPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    // Client-side kontroller
     if (password !== confirmPassword) {
       setError('Şifreler eşleşmiyor');
       return;
@@ -63,23 +57,27 @@ export const ResetPasswordPage: React.FC = () => {
     setIsLoading(true);
 
     try {
+      // 🚀 DÜZELTME: Backend'in beklediği tüm alanları gönderiyoruz
       await apiClient.post('/auth/reset-password', {
-        token,
+        token: token,
         new_password: password,
+        confirm_password: confirmPassword, // ✅ Eksik olan alan eklendi
       });
       setIsSuccess(true);
     } catch (err: any) {
+      // Backend'den dönen spesifik hata mesajını göster
       setError(err.response?.data?.error?.message || 'Bir hata oluştu');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Yükleme ekranı
   if (isValidating) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
-          <p className="text-gray-600">Token kontrol ediliyor...</p>
+        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center animate-pulse">
+          <p className="text-gray-600 font-medium text-lg">Güvenlik kontrolü yapılıyor...</p>
         </div>
       </div>
     );
@@ -89,56 +87,56 @@ export const ResetPasswordPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-4">
+          <h1 className="text-5xl font-extrabold text-white mb-4 tracking-tight drop-shadow-md">
             🎓 KAMPÜS+
           </h1>
-          <p className="text-xl text-purple-100">
+          <p className="text-xl text-purple-50. font-medium opacity-90">
             Şifre Sıfırlama
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-10 border border-white/20">
           {isSuccess ? (
-            <div className="text-center">
-              <span className="text-6xl block mb-4">✅</span>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <div className="text-center animate-fade-in">
+              <span className="text-6xl block mb-6 drop-shadow-sm">✅</span>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
                 Şifre Başarıyla Sıfırlandı
               </h2>
-              <p className="text-gray-600 mb-6">
-                Yeni şifrenizle giriş yapabilirsiniz.
+              <p className="text-gray-600 mb-8 leading-relaxed">
+                Artık yeni şifrenizle giriş yapmaya hazırsınız!
               </p>
               <Link
                 to="/login"
-                className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold"
+                className="block w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl hover:from-indigo-700 hover:to-purple-700 transition-all font-bold shadow-lg active:scale-95"
               >
                 Giriş Yap
               </Link>
             </div>
           ) : !isValid ? (
-            <div className="text-center">
-              <span className="text-6xl block mb-4">❌</span>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                Geçersiz Token
+            <div className="text-center animate-fade-in">
+              <span className="text-6xl block mb-6">❌</span>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Geçersiz Bağlantı
               </h2>
-              <p className="text-gray-600 mb-6">
-                {error || 'Token geçersiz veya süresi dolmuş. Lütfen yeni bir şifre sıfırlama isteği gönderin.'}
+              <p className="text-gray-600 mb-8 leading-relaxed">
+                {error || 'Bu linkin süresi dolmuş olabilir.'}
               </p>
               <Link
                 to="/forgot-password"
-                className="text-indigo-600 hover:text-indigo-700 font-semibold"
+                className="inline-block text-indigo-600 hover:text-indigo-800 font-bold border-b-2 border-indigo-600 pb-1"
               >
-                Yeni şifre sıfırlama isteği gönder
+                Yeni bir link iste →
               </Link>
             </div>
           ) : (
             <>
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
                 Yeni Şifre Belirle
               </h2>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="password" className="block text-sm font-bold text-gray-700 mb-2 ml-1">
                     Yeni Şifre
                   </label>
                   <input
@@ -148,13 +146,13 @@ export const ResetPasswordPage: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-3.5 border-2 border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-gray-50/50"
                     placeholder="En az 8 karakter"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="confirmPassword" className="block text-sm font-bold text-gray-700 mb-2 ml-1">
                     Şifre Tekrar
                   </label>
                   <input
@@ -164,30 +162,30 @@ export const ResetPasswordPage: React.FC = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-3.5 border-2 border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-gray-50/50"
                     placeholder="Şifreyi tekrar girin"
                   />
                 </div>
 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                    {error}
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm font-medium animate-shake">
+                    ⚠️ {error}
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl hover:from-indigo-700 hover:to-purple-700 transition-all font-bold shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Sıfırlanıyor...' : 'Şifreyi Sıfırla'}
                 </button>
               </form>
 
-              <div className="mt-6 text-center">
+              <div className="mt-8 text-center border-t border-gray-100 pt-6">
                 <Link
                   to="/login"
-                  className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm"
+                  className="text-gray-500 hover:text-indigo-600 font-bold text-sm transition-colors"
                 >
                   ← Giriş sayfasına dön
                 </Link>
@@ -199,4 +197,3 @@ export const ResetPasswordPage: React.FC = () => {
     </div>
   );
 };
-
