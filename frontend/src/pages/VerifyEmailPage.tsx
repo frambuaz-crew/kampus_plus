@@ -12,7 +12,7 @@
  * URL: /verify-email?token=...
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/config';
 import axios from 'axios';
@@ -20,6 +20,7 @@ import axios from 'axios';
 export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const hasRequested = useRef(false);
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'idle'>('idle');
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
@@ -29,12 +30,12 @@ export const VerifyEmailPage: React.FC = () => {
   const token = searchParams.get('token');
 
   useEffect(() => {
-    if (token) {
-      verifyEmail(token);
-    } else {
-      setStatus('error');
-      setMessage('Doğrulama token\'ı bulunamadı. Lütfen email\'inizdeki doğrulama linkini tekrar kontrol edin.');
-    }
+    // 3. Eğer zaten istek atıldıysa veya token yoksa dur
+    if (!token || hasRequested.current) return;
+
+    // İstek atıldığını işaretle
+    hasRequested.current = true;
+    verifyEmail(token);
   }, [token]);
 
   const verifyEmail = async (verificationToken: string) => {
@@ -42,17 +43,22 @@ export const VerifyEmailPage: React.FC = () => {
     setMessage('Email adresiniz doğrulanıyor...');
 
     try {
-      await apiClient.post('/auth/verify-email', {
+      const response = await apiClient.post('/auth/verify-email', {
         token: verificationToken,
       });
 
+      // Backend'den gelen mesajı al (zaten onaylıysa bile buradan mesaj gelir)
+      const successMsg = response.data?.message || 'Email adresiniz başarıyla doğrulandı!';
+      
       setStatus('success');
-      setMessage('Email adresiniz başarıyla doğrulandı! Artık giriş yapabilirsiniz.');
+      setMessage(successMsg);
 
       setTimeout(() => {
         navigate('/login');
       }, 3000);
     } catch (error) {
+      // Eğer backend "zaten onaylı" diye 200 dönüyorsa buraya düşmez.
+      // Ama bir şekilde hata gelirse buradayız.
       setStatus('error');
       
       if (axios.isAxiosError(error)) {

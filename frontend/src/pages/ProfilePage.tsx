@@ -1,11 +1,3 @@
-/**
- * Profile Page
- * 
- * Spec: 010-profile/spec.md
- * 
- * Kullanıcı profil sayfası
- */
-
 import React, { useState } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -14,146 +6,110 @@ export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'info' | 'about' | 'listings' | 'forum' | 'applications'>('info');
 
-  const getUserColor = (userId: string): string => {
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
-      '#98D8C8', '#FFD93D', '#6BCB77', '#A8DADC'
-    ];
-    const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
-
+  // Dinamik Avatar Oluşturma
   const getProfileAvatar = () => {
     if (user?.profile_picture_url) {
       return (
         <img
           src={user.profile_picture_url}
           alt={`${user.first_name} ${user.last_name}`}
-          className="w-24 h-24 rounded-full object-cover"
+          className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg"
         />
       );
     }
     
     const initials = `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`.toUpperCase();
-    const bgColor = user?.id ? getUserColor(user.id) : '#4ECDC4';
     
     return (
-      <div
-        className="w-24 h-24 rounded-full flex items-center justify-center text-white text-2xl font-bold"
-        style={{ backgroundColor: bgColor }}
-      >
+      <div className="w-28 h-28 rounded-full flex items-center justify-center text-white text-3xl font-bold bg-orange-400 shadow-lg shadow-orange-100 border-4 border-white">
         {initials}
       </div>
     );
   };
 
   const tabs = [
-    { id: 'info' as const, label: '📊 Profil Bilgi', icon: '📊' },
-    { id: 'about' as const, label: '📝 Hakkımda', icon: '📝' },
-    { id: 'listings' as const, label: '🛍️ İlanlarım', icon: '🛍️' },
-    { id: 'forum' as const, label: '💬 Forum', icon: '💬' },
-    { id: 'applications' as const, label: '💼 Başvurularım', icon: '💼' },
+    { id: 'info' as const, label: 'Profil Bilgi', icon: '📊' },
+    { id: 'about' as const, label: 'Hakkımda', icon: '📝' },
+    { id: 'listings' as const, label: 'İlanlarım', icon: '🛍️' },
+    { id: 'forum' as const, label: 'Forum', icon: '💬' },
+    { id: 'applications' as const, label: 'Başvurularım', icon: '💼' },
   ];
 
   return (
     <MainLayout>
-      <div className="w-full px-8 xl:px-16 py-8">
-        <div className="max-w-[1920px] mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-            <span className="mr-3">👤</span>
+      <div className="w-full px-6 md:px-12 py-10 bg-gray-50/50 min-h-[calc(100vh-64px)]">
+        <div className="max-w-6xl mx-auto">
+          {/* Başlık */}
+          <h1 className="text-3xl font-extrabold text-gray-900 mb-10 flex items-center">
+            <span className="mr-4 p-2 bg-white rounded-2xl shadow-sm">👤</span>
             Profilim
           </h1>
           
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Sidebar */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl shadow-sm p-6">
-                <div className="text-center mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* --- Sidebar --- */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Profil Kartı */}
+              <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8 text-center">
+                <div className="flex justify-center mb-6">
                   {getProfileAvatar()}
-                  <p className="mt-4 font-semibold text-gray-900">
-                    {user?.first_name} {user?.last_name}
-                  </p>
-                  <p className="text-sm text-gray-600">@{user?.email?.split('@')[0]}</p>
                 </div>
-                
-                <div className="space-y-2">
-                  {tabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                        activeTab === tab.id
-                          ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+                <h2 className="text-xl font-bold text-gray-900 leading-tight">
+                  {user?.first_name} {user?.last_name}
+                </h2>
+                <p className="text-indigo-600 font-semibold text-sm mt-1">
+                  @{user?.email?.split('@')[0]}
+                </p>
               </div>
+              
+              {/* Tab Menüsü */}
+              <nav className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-3 space-y-1">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center space-x-3 px-6 py-4 rounded-2xl transition-all duration-200 ${
+                      activeTab === tab.id
+                        ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <span className="text-xl">{tab.icon}</span>
+                    <span className="text-sm">{tab.label}</span>
+                  </button>
+                ))}
+              </nav>
             </div>
 
-            {/* Main Content */}
+            {/* --- Main Content Area --- */}
             <div className="lg:col-span-3">
-              <div className="bg-white rounded-xl shadow-sm p-8">
+              <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-10 min-h-[600px]">
                 {activeTab === 'info' && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Profil Bilgileri</h2>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Ad</label>
-                        <p className="text-gray-900">{user?.first_name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Soyad</label>
-                        <p className="text-gray-900">{user?.last_name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <p className="text-gray-900">{user?.email}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Üniversite</label>
-                        <p className="text-gray-900">{user?.university || 'Belirtilmemiş'}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Bölüm</label>
-                        <p className="text-gray-900">{user?.department || 'Belirtilmemiş'}</p>
-                      </div>
-                      <button className="mt-6 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">
-                        Düzenle
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex items-center justify-between mb-10">
+                      <h2 className="text-2xl font-bold text-gray-900">Profil Bilgileri</h2>
+                      <button className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors font-bold text-sm">
+                        <span>✏️</span>
+                        <span>Düzenle</span>
                       </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                      <InfoField label="Ad" value={user?.first_name} />
+                      <InfoField label="Soyad" value={user?.last_name} />
+                      <InfoField label="Email Adresi" value={user?.email} className="md:col-span-2" />
+                      <InfoField label="Üniversite" value={user?.university || 'Selçuk Üniversitesi'} />
+                      <InfoField label="Bölüm" value={user?.department || 'Belirtilmemiş'} />
                     </div>
                   </div>
                 )}
 
-                {activeTab === 'about' && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Hakkımda</h2>
-                    <p className="text-gray-600">Hakkımda özelliği yakında eklenecek.</p>
-                  </div>
-                )}
-
-                {activeTab === 'listings' && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">İlanlarım</h2>
-                    <p className="text-gray-600">İlanlarım özelliği yakında eklenecek.</p>
-                  </div>
-                )}
-
-                {activeTab === 'forum' && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Forum Aktivitelerim</h2>
-                    <p className="text-gray-600">Forum aktiviteleri özelliği yakında eklenecek.</p>
-                  </div>
-                )}
-
-                {activeTab === 'applications' && (
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Başvurularım</h2>
-                    <p className="text-gray-600">Başvurularım özelliği yakında eklenecek.</p>
-                  </div>
+                {/* Diğer tab içerikleri (About, Listings vb.) buraya gelecek */}
+                {activeTab !== 'info' && (
+                   <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                     <div className="text-5xl opacity-20">🚀</div>
+                     <h3 className="text-xl font-bold text-gray-400">Yakında Gelecek</h3>
+                     <p className="text-gray-400 max-w-xs text-sm">Bu bölüm üzerinde şu an çalışıyoruz. Takipte kalın!</p>
+                   </div>
                 )}
               </div>
             </div>
@@ -164,3 +120,20 @@ export const ProfilePage: React.FC = () => {
   );
 };
 
+// Yardımcı Alt Bileşen - GÜNCELLENDİ 🚀
+const InfoField = ({ label, value, className = "" }: { label: string; value?: any; className?: string }) => {
+  // Eğer gelen değer bir nesne ise (Department objesi gibi), içindeki 'name' alanını alıyoruz.
+  // Eğer düz metin (string) ise direkt kendisini kullanıyoruz.
+  const displayValue = (value && typeof value === 'object') ? value.name : value;
+
+  return (
+    <div className={`space-y-1.5 ${className}`}>
+      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+        {label}
+      </label>
+      <div className="w-full px-5 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-gray-900 font-medium text-lg">
+        {displayValue || 'Belirtilmemiş'}
+      </div>
+    </div>
+  );
+};

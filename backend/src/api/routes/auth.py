@@ -16,10 +16,12 @@ import traceback
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional, Dict
-
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
@@ -63,27 +65,19 @@ class RegisterRequest(BaseModel):
     @field_validator('email')
     @classmethod
     def validate_university_email(cls, v: str) -> str:
-        """Validate that email is from .edu.tr domain (Spec: 002-register-page).
-        
-        Spec'te tüm .edu.tr domain'leri kabul edilir.
-        Pilot program için belirli domain'ler kısıtlanabilir.
-        """
+        """Sadece .edu.tr kontrolü yapar, kısıtlayıcı listeyi devre dışı bırakır."""
         email_lower = v.lower().strip()
-        if '@' not in email_lower:
-            raise ValueError('Invalid email format')
         
-        # Spec'e göre: Sadece .edu.tr domain'leri kabul edilir
+        # Genel format kontrolü
+        if '@' not in email_lower:
+            raise ValueError('Geçersiz email formatı')
+        
+        # 🎯 TEK KRİTER: .edu.tr ile bitmesi (Tüm Türkiye'yi kapsar)
         if not email_lower.endswith('.edu.tr'):
             raise ValueError('Lütfen geçerli bir üniversite email adresi kullanın (.edu.tr)')
         
-        # Pilot program için (opsiyonel): Belirli domain'ler kısıtlanabilir
-        settings = get_settings()
-        if settings.allowed_email_domains_list:
-            email_domain = email_lower.split('@')[1]
-            if email_domain not in settings.allowed_email_domains_list:
-                # Pilot program aktifse, sadece belirli domain'ler kabul edilir
-                allowed_list = ', '.join(settings.allowed_email_domains_list)
-                raise ValueError(f'Pilot program için sadece şu domain\'ler kabul ediliyor: {allowed_list}')
+        # NOT: settings.allowed_email_domains_list kontrolünü buradan sildik 
+        # çünkü artık 205 üniversiteyi de kabul etmek istiyoruz.
         
         return v
     
@@ -273,6 +267,8 @@ async def register(
         )
 
 
+from src.services.university_service import get_university_service
+
 @router.post(
     "/login",
     response_model=LoginResponse,
@@ -286,8 +282,9 @@ async def login(
     response: Response,
     session: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
-    """Authenticate user and issue JWT tokens."""
+    """Kullanıcıyı doğrular, JWT token'larını oluşturur ve resmi üniversite adını döner."""
     try:
+        # 1. Kullanıcıyı doğrula ve tokenları al
         user, access_token, refresh_token = await auth_service.authenticate_user(
             session=session,
             email=request.email,
@@ -295,7 +292,19 @@ async def login(
             remember_me=request.remember_me
         )
         
-        refresh_token_days = auth_service.settings.jwt_refresh_token_expire_days_remember_me if request.remember_me else auth_service.settings.jwt_refresh_token_expire_days
+        # 2. Üniversite servisini çağır ve resmi ismi çöz
+        uni_service = get_university_service()
+        official_university_name = await uni_service.get_university_from_email(
+            user.email, 
+            session
+        )
+
+        # 3. Refresh Token için Cookie ayarları
+        refresh_token_days = (
+            auth_service.settings.jwt_refresh_token_expire_days_remember_me 
+            if request.remember_me 
+            else auth_service.settings.jwt_refresh_token_expire_days
+        )
         
         response.set_cookie(
             key="refresh_token",
@@ -307,6 +316,7 @@ async def login(
             path="/api/v1/auth"
         )
         
+        # 4. Yanıtı döndür
         return LoginResponse(
             access_token=access_token,
             token_type="bearer",
@@ -317,9 +327,11 @@ async def login(
                 first_name=user.first_name,
                 last_name=user.last_name,
                 role=user.role.value,
-                university=user.university,
-                department_id=user.department_id, # ID'yi direkt veriyoruz
-                department=user.department_rel.name if user.department_rel else None, # ⬅️ İlişkiden ismi çekiyoruz
+                # 🚀 Veritabanındaki eski değer yerine servisten gelen resmi isim
+                university=official_university_name, 
+                department_id=user.department_id,
+                # İlişki üzerinden bölüm ismini al
+                department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
                 is_verified=user.is_verified,
                 profile_picture_url=user.profile_picture_url,
                 created_at=user.created_at
@@ -691,6 +703,8 @@ async def reset_password(
         )
 
 
+from src.services.university_service import get_university_service # 1. Servisi import et
+
 @router.get(
     "/me",
     response_model=UserResponse,
@@ -699,24 +713,42 @@ async def reset_password(
     }
 )
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
 ) -> UserResponse:
-    """Mevcut kullanıcının bilgilerini getir."""
+    """Mevcut kullanıcının bilgilerini ve resmi üniversite adını getirir."""
     
+    # 2. Servisi çağır
+    uni_service = get_university_service()
+    
+    # 3. İlişkili verileri (Department) yükle
+    stmt = (
+        select(User)
+        .where(User.id == current_user.id)
+        .options(selectinload(User.department_rel))
+    )
+    result = await session.execute(stmt)
+    user = result.scalar_one()
+
+    # 4. Üniversite ismini email üzerinden resmi veritabanından çöz
+    official_university_name = await uni_service.get_university_from_email(
+        user.email, 
+        session
+    )
+
     return UserResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        first_name=current_user.first_name,
-        last_name=current_user.last_name,
-        role=current_user.role.value,
-        university=current_user.university,
-        # ID'yi direkt alıyoruz
-        department_id=current_user.department_id,
-        # İsmi ise ilişkili tablodan çekiyoruz (Safe Check ile)
-        department=current_user.department_rel.name if current_user.department_rel else None,
-        is_verified=current_user.is_verified,
-        profile_picture_url=current_user.profile_picture_url,
-        created_at=current_user.created_at
+        id=str(user.id),
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        role=user.role.value,
+        # 🚀 KRİTİK: Statik metni değil, servisden gelen resmi ismi döndür
+        university=official_university_name, 
+        department_id=user.department_id,
+        department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
+        is_verified=user.is_verified,
+        profile_picture_url=user.profile_picture_url,
+        created_at=user.created_at
     )
 
 

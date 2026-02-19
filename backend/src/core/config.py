@@ -143,19 +143,19 @@ class Settings(BaseSettings):
     smtp_from_name: str = "KAMPÜS+ Platform"
     frontend_url: str = "http://localhost:5173"  # Email link'leri için
     
-    # Üniversite Özel Ayarlar - Konya Üniversiteleri
-    university_name: str = "Konya Universities"
+    # Üniversite Özel Ayarlar - Genel Türkiye Kapsamı
+    university_name: str = "Kampüs+ Türkiye" # 👈 "Konya" kısıtlamasını kaldırdık
     support_email: str = "support@kampusplus.edu.tr"
     
-    # Kayıt için izin verilen email domain'leri (virgülle ayrılmış)
+    # Kayıt için izin verilen email domain'leri
     allowed_email_domains: str = Field(
-        default="ogr.selcuk.edu.tr,ktun.edu.tr,ogr.erbakan.edu.tr,karatay.edu.tr,ogr.gidatarim.edu.tr",
-        description="Kayıt için izin verilen email domain'leri (virgülle ayrılmış)"
+        default=".edu.tr", # 👈 Sadece uzantıyı yazdık
+        description="Kayıt için izin verilen email domain'leri veya uzantıları"
     )
     
     @property
     def allowed_email_domains_list(self) -> List[str]:
-        """İzin verilen email domain'lerini virgülle ayrılmış string'den parse et."""
+        """İzin verilen email domain'lerini temiz bir liste olarak döner."""
         return [domain.strip().lower() for domain in self.allowed_email_domains.split(",") if domain.strip()]
     
     @field_validator("environment")

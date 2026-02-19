@@ -1,145 +1,96 @@
-"""Üniversite servisi - Email domain'lerinden üniversite isimlerini çıkarır.
-
-Veritabanından üniversite bilgilerini çeker ve email domain'leriyle eşleştirir.
-"""
-
 import json
 import logging
-from typing import Optional
-from sqlalchemy import select, and_
+from typing import Optional, Dict
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.models.university import University
 
 logger = logging.getLogger(__name__)
 
-
 class UniversityService:
-    """Üniversite servisi."""
-    
+    """Üniversite servisi - Email domain'lerinden temiz isimler çıkarır."""
+
+    # 🚀 Öncelikli Eşleştirme (Veritabanında olmayan veya özel isimler için)
+    # Burası veritabanından her zaman daha öncelikli çalışır.
+    SPECIAL_OVERRIDES: Dict[str, str] = {
+        "gidatarim": "Konya Gıda ve Tarım Üniversitesi",
+        "selcuk": "Selçuk Üniversitesi",
+        "metu": "Orta Doğu Teknik Üniversitesi",
+        "odtu": "Orta Doğu Teknik Üniversitesi",
+        "itu": "İstanbul Teknik Üniversitesi"
+    }
+
+    def _get_clean_domain_parts(self, email: str) -> tuple[str, str]:
+        """Email'den tam domain'i ve temizlenmiş kök domain'i döner."""
+        full_domain = email.split("@")[1].lower().strip()
+        
+        # Temizleme işlemi (ogr., std. gibi ekleri atar)
+        root_domain = full_domain
+        prefixes = ["ogr.", "std.", "ogrenci.", "mail.", "posta."]
+        for pref in prefixes:
+            if root_domain.startswith(pref):
+                root_domain = root_domain.replace(pref, "", 1)
+        
+        # Kök isim (örn: selcuk.edu.tr -> selcuk)
+        root_name = root_domain.split(".")[0]
+        
+        return full_domain, root_name
+
     async def get_university_from_email(
         self,
         email: str,
         session: AsyncSession,
     ) -> str:
-        """Email adresinden üniversite ismini çıkarır.
-        
-        Args:
-            email: Kullanıcı email adresi (örn: student@selcuk.edu.tr)
-            session: Veritabanı oturumu
-        
-        Returns:
-            Üniversite ismi (örn: "Selçuk Üniversitesi")
-        """
+        """Email adresinden üniversite ismini optimize bir şekilde çıkarır."""
         if not email or "@" not in email:
-            return self._generate_fallback_name(email or "unknown")
-        
-        # Email'den domain'i çıkar
-        domain = email.split("@")[1].lower().strip()
-        
-        # 1. Veritabanında ara (email_domains JSON field'ında)
-        try:
-            result = await session.execute(
-                select(University)
-                .where(
-                    and_(
-                        University.is_active == True
-                    )
-                )
-            )
-            universities = result.scalars().all()
-            
-            # Her üniversitenin email_domains'ini kontrol et
-            for uni in universities:
-                if not uni.email_domains:
-                    continue
-                
-                try:
-                    domains = json.loads(uni.email_domains)
-                    if isinstance(domains, list):
-                        # Tam eşleşme
-                        if domain in domains:
-                            return uni.name
-                        
-                        # "ogr." prefix'ini kaldır ve tekrar kontrol et
-                        if domain.startswith("ogr."):
-                            domain_without_ogr = domain.replace("ogr.", "", 1)
-                            if domain_without_ogr in domains:
-                                return uni.name
-                        
-                        # Domain'in bir kısmı eşleşiyor mu? (örn: selcuk.edu.tr -> selcuk)
-                        for stored_domain in domains:
-                            if domain.endswith(stored_domain) or stored_domain.endswith(domain):
-                                return uni.name
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            
-            # 2. Domain'den üniversite ismini tahmin et (basit eşleştirme)
-            # Örn: selcuk.edu.tr -> "Selçuk" araması
-            domain_parts = domain.replace(".edu.tr", "").replace("ogr.", "").split(".")
-            if domain_parts:
-                search_term = domain_parts[-1]  # Son kısım (örn: "selcuk")
-                
-                # Üniversite isimlerinde arama yap
-                for uni in universities:
-                    # İsimde arama terimi var mı? (case-insensitive)
-                    if search_term.lower() in uni.name.lower():
-                        return uni.name
-        except Exception as e:
-            logger.error(f"Database lookup failed for domain {domain}: {e}", exc_info=True)
-        
-        # 3. Fallback: Domain'den otomatik isim oluştur
-        return self._generate_fallback_name(domain)
-    
-    def _generate_fallback_name(self, domain: str) -> str:
-        """Domain'den otomatik üniversite ismi oluştur.
-        
-        Örnekler:
-        - "selcuk.edu.tr" -> "Selçuk Üniversitesi"
-        - "ogr.selcuk.edu.tr" -> "Selçuk Üniversitesi"
-        """
-        if not domain:
             return "Bilinmeyen Üniversite"
         
-        # ".edu.tr" suffix'ini kaldır
-        if domain.endswith(".edu.tr"):
-            domain = domain.replace(".edu.tr", "")
+        full_domain, root_name = self._get_clean_domain_parts(email)
         
-        # "ogr." prefix'ini kaldır
-        if domain.startswith("ogr."):
-            domain = domain.replace("ogr.", "", 1)
-        
-        # Domain'i parçalara ayır
-        parts = domain.split(".")
-        
-        # Son kısmı al (ana domain)
-        if parts:
-            main_part = parts[-1]
-            
-            # Bilinen kısaltmalar için özel isimler
-            known_abbreviations = {
-                "metu": "Orta Doğu Teknik Üniversitesi",
-                "boun": "Boğaziçi Üniversitesi",
-                "itu": "İstanbul Teknik Üniversitesi",
-                "ku": "Koç Üniversitesi",
-                "sabanciuniv": "Sabancı Üniversitesi",
-            }
-            
-            if main_part.lower() in known_abbreviations:
-                return known_abbreviations[main_part.lower()]
-            
-            # Normal durum: İlk harfi büyük yap ve "Üniversitesi" ekle
-            university_name = main_part.title()
-            return f"{university_name} Üniversitesi"
-        
-        return "Bilinmeyen Üniversite"
+        # 💡 ADIM 1: Özel Mapping Kontrolü (Hızlı sonuç)
+        if root_name in self.SPECIAL_OVERRIDES:
+            return self.SPECIAL_OVERRIDES[root_name]
 
+        # 💡 ADIM 2: Veritabanında Akıllı Arama
+        # Tüm üniversiteleri çekmek yerine sadece domain eşleşeni arıyoruz.
+        try:
+            # email_domains bir JSON string olduğu için LIKE ile içinde arıyoruz
+            # Örn: %"selcuk.edu.tr"% araması JSON array içindeki tam eşleşmeyi yakalar
+            stmt = select(University).where(
+                University.is_active == True,
+                or_(
+                    University.email_domains.like(f'%"%{full_domain}%"'),
+                    University.name.ilike(f"%{root_name}%")
+                )
+            ).limit(1)
+            
+            result = await session.execute(stmt)
+            uni = result.scalar_one_or_none()
+            
+            if uni:
+                return uni.name
+        except Exception as e:
+            logger.error(f"Üniversite aranırken DB hatası: {e}")
 
-# Global service instance
+        # 💡 ADIM 3: Fallback (Hiçbir yerde bulunamazsa otomatik oluştur)
+        return self._generate_fallback_name(root_name)
+    
+    def _generate_fallback_name(self, root_name: str) -> str:
+        """Format: Selcuk -> Selçuk Üniversitesi"""
+        # Manuel düzeltmeler
+        corrections = {
+            "selcuk": "Selçuk",
+            "gidatarim": "Gıda ve Tarım",
+            "istanbul": "İstanbul",
+            "marmara": "Marmara",
+            "hacettepe": "Hacettepe"
+        }
+        
+        name = corrections.get(root_name, root_name.capitalize())
+        return f"{name} Üniversitesi"
+
+# Global instance
 _university_service = UniversityService()
 
-
 def get_university_service() -> UniversityService:
-    """Üniversite servisi instance'ını döndür."""
     return _university_service
-
