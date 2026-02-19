@@ -28,6 +28,9 @@ class ListingResponse(BaseModel):
     image_urls: Optional[str] = None
     created_at: datetime
     seller_id: str
+    # Frontend için eklediğimiz alanlar
+    seller_name: Optional[str] = None
+    university: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -37,19 +40,67 @@ async def get_listings(
     category: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_db)
 ):
-    stmt = select(MarketplaceListing).where(MarketplaceListing.status == "active")
-    
-    # Üniversite filtresi için User tablosuna ihtiyaç duyulursa basit bir join
+    # User modelindeki gerçek kolonları (first_name, last_name) kullanıyoruz
+    stmt = (
+        select(MarketplaceListing, User.first_name, User.last_name, User.university)
+        .outerjoin(User, MarketplaceListing.seller_id == User.id)
+        .where(MarketplaceListing.status == "active")
+    )
+
     if university:
-        stmt = stmt.join(User).where(User.university == university)
-    
+        stmt = stmt.where(User.university == university)
     if category:
         stmt = stmt.where(MarketplaceListing.category == category)
 
     stmt = stmt.order_by(desc(MarketplaceListing.created_at))
     result = await session.execute(stmt)
-    return result.scalars().all()
+    
+    final_listings = []
+    for row in result:
+        listing = row[0]
+        # Ad ve soyadı birleştirerek seller_name oluşturuyoruz
+        first_name = row[1]
+        last_name = row[2]
+        
+        if first_name and last_name:
+            listing.seller_name = f"{first_name} {last_name}"
+        else:
+            listing.seller_name = "Üniversite Öğrencisi"
+            
+        listing.university = row[3] if row[3] else "Kampüs İçi"
+        final_listings.append(listing)
 
+    return final_listings
+@router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_listing(
+    listing_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """İlanı veren kişinin kendi ilanını silmesini sağlar."""
+    # İlanı bul
+    stmt = select(MarketplaceListing).where(MarketplaceListing.id == listing_id)
+    result = await session.execute(stmt)
+    listing = result.scalar_one_or_none()
+
+    if not listing:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+
+    # Yetki kontrolü: İlanın sahibi mevcut kullanıcı mı?
+    if listing.seller_id != current_user.id:
+        raise HTTPException(
+            status_code=403, 
+            detail="Bu ilanı silme yetkiniz bulunmamaktadır."
+        )
+
+    # İlanı sil (veya status="deleted" olarak güncelle)
+    await session.delete(listing)
+    try:
+        await session.commit()
+        return None
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="İlan silinirken bir hata oluştu.")
 @router.post("/", response_model=ListingResponse, status_code=status.HTTP_201_CREATED)
 async def create_listing(
     title: str = Form(...),
