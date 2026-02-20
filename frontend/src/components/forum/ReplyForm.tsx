@@ -1,17 +1,5 @@
-/**
- * ReplyForm Component
- * 
- * Spec: 005-forum-page/spec.md
- * 
- * Cevap yazma formu:
- * - İçerik (markdown destekli, zorunlu)
- * - Dosya ekleme (max 3 dosya, max 10MB)
- * - Mention (@kullanıcı) desteği
- * 
- * NOT: Tüm kullanıcılar profilli (anonim paylaşım yok)
- */
-
 import React, { useState } from 'react';
+import { Paperclip, X, Send, AlertCircle, Info } from 'lucide-react';
 
 interface ReplyFormProps {
   onSubmit: (data: {
@@ -32,16 +20,18 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const MAX_CHAR = 10000; // Dökümandaki karakter sınırı
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!content.trim()) {
-      setError('Cevap boş olamaz');
+    if (content.length < 2) {
+      setError('Cevap çok kısa');
       return;
     }
 
-    // Extract mentions from content (@username)
+    // Mention tespiti (@kullanıcı)
     const mentionRegex = /@(\w+)/g;
     const mentions = Array.from(content.matchAll(mentionRegex), m => m[1]);
 
@@ -60,6 +50,8 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
+    
+    // Validasyon: Max 10MB ve Max 3 dosya
     const validFiles = selectedFiles.filter(file => {
       if (file.size > 10 * 1024 * 1024) {
         setError(`${file.name} 10MB'dan büyük olamaz`);
@@ -74,83 +66,107 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
     }
 
     setFiles([...files, ...validFiles]);
-  };
-
-  const handleFileRemove = (index: number) => {
-    setFiles(files.filter((_, i) => i !== index));
+    e.target.value = ''; // Reset input
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
+      {/* Hata Mesajı */}
       {error && (
-        <div className="p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+        <div className="flex items-center p-3 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+          <AlertCircle size={16} className="mr-2 shrink-0" />
           {error}
         </div>
       )}
 
-      <div>
-        <label htmlFor="reply-content" className="block text-sm font-medium text-gray-700 mb-2">
-          Cevabınız * (Markdown destekli, @kullanıcı ile mention yapabilirsiniz)
-        </label>
+      {/* Textarea Alanı */}
+      <div className="relative">
+        <div className="absolute top-3 right-3 text-[10px] font-mono text-gray-500 bg-[#0f1624] px-2 py-1 rounded border border-gray-800">
+          {content.length} / {MAX_CHAR}
+        </div>
         <textarea
-          id="reply-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Cevabınızı yazın... (Markdown destekli, @kullanıcı ile mention yapabilirsiniz)"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[150px] resize-y"
+          placeholder="Cevabınızı buraya yazın... (Markdown ve @mention desteklenir)"
+          className="w-full px-4 py-4 bg-[#0f1624] border border-[#0f1624] text-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent min-h-[180px] resize-y placeholder-gray-600 transition-all"
           disabled={isSubmitting}
+          maxLength={MAX_CHAR}
           required
-          maxLength={10000}
         />
+        <div className="flex items-center mt-2 text-[10px] text-gray-500 space-x-3 italic">
+           <span className="flex items-center"><Info size={10} className="mr-1" /> **kalın**</span>
+           <span>*italik*</span>
+           <span>[link](url)</span>
+           <span>@kullanıcı</span>
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="reply-files" className="block text-sm font-medium text-gray-700 mb-2">
-          Dosya Ekle (max 3 dosya, max 10MB)
-        </label>
-        <input
-          id="reply-files"
-          type="file"
-          multiple
-          onChange={handleFileSelect}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          disabled={isSubmitting || files.length >= 3}
-        />
-        {files.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                <span className="text-sm text-gray-700">{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
-                <button
-                  type="button"
-                  onClick={() => handleFileRemove(index)}
-                  className="text-red-600 hover:text-red-800"
-                >
-                  ×
-                </button>
+      {/* Alt Bölüm: Dosya ve Butonlar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+        <div className="flex flex-col space-y-2">
+          {/* Gizli Dosya Inputu */}
+          <label className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg cursor-pointer transition-colors ${files.length >= 3 || isSubmitting ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[#16213e] text-indigo-400 hover:bg-[#1a2744] border border-indigo-500/20'}`}>
+            <Paperclip size={18} />
+            <span className="text-sm font-bold">Dosya Ekle</span>
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              disabled={isSubmitting || files.length >= 3}
+            />
+          </label>
+          <span className="text-[10px] text-gray-500">Maks. 3 dosya (Her biri 10MB)</span>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="px-5 py-2.5 text-sm font-bold text-gray-400 hover:text-white transition-colors"
+          >
+            İptal
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || content.length < 2}
+            className="flex items-center space-x-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <Send size={18} />
+                <span>Gönder</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Eklenen Dosyaların Listesi */}
+      {files.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+          {files.map((file, index) => (
+            <div key={index} className="flex items-center justify-between p-2 bg-[#0f1624] border border-indigo-500/10 rounded-lg group">
+              <div className="flex items-center space-x-2 overflow-hidden">
+                <div className="p-1.5 bg-[#16213e] rounded">
+                   <Paperclip size={12} className="text-indigo-400" />
+                </div>
+                <span className="text-xs text-gray-300 truncate">{file.name}</span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-end space-x-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isSubmitting}
-          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-        >
-          İptal
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting || !content.trim()}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? 'Gönderiliyor...' : '💬 Cevap Gönder'}
-        </button>
-      </div>
+              <button
+                type="button"
+                onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                className="text-gray-500 hover:text-red-400 p-1"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </form>
   );
 };

@@ -18,6 +18,7 @@ export interface Category {
   description?: string;
   thread_count: number;
   reply_count: number;
+  last_activity?: string;
 }
 
 export interface Tag {
@@ -52,18 +53,26 @@ export interface ForumPost {
   edited_at: string | null;
 }
 
+// ThreadListItem arayüzünü şu şekilde güncellemek daha sağlıklı olur:
 export interface ThreadListItem {
   id: string;
   title: string;
-  author: User;
+  author: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    university: string;
+  };
   category: Category;
-  tags: Tag[];
+  tags: string[]; // Etiketler genelde string dizisi olarak gelir
   reply_count: number;
   helpful_count: number;
   view_count: number;
-  attachment_count: number;
+  // Sadece sayı yerine, dökümandaki gibi dosya özetini alalım
+  files?: { file_name: string; file_size: number }[]; 
   is_pinned: boolean;
-  last_activity: string;
+  created_at: string; // Paylaşım zamanı
+  last_activity: string; // Son mesaj zamanı
 }
 
 export interface ThreadWithReplies {
