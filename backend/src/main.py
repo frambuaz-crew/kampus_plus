@@ -24,6 +24,7 @@ from src.api.routes.notifications import router as notifications_router
 from src.api.routes.messages import router as messages_router
 from src.services import get_vector_service
 from src.api.routes.marketplace import router as marketplace_router
+from src.api.routes.career import router as career_router
 
 
 @asynccontextmanager
@@ -133,6 +134,7 @@ app.include_router(forum_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(messages_router, prefix="/api/v1")
 app.include_router(marketplace_router, prefix="/api/v1")
+app.include_router(career_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

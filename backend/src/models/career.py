@@ -55,7 +55,13 @@ class CareerListing(Base):
     
     application_type: Mapped[str] = mapped_column(String(20), nullable=False)
     external_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    
+
+    sector: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    salary_range: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    required_position: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    duration: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    payment_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
     status: Mapped[str] = mapped_column(String(20), server_default="active", nullable=False, index=True)
     view_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     application_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
