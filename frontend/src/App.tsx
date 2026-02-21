@@ -26,6 +26,9 @@ import { Error404Page } from './pages/Error404Page';
 import { Error500Page } from './pages/Error500Page';
 import { Error403Page } from './pages/Error403Page';
 import { AuthProvider } from './contexts/AuthContext';
+import { AdminLoginPage } from './pages/admin/AdminLoginPage';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminLayout } from './components/layout/AdminLayout';
 import './App.css';
 
 function App() {
@@ -37,20 +40,21 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
 
+          
           {/* Protected Routes - Dashboard */}
-          <Route
-            path="/dashboard"
+          <Route 
+            path="/dashboard" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireRole="student">
                 <NewDashboard />
-              </ProtectedRoute>
-            }
-          />
+              </ProtectedRoute>} 
+            />
           <Route
             path="/dashboard/search"
             element={
@@ -139,6 +143,40 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ================= 🛡️ ADMIN PROTECTED ROUTES ================= */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireRole="admin">
+                <AdminLayout /> {/* Karanlık tema ve Sidebar'lı ana iskelet */}
+              </ProtectedRoute>
+            }
+          >
+            {/* 🎯 /admin yazıldığında direkt dashboard'a yönlendir */}
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            
+            {/* 📊 Admin Dashboard: İstatistiklerin olduğu ana sayfa */}
+            <Route path="dashboard" element={<AdminDashboard />} /> 
+            
+            {/* 🎓 Akademik Özellikler Yönetimi */}
+            <Route path="academic/pending-contributions" element={<div>Bekleyen Katkılar Gelecek</div>} />
+            <Route path="academic/course-schedule" element={<div>Ders Programı Yönetimi Gelecek</div>} />
+            <Route path="academic/calendar" element={<div>Akademik Takvim Yönetimi Gelecek</div>} />
+            
+            {/* 🚩 Moderasyon Rotaları */}
+            <Route path="moderation/marketplace-reports" element={<div>Marketplace Raporları Gelecek</div>} />
+            <Route path="moderation/career-reports" element={<div>Kariyer Raporları Gelecek</div>} />
+            
+            {/* 🤖 AI Assistant Yönetimi */}
+            <Route path="ai/settings" element={<div>AI Ayarları Gelecek</div>} />
+            <Route path="ai/knowledge-base" element={<div>Knowledge Base Gelecek</div>} />
+            <Route path="ai/stats" element={<div>AI İstatistikleri Gelecek</div>} />
+            
+            {/* 👥 Kullanıcı ve Mesaj Yönetimi */}
+            <Route path="users" element={<div>Kullanıcı Yönetimi Gelecek</div>} />
+            <Route path="messages" element={<div>İletişim Mesajları Gelecek</div>} />
+          </Route>
 
           {/* Legacy Routes (for backward compatibility) */}
           <Route

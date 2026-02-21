@@ -1,18 +1,5 @@
-/**
- * ProtectedRoute Component
- * 
- * Spec: 004-dashboard/spec.md
- * 
- * Authentication ve email verification kontrolü yapan route wrapper.
- * - Authentication check (JWT token)
- * - Email verification check (opsiyonel, default: true)
- * - Loading state gösterimi
- * - Unauthenticated → /login redirect
- * - Unverified → /login redirect (requireVerified=true ise)
- */
-
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 interface ProtectedRouteProps {
@@ -27,7 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requireRole
 }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
-
+  const location = useLocation(); // 🚀 Mevcut konumu alıyoruz
 
   if (isLoading) {
     return (
@@ -40,42 +27,29 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Authentication kontrolü - localStorage'dan da kontrol et
-  const storedToken = localStorage.getItem('access_token');
+  // Authentication kontrolü - localStorage fallback
+  const storedToken = localStorage.getItem('access_token') || localStorage.getItem('admin_token');
   const storedUser = localStorage.getItem('user');
-  const hasStoredAuth = storedToken && storedUser;
+  const hasStoredAuth = storedToken && (storedUser || isAuthenticated);
   
   if (!isAuthenticated && !hasStoredAuth) {
-    console.log('ProtectedRoute: Not authenticated, redirecting to /login');
-    return <Navigate to="/login" replace />;
-  }
-  
-  // Eğer state henüz güncellenmemişse ama localStorage'da varsa, bekle
-  if (!isAuthenticated && hasStoredAuth && isLoading === false) {
-    console.log('ProtectedRoute: State not updated yet, but auth exists in storage. Waiting...');
-    // Kısa bir delay ver, state güncellensin
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Yükleniyor...</p>
-        </div>
-      </div>
-    );
+    // 🎯 KRİTİK: Eğer admin rolü gerekiyorsa, admin login'e; yoksa normal login'e
+    const redirectPath = requireRole === 'admin' ? "/admin/login" : "/login";
+    return <Navigate to={redirectPath} state={{ from: location }} replace />;
   }
 
-  // User bilgisini localStorage'dan da al (state güncellemesi gecikmeli olabilir)
   const actualUser = user || (storedUser ? JSON.parse(storedUser) : null);
   const actualRole = actualUser?.role;
   const actualIsVerified = actualUser?.is_verified;
   
   // Email verification kontrolü
   if (requireVerified && !actualIsVerified) {
-    console.log('ProtectedRoute: Email not verified, redirecting to /login');
+    // Admin kullanıcıları genellikle manuel onaylandığı için bu kontrolü opsiyonel bırakabiliriz
+    // Ama spec gereği koruyoruz
     return (
       <Navigate 
         to="/login" 
-        state={{ error: 'Email adresinizi doğrulamanız gerekiyor' }} 
+        state={{ error: 'Email adresinizi doğrulamanız gerekiyor', from: location }} 
         replace 
       />
     );
@@ -83,12 +57,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Role kontrolü
   if (requireRole && actualRole !== requireRole) {
-    console.log('ProtectedRoute: Role mismatch', { 
-      userRole: user?.role,
-      storedUserRole: storedUser ? JSON.parse(storedUser)?.role : null,
-      actualRole,
-      requireRole 
-    });
+    console.warn('Erişim Reddedildi: Rol uyumsuzluğu', { actualRole, requireRole });
+    // 🎯 Eğer bir öğrenci admin sayfasına girmeye çalışırsa 403
     return <Navigate to="/403" replace />;
   }
 

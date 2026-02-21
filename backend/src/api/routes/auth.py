@@ -21,7 +21,8 @@ from sqlalchemy.orm import selectinload
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from src.models.user import User, UserRole
+from src.services.university_service import get_university_service
 
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
@@ -267,7 +268,6 @@ async def register(
         )
 
 
-from src.services.university_service import get_university_service
 
 @router.post(
     "/login",
@@ -417,6 +417,107 @@ async def validate_reset_token(
             }
         )
     
+
+@router.post(
+    "/admin/login", 
+    response_model=LoginResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Hatalı kimlik bilgileri"},
+        403: {"model": ErrorResponse, "description": "Erişim reddedildi - Admin yetkisi gerekli"}
+    }
+)
+async def admin_login(
+    request: LoginRequest,
+    response: Response,
+    session: AsyncSession = Depends(get_db)
+) -> LoginResponse:
+    """Sadece admin rolüne sahip kullanıcıların giriş yapmasını sağlar."""
+    try:
+        # 1. Normal kimlik doğrulama (Email/Şifre)
+        user, access_token, refresh_token = await auth_service.authenticate_user(
+            session=session,
+            email=request.email,
+            password=request.password,
+            remember_me=request.remember_me
+        )
+        
+        # 2. KRİTİK: Admin rol kontrolü
+        if user.role != UserRole.ADMIN:
+            logger.warning(f"Yetkisiz admin giriş denemesi: {user.email}") # Audit Log
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": "Access denied. Admin credentials required." #
+                    }
+                }
+            )
+
+        # 3. Üniversite servisini çağır ve resmi ismi çöz
+        uni_service = get_university_service()
+        official_university_name = await uni_service.get_university_from_email(
+            user.email, 
+            session
+        )
+
+        # 4. Refresh Token için Cookie ayarları
+        refresh_token_days = (
+            auth_service.settings.jwt_refresh_token_expire_days_remember_me 
+            if request.remember_me 
+            else auth_service.settings.jwt_refresh_token_expire_days
+        )
+        
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=refresh_token_days * 24 * 60 * 60,
+            path="/api/v1/auth"
+        )
+
+        # 5. Başarılı yanıtı döndür
+        return LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=auth_service.settings.jwt_access_token_expire_minutes * 60,
+            user=UserResponse(
+                id=str(user.id),
+                email=user.email,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                role=user.role.value,
+                university=official_university_name, 
+                department_id=user.department_id,
+                department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
+                is_verified=user.is_verified,
+                profile_picture_url=user.profile_picture_url,
+                created_at=user.created_at
+            )
+        )
+
+    except ValueError as e:
+        error_msg = str(e).lower()
+        if "inactive" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": {"code": "ACCOUNT_INACTIVE", "message": "Hesabınız devre dışı bırakılmış."}}
+            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": {"code": "INVALID_CREDENTIALS", "message": "Email veya şifre hatalı."}}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Admin login error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {"code": "INTERNAL_ERROR", "message": "Giriş işlemi başarısız oldu."}}
+        )
+
 @router.post(
     "/refresh",
     response_model=RefreshResponse,

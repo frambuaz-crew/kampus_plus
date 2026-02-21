@@ -65,7 +65,8 @@ class User(Base):
     theme_preference: Mapped[str] = mapped_column(String(10), server_default=text("'light'"), nullable=False)
     
     terms_accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
-    
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
