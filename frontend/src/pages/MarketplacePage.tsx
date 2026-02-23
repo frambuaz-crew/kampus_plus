@@ -5,16 +5,35 @@ import { ListingCard } from '../components/marketplace/ListingCard';
 import { NewListingForm } from '../components/marketplace/NewListingForm';
 import { ListingDetailView } from '../components/marketplace/ListingDetailView';
 
+// --- GÜNCEL TİP TANIMI (SARI YENİ) ---
+export interface Listing {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  condition: string;
+  status: string;
+  image_urls: string | null;
+  created_at: string;
+  creator?: {
+    id: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    university: string;
+  };
+}
+
 export const MarketplacePage: React.FC = () => {
   const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
-  const [listings, setListings] = useState([]);
-  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [listings, setListings] = useState<Listing[]>([]); // any yerine Listing[] (SARI YENİ)
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null); // any yerine Listing | null (SARI YENİ)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  // useAuth yerine doğrudan localStorage kullanıyoruz (Hata almanı engeller)
   const getCurrentUserId = () => {
     try {
       const userData = localStorage.getItem('user');
@@ -39,7 +58,7 @@ export const MarketplacePage: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await apiClient.get('/marketplace/');
-      const sortedData = (response.data || []).sort((a: any, b: any) => 
+      const sortedData = (response.data || []).sort((a: Listing, b: Listing) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setListings(sortedData);
@@ -75,20 +94,19 @@ export const MarketplacePage: React.FC = () => {
     }
   };
 
-  const handleListingClick = (listing: any) => {
+  const handleListingClick = (listing: Listing) => {
     setSelectedListing(listing);
     setView('detail');
   };
 
   const filteredListings = categoryFilter 
-    ? listings.filter((l: any) => l.category === categoryFilter)
+    ? listings.filter((l: Listing) => l.category === categoryFilter)
     : listings;
 
   return (
     <MainLayout>
       <div className="w-full px-8 xl:px-16 py-8">
         <div className="max-w-[1920px] mx-auto">
-          {/* Header ve Filtreler */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <h1 className="text-3xl font-bold text-gray-900 flex items-center">
               <span className="mr-3">🛒</span> Kampüs Pazar
@@ -117,7 +135,6 @@ export const MarketplacePage: React.FC = () => {
 
           {error && <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg animate-pulse">⚠️ {error}</div>}
 
-          {/* Görünüm Yönetimi */}
           {view === 'new' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4">
               <button onClick={() => setView('list')} className="mb-4 text-indigo-600 font-bold underline flex items-center">← Geri Dön</button>
@@ -131,13 +148,13 @@ export const MarketplacePage: React.FC = () => {
                 onBack={() => setView('list')}
                 onDelete={handleDeleteListing}
                 currentUserId={currentUserId} 
-                onContact={(id) => console.log("Satıcı ID:", id)}
+                onContact={(creator) => console.log("İletişim kurulacak kişi:", creator)} // SARI YENİ
               />
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredListings.map((item: any) => (
-                <div key={item.id} onClick={() => handleListingClick(item)}>
+              {filteredListings.map((item: Listing) => (
+                <div key={item.id} onClick={() => handleListingClick(item)} className="cursor-pointer">
                   <ListingCard listing={item} />
                 </div>
               ))}

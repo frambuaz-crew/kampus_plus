@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { Link } from 'react-router-dom'; // EKLE
 
 interface ListingDetailViewProps {
   listing: any;
   onBack: () => void;
-  onContact: (sellerId: string) => void;
-  onDelete?: (listingId: string) => Promise<void>; // İlan silme fonksiyonu
-  currentUserId?: string; // Giriş yapmış kullanıcının ID'si
+  onContact: (creator: any) => void; // GÜNCELLENDİ (SARI YENİ)
+  onDelete?: (listingId: string) => Promise<void>;
+  currentUserId?: string;
 }
 
 export const ListingDetailView: React.FC<ListingDetailViewProps> = ({ 
@@ -20,7 +21,7 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
   const baseUrl = "http://localhost:8000";
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // İlan sahibi kontrolü
+  // İlan sahibi kontrolü (SARI YENİ - Artık seller_id yerine creator.id de kullanılabilir ama db'den gelen seller_id de duruyor)
   const isOwner = currentUserId === listing.seller_id;
 
   const getImages = () => {
@@ -102,44 +103,41 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
               </div>
               <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
                 <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tighter mb-1">Konum</p>
-                <p className="text-xs font-semibold text-gray-700 uppercase">{listing.university || 'Kampüs İçi'}</p>
+                <p className="text-xs font-semibold text-gray-700 uppercase">{listing.creator?.university || 'Kampüs İçi'}</p> {/* GÜNCELLENDİ */}
               </div>
             </div>
           </div>
 
           {/* Satıcı Bilgileri ve Aksiyon Butonları */}
           <div className="pt-6 border-t border-gray-100">
-            <div 
+            {/* PROFİL LİNKİ GÜNCELLEMESİ (SARI YENİ) */}
+            <Link 
+              to={`/dashboard/profile/${listing.creator?.username}`}
               className="flex items-center justify-between mb-6 group cursor-pointer p-2 rounded-xl hover:bg-gray-50 transition-all"
-              onClick={() => {
-                if (listing.seller_id) {
-                  window.location.href = `/profile/${listing.seller_id}`;
-                }
-              }}
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md group-hover:scale-110 transition-transform uppercase">
-                  {listing.seller_name ? listing.seller_name[0] : 'U'}
+                  {listing.creator?.first_name ? listing.creator.first_name[0] : 'U'}
                 </div>
                 <div>
                   <h4 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors uppercase text-sm">
-                    {listing.seller_name || "İlan Sahibi"}
+                    {listing.creator ? `${listing.creator.first_name} ${listing.creator.last_name}` : "İlan Sahibi"}
                   </h4>
                   <p className="text-[10px] text-gray-500 font-medium tracking-wide uppercase">
-                    {listing.university || "Kampüs İçi Satıcı"}
+                    {listing.creator?.university || "Kampüs İçi Satıcı"}
                   </p>
                 </div>
               </div>
               <span className="text-gray-300 group-hover:text-indigo-600 transition-colors text-xs font-bold">
                 Profilini Gör ❯
               </span>
-            </div>
+            </Link>
 
             <div className="flex flex-col gap-3">
               {!isOwner ? (
                 /* Başka birinin ilanıysa: Mesaj Gönder */
                 <button 
-                  onClick={() => onContact(listing.seller_id)}
+                  onClick={() => onContact(listing.creator)} // GÜNCELLENDİ (SARI YENİ)
                   className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95 flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
                 >
                   <span>💬</span> Satıcıyla İletişime Geç

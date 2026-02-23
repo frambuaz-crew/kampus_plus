@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
+import { Link } from "react-router-dom"; // EKLE
 
 interface ListingCardProps {
   listing: any;
@@ -77,27 +78,29 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
       </div>
 
       <div className="p-4">
-        <div
-          className="flex items-center gap-2 mb-3 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() =>
-            console.log("Profil sayfasına git:", listing.seller_id)
-          }
+        {/* PROFİL LİNKİ GÜNCELLEMESİ (SARI YENİ) */}
+        <Link 
+          to={`/dashboard/profile/${listing.creator?.username}`}
+          className="flex items-center gap-2 mb-3 cursor-pointer hover:opacity-80 transition-opacity w-fit"
+          onClick={(e) => e.stopPropagation()} // Kart detayının açılmasını engeller
         >
           <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-[11px] font-bold text-indigo-600 border border-indigo-200 uppercase">
-            {listing.seller_name
-              ? listing.seller_name[0].toUpperCase()
+            {listing.creator?.first_name
+              ? listing.creator.first_name[0].toUpperCase()
               : "U"}
           </div>
 
           <div className="flex flex-col">
             <span className="text-xs font-bold text-gray-800 leading-none mb-0.5">
-              {listing.seller_name || "Üniversite Öğrencisi"}
+              {listing.creator 
+                ? `${listing.creator.first_name} ${listing.creator.last_name}` 
+                : "Üniversite Öğrencisi"}
             </span>
             <span className="text-[10px] text-gray-400 leading-none uppercase">
-              {listing.university || "Kampüs İçi"}
+              {listing.creator?.university || "Kampüs İçi"}
             </span>
           </div>
-        </div>
+        </Link>
 
         <div className="flex justify-between items-start mb-1">
           <h3
