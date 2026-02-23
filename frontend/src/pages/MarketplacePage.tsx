@@ -12,6 +12,26 @@ interface BackState {
   tab?: string;
 }
 
+// --- GÜNCEL TİP TANIMI (SARI YENİ) ---
+export interface Listing {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  condition: string;
+  status: string;
+  image_urls: string | null;
+  created_at: string;
+  creator?: {
+    id: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    university: string;
+  };
+}
+
 export const MarketplacePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

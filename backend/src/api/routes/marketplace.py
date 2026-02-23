@@ -40,7 +40,7 @@ class ListingResponse(BaseModel):
     created_at: datetime
     seller_id: str
     # Artık seller_name ve seller_username yerine bu objeyi kullanıyoruz (SARI YENİ)
-    creator: Optional[CreatorInfo] = None 
+    creator: Optional[CreatorInfo] = None
 
     model_config = {"from_attributes": True}
 
@@ -64,11 +64,11 @@ async def get_listings(
 
     stmt = stmt.order_by(desc(MarketplaceListing.created_at))
     result = await session.execute(stmt)
-    
+
     final_listings = []
     for row in result:
         listing = row[0]
-        
+
         # Bilgileri "creator" objesi içine paketliyoruz (SARI YENİ)
         listing.creator = {
             "id": listing.seller_id,
@@ -78,7 +78,7 @@ async def get_listings(
             "university": row[3] if row[3] else "Kampüs İçi",
             "profile_picture_url": row[5] # User.profile_picture_url
         }
-        
+
         final_listings.append(listing)
 
     return final_listings
@@ -99,7 +99,7 @@ async def delete_listing(
 
     if listing.seller_id != current_user.id:
         raise HTTPException(
-            status_code=403, 
+            status_code=403,
             detail="Bu ilanı silme yetkiniz bulunmamaktadır."
         )
 
@@ -107,7 +107,7 @@ async def delete_listing(
     try:
         await session.commit()
         return None
-    except Exception as e:
+    except Exception:
         await session.rollback()
         raise HTTPException(status_code=500, detail="İlan silinirken bir hata oluştu.")
 
@@ -145,7 +145,7 @@ async def create_listing(
         image_urls=json.dumps(saved_image_urls) if saved_image_urls else None,
         status="active"
     )
-    
+
     session.add(new_listing)
     try:
         await session.commit()
