@@ -16,7 +16,6 @@ from sqlalchemy import desc
 import os
 import uuid
 from fastapi import File, UploadFile
-from sqlalchemy import desc
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -33,7 +32,7 @@ async def get_user_profile(username: str, session: AsyncSession = Depends(get_db
 
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
-    
+
     return {
         "id": user.id,
         "username": user.username,
@@ -65,7 +64,7 @@ async def update_profile(
         current_user.profile_picture_url = data.profile_picture_url
     if data.theme_preference is not None:
         current_user.theme_preference = data.theme_preference
-        
+
     session.add(current_user)
     await session.commit()
     return {"success": True, "message": "Profil güncellendi."}
@@ -78,21 +77,21 @@ async def upload_profile_picture(
 ):
     upload_dir = "static/uploads/avatars"
     os.makedirs(upload_dir, exist_ok=True)
-    
+
     file_extension = os.path.splitext(file.filename)[1]
     unique_filename = f"{uuid.uuid4()}{file_extension}"
     file_path = os.path.join(upload_dir, unique_filename)
-    
+
     content = await file.read()
     with open(file_path, "wb") as buffer:
         buffer.write(content)
-        
+
     image_url = f"/static/uploads/avatars/{unique_filename}"
     current_user.profile_picture_url = image_url
-    
+
     session.add(current_user)
     await session.commit()
-    
+
     return {"success": True, "profile_picture_url": image_url}
 
 @router.get("/{username}/activity")
@@ -102,12 +101,12 @@ async def get_user_activity(username: str, session: AsyncSession = Depends(get_d
     stmt = select(User).where(User.username == username)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
-        
+
     activities = []
-    
+
     # Marketplace ilanlarını çek
     market_stmt = select(MarketplaceListing).where(MarketplaceListing.seller_id == user.id).order_by(desc(MarketplaceListing.created_at)).limit(10)
     market_res = await session.execute(market_stmt)
@@ -119,7 +118,7 @@ async def get_user_activity(username: str, session: AsyncSession = Depends(get_d
             "created_at": listing.created_at.isoformat(),
             "status": listing.status
         })
-        
+
     # Forum konularını çek
     forum_stmt = select(ForumTopic).where(ForumTopic.author_id == user.id).order_by(desc(ForumTopic.created_at)).limit(10)
     forum_res = await session.execute(forum_stmt)
@@ -131,7 +130,7 @@ async def get_user_activity(username: str, session: AsyncSession = Depends(get_d
             "created_at": topic.created_at.isoformat(),
             "status": "active" if not topic.is_deleted else "deleted"
         })
-        
+
     # Career ilanlarını çek
     career_stmt = select(CareerListing).where(CareerListing.posted_by == user.id).order_by(desc(CareerListing.created_at)).limit(10)
     career_res = await session.execute(career_stmt)
@@ -143,10 +142,10 @@ async def get_user_activity(username: str, session: AsyncSession = Depends(get_d
             "created_at": career.created_at.isoformat(),
             "status": career.status
         })
-        
+
     # Tarihe göre sırala
     activities.sort(key=lambda x: x["created_at"], reverse=True)
-    
+
     return {"activities": activities}
 
 class FavoriteToggleRequest(BaseModel):
@@ -167,7 +166,7 @@ async def toggle_favorite(
     )
     result = await session.execute(stmt)
     existing = result.scalar_one_or_none()
-    
+
     if existing:
         await session.delete(existing)
         await session.commit()
@@ -191,9 +190,9 @@ async def get_user_favorites(
     stmt = select(UserFavorite).where(UserFavorite.user_id == current_user.id).order_by(desc(UserFavorite.created_at))
     result = await session.execute(stmt)
     favorites = result.scalars().all()
-    
+
     detailed_favorites = []
-    
+
     for fav in favorites:
         item_data = {
             "favorite_id": fav.id,
@@ -201,7 +200,7 @@ async def get_user_favorites(
             "target_id": fav.target_id,
             "favorited_at": fav.created_at.isoformat()
         }
-        
+
         if fav.target_type == "marketplace_listing":
             lst_stmt = select(MarketplaceListing).where(MarketplaceListing.id == fav.target_id)
             lst_res = await session.execute(lst_stmt)
@@ -215,10 +214,10 @@ async def get_user_favorites(
                     try:
                         images = json.loads(listing.image_urls)
                         item_data["image"] = images[0] if images else None
-                    except:
+                    except Exception:
                         item_data["image"] = None
                 detailed_favorites.append(item_data)
-                
+
         elif fav.target_type == "forum_topic":
             top_stmt = select(ForumTopic).where(ForumTopic.id == fav.target_id)
             top_res = await session.execute(top_stmt)
@@ -226,7 +225,7 @@ async def get_user_favorites(
             if topic and not topic.is_deleted:
                 item_data["title"] = topic.title
                 detailed_favorites.append(item_data)
-                
+
         elif fav.target_type == "career_listing":
             car_stmt = select(CareerListing).where(CareerListing.id == fav.target_id)
             car_res = await session.execute(car_stmt)
@@ -235,5 +234,5 @@ async def get_user_favorites(
                 item_data["title"] = career.title
                 item_data["status"] = career.status
                 detailed_favorites.append(item_data)
-    
+
     return {"favorites": detailed_favorites}
