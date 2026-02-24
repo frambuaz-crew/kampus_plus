@@ -7,14 +7,9 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 from uuid import uuid4
 from sqlalchemy.orm import selectinload
-
-def _utc_naive() -> datetime:
-    """PostgreSQL TIMESTAMP WITHOUT TIME ZONE ile uyumlu naive UTC."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from src.models.user import User, RefreshToken, UserRole
 from src.core.config import get_settings
 from src.core.security import (
     hash_password,
@@ -24,7 +19,10 @@ from src.core.security import (
     create_email_verification_token,
     decode_token,
 )
-from src.models.user import User, RefreshToken, UserRole
+
+def _utc_naive() -> datetime:
+    """PostgreSQL TIMESTAMP WITHOUT TIME ZONE ile uyumlu naive UTC."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class AuthService:
@@ -74,6 +72,23 @@ class AuthService:
             university_service = get_university_service()
             university = await university_service.get_university_from_email(email, session)
         
+        # --- USERNAME BENZERSİZLEŞTİRME MANTIĞI ---
+        base_username = username or email.split("@")[0]
+        final_username = base_username
+        counter = 1
+
+        # Veritabanında bu isim var mı diye kontrol et
+        while True:
+            result = await session.execute(
+                select(User).where(User.username == final_username)
+            )
+            if not result.scalar_one_or_none():
+                break  # İsim boşta, döngüden çık
+            
+            # İsim doluysa sonuna sayı ekle (furkan1, furkan2...)
+            final_username = f"{base_username}{counter}"
+            counter += 1
+        
         # Kullanıcı nesnesi oluşturma (GÜNCELLENDİ 🚀)
         user = User(
             id=str(uuid4()),
@@ -82,7 +97,7 @@ class AuthService:
             role=UserRole.STUDENT,
             first_name=first_name,
             last_name=last_name,
-            username=username or email.split("@")[0],
+            username=final_username,
             department_id=department_id, # ✅ department -> department_id
             university=university,
             is_verified=False,

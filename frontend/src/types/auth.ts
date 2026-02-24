@@ -10,7 +10,7 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  username: string; // Backend'de eklediğimiz için buraya da ekledik
+  username: string;
   role: 'student' | 'instructor' | 'admin';
   university: string; 
   department_id: number; // Artik string değil, number (ID)

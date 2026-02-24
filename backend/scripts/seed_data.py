@@ -1,11 +1,14 @@
 """
 Veritabanı seed script'i (geliştirme için).
-- Önce bölümleri (departments) oluşturur.
-- Sonra örnek kullanıcıları bu bölümlere bağlayarak oluşturur.
+- Önce üniversiteleri (universities.json'dan) oluşturur.
+- Sonra bölümleri (departments) oluşturur.
+- Sonra örnek kullanıcıları oluşturur.
 """
 
 import asyncio
 import sys
+import json
+import os
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timezone
@@ -19,10 +22,47 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_engine, get_session_factory
 from src.core.security import hash_password
 from src.models.user import User, UserRole
-from src.models.department import Department  # ⬅️ Yeni modelimizi ekledik
+from src.models.department import Department
+from src.models.university import University  # ⬅️ Üniversite modelini ekledik
 
 def _utc_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+async def seed_universities(session: AsyncSession) -> None:
+    """JSON dosyasından üniversite verilerini yükler."""
+    print("\nUniversiteler yukleniyor...")
+    
+    # JSON dosyasının yolu (backend/data/universities.json)
+    json_path = Path(__file__).parent.parent / "data" / "universities.json"
+    
+    if not json_path.exists():
+        print(f"   [SKIP] Seed dosyası bulunamadı: {json_path}")
+        return
+
+    with open(json_path, 'r', encoding='utf-8') as f:
+        universities_data = json.load(f)
+
+    print(f"   📦 {len(universities_data)} üniversite verisi işleniyor...")
+    
+    created_count = 0
+    for uni_data in universities_data:
+        # İsme göre kontrol et
+        result = await session.execute(select(University).where(University.name == uni_data['name']))
+        if not result.scalar_one_or_none():
+            new_uni = University(
+                id=str(uuid4()),
+                name=uni_data['name'],
+                university_type=uni_data['university_type'],
+                city=uni_data.get('city'),
+                email_domains=uni_data.get('email_domains'),
+                is_active=True
+            )
+            session.add(new_uni)
+            created_count += 1
+            if created_count % 50 == 0: # Her 50 tanede bir log bas
+                print(f"   ... {created_count} üniversite eklendi ...")
+    
+    print(f"   [OK] {created_count} yeni üniversite eklendi.")
 
 async def seed_departments(session: AsyncSession) -> dict:
     """Bölümleri oluştur ve isim->id haritası döndür."""
@@ -45,7 +85,7 @@ async def seed_departments(session: AsyncSession) -> dict:
         if not dept:
             dept = Department(name=name)
             session.add(dept)
-            await session.flush() # ID'nin hemen oluşması için
+            await session.flush()
             print(f"   [OK] Bolum eklendi: {name}")
         else:
             print(f"   [SKIP] Bolum mevcut: {name}")
@@ -65,7 +105,7 @@ async def seed_users(session: AsyncSession, dept_map: dict) -> None:
             "role": UserRole.STUDENT,
             "first_name": "Ahmet",
             "last_name": "Yılmaz",
-            "dept_name": "Bilgisayar Mühendisliği", # Haritadan ID bulmak için geçici isim
+            "dept_name": "Bilgisayar Mühendisliği",
         },
         {
             "email": "student2@selcuk.edu.tr",
@@ -92,7 +132,6 @@ async def seed_users(session: AsyncSession, dept_map: dict) -> None:
             print(f"   [SKIP] {data['email']} mevcut")
             continue
         
-        # Username ve University mantığı
         email = data["email"]
         username = f"admin_{email.split('@')[0]}" if data["role"] == UserRole.ADMIN else email.split("@")[0]
         university = email.split("@")[1].replace(".edu.tr", "").title()
@@ -105,7 +144,7 @@ async def seed_users(session: AsyncSession, dept_map: dict) -> None:
             last_name=data["last_name"],
             username=username,
             university=university,
-            department_id=dept_map[data["dept_name"]], # ⬅️ Artik ID veriyoruz!
+            department_id=dept_map[data["dept_name"]],
             role=data["role"],
             is_verified=True,
             is_active=True,
@@ -120,7 +159,7 @@ async def seed_users(session: AsyncSession, dept_map: dict) -> None:
 
 async def main():
     print("=" * 60)
-    print("KAMPUS+ Profesyonel Seed Script'i (ID-Based)")
+    print("KAMPUS+ Profesyonel Seed Script'i (ID-Based + University Support)")
     print("=" * 60)
     
     try:
@@ -128,9 +167,11 @@ async def main():
         session_factory = get_session_factory()
         
         async with session_factory() as session:
-            # 1. Once bolumleri hallet ve ID'leri al
+            # 1. Önce üniversiteleri JSON'dan yükle
+            await seed_universities(session)
+            # 2. Bölümleri hallet ve ID'leri al
             dept_map = await seed_departments(session)
-            # 2. Sonra kullanicilari bu ID'lere bagla
+            # 3. Kullanıcıları bağla
             await seed_users(session, dept_map)
         
         print("\n[OK] Islem basariyla tamamlandi!")

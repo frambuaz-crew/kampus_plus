@@ -1,0 +1,1232 @@
+[
+    {
+        "name": "ABDULLAH GÜL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kayseri",
+        "email_domains": null
+    },
+    {
+        "name": "ACIBADEM MEHMET ALİ AYDINLAR ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "ADANA ALPARSLAN TÜRKEŞ BİLİM VE TEKNOLOJİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Adana",
+        "email_domains": "[\"atu.edu.tr\"]"
+    },
+    {
+        "name": "ADIYAMAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Adıyaman",
+        "email_domains": "[\"adiyaman.edu.tr\"]"
+    },
+    {
+        "name": "AFYON KOCATEPE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Afyonkarahisar",
+        "email_domains": null
+    },
+    {
+        "name": "AFYONKARAHİSAR SAĞLIK BİLİMLERİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Afyonkarahisar",
+        "email_domains": "[\"afsu.edu.tr\"]"
+    },
+    {
+        "name": "AĞRI İBRAHİM ÇEÇEN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ağrı",
+        "email_domains": "[\"agri.edu.tr\"]"
+    },
+    {
+        "name": "AKDENİZ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Antalya",
+        "email_domains": null
+    },
+    {
+        "name": "AKSARAY ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Aksaray",
+        "email_domains": null
+    },
+    {
+        "name": "ALANYA ALAADDİN KEYKUBAT ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Antalya",
+        "email_domains": "[\"alanya.edu.tr\"]"
+    },
+    {
+        "name": "ALANYA ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Antalya",
+        "email_domains": "[\"alanyauniversity.edu.tr\"]"
+    },
+    {
+        "name": "ALTINBAŞ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"altinbas.edu.tr\"]"
+    },
+    {
+        "name": "AMASYA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Amasya",
+        "email_domains": null
+    },
+    {
+        "name": "ANADOLU ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Eskişehir",
+        "email_domains": null
+    },
+    {
+        "name": "ANKARA BİLİM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "ANKARA HACI BAYRAM VELİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "ANKARA MEDİPOL ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "ANKARA MÜZİK VE GÜZEL SANATLAR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": "[\"mgu.edu.tr\"]"
+    },
+    {
+        "name": "ANKARA SOSYAL BİLİMLER ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": "[\"asbu.edu.tr\"]"
+    },
+    {
+        "name": "ANKARA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "ANKARA YILDIRIM BEYAZIT ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": "[\"aybu.edu.tr\"]"
+    },
+    {
+        "name": "ANTALYA BELEK ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Antalya",
+        "email_domains": "[\"belek.edu.tr\"]"
+    },
+    {
+        "name": "ANTALYA BİLİM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Antalya",
+        "email_domains": "[\"antalya.edu.tr\"]"
+    },
+    {
+        "name": "ARDAHAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ardahan",
+        "email_domains": "[\"Ardahan.edu.tr\"]"
+    },
+    {
+        "name": "ARTVİN ÇORUH ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Artvin",
+        "email_domains": null
+    },
+    {
+        "name": "ATAŞEHİR ADIGÜZEL MESLEK YÜKSEKOKULU",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"adiguzel.edu.tr\"]"
+    },
+    {
+        "name": "ATATÜRK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Erzurum",
+        "email_domains": null
+    },
+    {
+        "name": "ATILIM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": "[\"atilim.edu.tr\"]"
+    },
+    {
+        "name": "AVRASYA ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Trabzon",
+        "email_domains": "[\"avrasya.edu.tr\"]"
+    },
+    {
+        "name": "AYDIN ADNAN MENDERES ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Aydın",
+        "email_domains": "[\"adu.edu.tr\"]"
+    },
+    {
+        "name": "BAHÇEŞEHİR ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "BALIKESİR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Balıkesir",
+        "email_domains": null
+    },
+    {
+        "name": "BANDIRMA ONYEDİ EYLÜL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Balıkesir",
+        "email_domains": "[\"bandirma.edu.tr\"]"
+    },
+    {
+        "name": "BARTIN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bartın",
+        "email_domains": "[\"bartin.edu.tr\"]"
+    },
+    {
+        "name": "BAŞKENT ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": "[\"baskent.edu.tr\"]"
+    },
+    {
+        "name": "BATMAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Batman",
+        "email_domains": null
+    },
+    {
+        "name": "BAYBURT ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bayburt",
+        "email_domains": "[\"bayburt.edu.tr\"]"
+    },
+    {
+        "name": "BEYKOZ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "BEZM-İ ÂLEM VAKIF ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "BİLECİK ŞEYH EDEBALİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bilecik",
+        "email_domains": "[\"bilecik.edu.tr\"]"
+    },
+    {
+        "name": "BİNGÖL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bingöl",
+        "email_domains": null
+    },
+    {
+        "name": "BİRUNİ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"biruni.edu.tr\"]"
+    },
+    {
+        "name": "BİTLİS EREN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bitlis",
+        "email_domains": "[\"beu.edu.tr\"]"
+    },
+    {
+        "name": "BOĞAZİÇİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": "[\"bogazici.edu.tr\"]"
+    },
+    {
+        "name": "BOLU ABANT İZZET BAYSAL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bolu",
+        "email_domains": "[\"ibu.edu.tr\"]"
+    },
+    {
+        "name": "BURDUR MEHMET AKİF ERSOY ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Burdur",
+        "email_domains": "[\"mehmetakif.edu.tr\"]"
+    },
+    {
+        "name": "BURSA TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bursa",
+        "email_domains": "[\"btu.edu.tr\"]"
+    },
+    {
+        "name": "BURSA ULUDAĞ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Bursa",
+        "email_domains": "[\"uludag.edu.tr\"]"
+    },
+    {
+        "name": "ÇAĞ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Mersin",
+        "email_domains": null
+    },
+    {
+        "name": "ÇANAKKALE ONSEKİZ MART ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Çanakkale",
+        "email_domains": null
+    },
+    {
+        "name": "ÇANKAYA ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": "[\"cankaya.edu.tr\"]"
+    },
+    {
+        "name": "ÇANKIRI KARATEKİN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Çankırı",
+        "email_domains": "[\"karatekin.edu.tr\"]"
+    },
+    {
+        "name": "ÇUKUROVA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Adana",
+        "email_domains": "[\"cu.edu.tr\"]"
+    },
+    {
+        "name": "DEMİROĞLU BİLİM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "DİCLE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Diyarbakır",
+        "email_domains": null
+    },
+    {
+        "name": "DOĞUŞ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "DOKUZ EYLÜL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İzmir",
+        "email_domains": null
+    },
+    {
+        "name": "DÜZCE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Düzce",
+        "email_domains": null
+    },
+    {
+        "name": "EGE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İzmir",
+        "email_domains": "[\"ege.edu.tr\"]"
+    },
+    {
+        "name": "ERCİYES ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kayseri",
+        "email_domains": "[\"erciyes.edu.tr\"]"
+    },
+    {
+        "name": "ERZİNCAN BİNALİ YILDIRIM ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Erzincan",
+        "email_domains": null
+    },
+    {
+        "name": "ERZURUM TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Erzurum",
+        "email_domains": "[\"erzurum.edu.tr\"]"
+    },
+    {
+        "name": "ESKİŞEHİR OSMANGAZİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Eskişehir",
+        "email_domains": null
+    },
+    {
+        "name": "ESKİŞEHİR TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Eskişehir",
+        "email_domains": "[\"eskisehir.edu.tr\"]"
+    },
+    {
+        "name": "FATİH SULTAN MEHMET VAKIF ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "FENERBAHÇE ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"fbu.edu.tr\"]"
+    },
+    {
+        "name": "FIRAT ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Elazığ",
+        "email_domains": null
+    },
+    {
+        "name": "GALATASARAY ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "GAZİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "GAZİANTEP İSLAM BİLİM VE TEKNOLOJİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Gaziantep",
+        "email_domains": "[\"gibtu.edu.tr\"]"
+    },
+    {
+        "name": "GAZİANTEP ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Gaziantep",
+        "email_domains": "[\"gantep.edu.tr\"]"
+    },
+    {
+        "name": "GEBZE TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kocaeli",
+        "email_domains": null
+    },
+    {
+        "name": "GİRESUN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Giresun",
+        "email_domains": null
+    },
+    {
+        "name": "GÜMÜŞHANE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Gümüşhane",
+        "email_domains": null
+    },
+    {
+        "name": "HACETTEPE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": "[\"hacettepe.edu.tr\"]"
+    },
+    {
+        "name": "HAKKARİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Hakkari",
+        "email_domains": null
+    },
+    {
+        "name": "HALİÇ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"halic.edu.tr\"]"
+    },
+    {
+        "name": "HARRAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Şanlıurfa",
+        "email_domains": null
+    },
+    {
+        "name": "HASAN KALYONCU ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Gaziantep",
+        "email_domains": "[\"hku.edu.tr\"]"
+    },
+    {
+        "name": "HATAY MUSTAFA KEMAL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Hatay",
+        "email_domains": null
+    },
+    {
+        "name": "HİTİT ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Çorum",
+        "email_domains": null
+    },
+    {
+        "name": "IĞDIR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Iğdır",
+        "email_domains": "[\"igdir.edu.tr\"]"
+    },
+    {
+        "name": "ISPARTA UYGULAMALI BİLİMLER ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Isparta",
+        "email_domains": null
+    },
+    {
+        "name": "IŞIK ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İBN HALDUN ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"ihu.edu.tr\"]"
+    },
+    {
+        "name": "İHSAN DOĞRAMACI BİLKENT ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "İNÖNÜ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Malatya",
+        "email_domains": null
+    },
+    {
+        "name": "İSKENDERUN TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Hatay",
+        "email_domains": "[\"iste.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL 29 MAYIS ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"29mayis.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL AREL ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL ATLAS ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"atlas.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL AYDIN ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL BEYKENT ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL BİLGİ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"bilgi.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL ESENYURT ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL GALATA ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"galata.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL GEDİK ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"gedik.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL GELİŞİM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL KENT ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL KÜLTÜR ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"iku.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL MEDENİYET ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL MEDİPOL ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL NİŞANTAŞI ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL OKAN ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"okan.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL RUMELİ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL SABAHATTİN ZAİM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL SAĞLIK VE SOSYAL BİLİMLER MESLEK YÜKSEKOKULU",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL SAĞLIK VE TEKNOLOJİ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"istun.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL ŞİŞLİ MESLEK YÜKSEKOKULU",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"sisli.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL TİCARET ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"ticaret.edu.tr\"]"
+    },
+    {
+        "name": "İSTANBUL TOPKAPI ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL ÜNİVERSİTESİ-CERRAHPAŞA",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "İSTANBUL YENİ YÜZYIL ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"yeniyuzyil.edu.tr\"]"
+    },
+    {
+        "name": "İSTİNYE ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"istinye.edu.tr\"]"
+    },
+    {
+        "name": "İZMİR BAKIRÇAY ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İzmir",
+        "email_domains": "[\"bakircay.edu.tr\"]"
+    },
+    {
+        "name": "İZMİR DEMOKRASİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İzmir",
+        "email_domains": "[\"idu.edu.tr\"]"
+    },
+    {
+        "name": "İZMİR EKONOMİ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İzmir",
+        "email_domains": null
+    },
+    {
+        "name": "İZMİR KATİP ÇELEBİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İzmir",
+        "email_domains": "[\"ikc.edu.tr\"]"
+    },
+    {
+        "name": "İZMİR KAVRAM MESLEK YÜKSEKOKULU",
+        "university_type": "vakıf",
+        "city": "İzmir",
+        "email_domains": null
+    },
+    {
+        "name": "İZMİR TINAZTEPE ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İzmir",
+        "email_domains": "[\"tinaztepe.edu.tr\"]"
+    },
+    {
+        "name": "İZMİR YÜKSEK TEKNOLOJİ ENSTİTÜSÜ",
+        "university_type": "devlet",
+        "city": "İzmir",
+        "email_domains": "[\"iyte.edu.tr\"]"
+    },
+    {
+        "name": "KADİR HAS ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "KAFKAS ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kars",
+        "email_domains": "[\"kafkas.edu.tr\"]"
+    },
+    {
+        "name": "KAHRAMANMARAŞ İSTİKLAL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kahramanmaraş",
+        "email_domains": null
+    },
+    {
+        "name": "KAHRAMANMARAŞ SÜTÇÜ İMAM ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kahramanmaraş",
+        "email_domains": "[\"ksu.edu.tr\"]"
+    },
+    {
+        "name": "KAPADOKYA ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Nevşehir",
+        "email_domains": "[\"kapadokya.edu.tr\"]"
+    },
+    {
+        "name": "KARABÜK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Karabük",
+        "email_domains": null
+    },
+    {
+        "name": "KARADENİZ TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Trabzon",
+        "email_domains": "[\"ktu.edu.tr\"]"
+    },
+    {
+        "name": "KARAMANOĞLU MEHMETBEY ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Karaman",
+        "email_domains": "[\"kmu.edu.tr\"]"
+    },
+    {
+        "name": "KASTAMONU ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kastamonu",
+        "email_domains": null
+    },
+    {
+        "name": "KAYSERİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kayseri",
+        "email_domains": "[\"kayseri.edu.tr\"]"
+    },
+    {
+        "name": "KIRIKKALE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kırıkkale",
+        "email_domains": null
+    },
+    {
+        "name": "KIRKLARELİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kırklareli",
+        "email_domains": "[\"klu.edu.tr\"]"
+    },
+    {
+        "name": "KIRŞEHİR AHİ EVRAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kırşehir",
+        "email_domains": null
+    },
+    {
+        "name": "KİLİS 7 ARALIK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kilis",
+        "email_domains": "[\"kilis.edu.tr\"]"
+    },
+    {
+        "name": "KOCAELİ SAĞLIK VE TEKNOLOJİ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Kocaeli",
+        "email_domains": "[\"kocaelisaglik.edu.tr\"]"
+    },
+    {
+        "name": "KOCAELİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kocaeli",
+        "email_domains": null
+    },
+    {
+        "name": "KOÇ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"ku.edu.tr\"]"
+    },
+    {
+        "name": "KONYA GIDA VE TARIM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Konya",
+        "email_domains": "[\"gidatarim.edu.tr\"]"
+    },
+    {
+        "name": "KONYA TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Konya",
+        "email_domains": "[\"ktun.edu.tr\"]"
+    },
+    {
+        "name": "KTO KARATAY ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Konya",
+        "email_domains": null
+    },
+    {
+        "name": "KÜTAHYA DUMLUPINAR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kütahya",
+        "email_domains": "[\"dpu.edu.tr\"]"
+    },
+    {
+        "name": "KÜTAHYA SAĞLIK BİLİMLERİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Kütahya",
+        "email_domains": null
+    },
+    {
+        "name": "LOKMAN HEKİM ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": "[\"lokmanhekim.edu.tr\"]"
+    },
+    {
+        "name": "MALATYA TURGUT ÖZAL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Malatya",
+        "email_domains": null
+    },
+    {
+        "name": "MALTEPE ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"maltepe.edu.tr\"]"
+    },
+    {
+        "name": "MANİSA CELÂL BAYAR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Manisa",
+        "email_domains": null
+    },
+    {
+        "name": "MARDİN ARTUKLU ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Mardin",
+        "email_domains": null
+    },
+    {
+        "name": "MARMARA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "MEF ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "MERSİN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Mersin",
+        "email_domains": "[\"mersin.edu.tr\"]"
+    },
+    {
+        "name": "MİMAR SİNAN GÜZEL SANATLAR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "MUDANYA ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Bursa",
+        "email_domains": "[\"mudanya.edu.tr\"]"
+    },
+    {
+        "name": "MUĞLA SITKI KOÇMAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Muğla",
+        "email_domains": null
+    },
+    {
+        "name": "MUNZUR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Tunceli",
+        "email_domains": "[\"munzur.edu.tr\"]"
+    },
+    {
+        "name": "MUŞ ALPARSLAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Muş",
+        "email_domains": null
+    },
+    {
+        "name": "NECMETTİN ERBAKAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Konya",
+        "email_domains": null
+    },
+    {
+        "name": "NEVŞEHİR HACI BEKTAŞ VELİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Nevşehir",
+        "email_domains": null
+    },
+    {
+        "name": "NİĞDE ÖMER HALİSDEMİR ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Niğde",
+        "email_domains": "[\"ohu.edu.tr\"]"
+    },
+    {
+        "name": "NUH NACİ YAZGAN ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Kayseri",
+        "email_domains": "[\"nny.edu.tr\"]"
+    },
+    {
+        "name": "ONDOKUZ MAYIS ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Samsun",
+        "email_domains": "[\"omu.edu.tr\"]"
+    },
+    {
+        "name": "ORDU ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ordu",
+        "email_domains": null
+    },
+    {
+        "name": "ORTA DOĞU TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "OSMANİYE KORKUT ATA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Osmaniye",
+        "email_domains": null
+    },
+    {
+        "name": "OSTİM TEKNİK ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "ÖZYEĞİN ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"ozyegin.edu.tr\"]"
+    },
+    {
+        "name": "PAMUKKALE ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Denizli",
+        "email_domains": null
+    },
+    {
+        "name": "PİRİ REİS ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "RECEP TAYYİP ERDOĞAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Rize",
+        "email_domains": "[\"erdogan.edu.tr\"]"
+    },
+    {
+        "name": "SABANCI ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "SAĞLIK BİLİMLERİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": "[\"sbu.edu.tr\"]"
+    },
+    {
+        "name": "SAKARYA UYGULAMALI BİLİMLER ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Sakarya",
+        "email_domains": null
+    },
+    {
+        "name": "SAKARYA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Sakarya",
+        "email_domains": null
+    },
+    {
+        "name": "SAMSUN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Samsun",
+        "email_domains": null
+    },
+    {
+        "name": "SANKO ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Gaziantep",
+        "email_domains": "[\"sanko.edu.tr\"]"
+    },
+    {
+        "name": "SELÇUK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Konya",
+        "email_domains": null
+    },
+    {
+        "name": "SİİRT ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Siirt",
+        "email_domains": null
+    },
+    {
+        "name": "SİNOP ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Sinop",
+        "email_domains": null
+    },
+    {
+        "name": "SİVAS BİLİM VE TEKNOLOJİ ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Sivas",
+        "email_domains": null
+    },
+    {
+        "name": "SİVAS CUMHURİYET ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Sivas",
+        "email_domains": null
+    },
+    {
+        "name": "SÜLEYMAN DEMİREL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Isparta",
+        "email_domains": null
+    },
+    {
+        "name": "ŞIRNAK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Şırnak",
+        "email_domains": "[\"sirnak.edu.tr\"]"
+    },
+    {
+        "name": "TARSUS ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Mersin",
+        "email_domains": "[\"tarsus.edu.tr\"]"
+    },
+    {
+        "name": "TED ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": "[\"tedu.edu.tr\"]"
+    },
+    {
+        "name": "TEKİRDAĞ NAMIK KEMAL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Tekirdağ",
+        "email_domains": "[\"nku.edu.tr\"]"
+    },
+    {
+        "name": "TOBB EKONOMİ VE TEKNOLOJİ ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": "[\"etu.edu.tr\"]"
+    },
+    {
+        "name": "TOKAT GAZİOSMANPAŞA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Tokat",
+        "email_domains": null
+    },
+    {
+        "name": "TOROS ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Mersin",
+        "email_domains": "[\"toros.edu.tr\"]"
+    },
+    {
+        "name": "TRABZON ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Trabzon",
+        "email_domains": null
+    },
+    {
+        "name": "TRAKYA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Edirne",
+        "email_domains": "[\"trakya.edu.tr\"]"
+    },
+    {
+        "name": "TÜRK HAVA KURUMU ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "TÜRK-ALMAN ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "UFUK ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "UŞAK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Uşak",
+        "email_domains": "[\"usak.edu.tr\"]"
+    },
+    {
+        "name": "ÜSKÜDAR ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": "[\"uskudar.edu.tr\"]"
+    },
+    {
+        "name": "VAN YÜZÜNCÜ YIL ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Van",
+        "email_domains": null
+    },
+    {
+        "name": "YALOVA ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Yalova",
+        "email_domains": null
+    },
+    {
+        "name": "YAŞAR ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İzmir",
+        "email_domains": null
+    },
+    {
+        "name": "YEDİTEPE ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "YILDIZ TEKNİK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "İstanbul",
+        "email_domains": null
+    },
+    {
+        "name": "YOZGAT BOZOK ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Yozgat",
+        "email_domains": null
+    },
+    {
+        "name": "YÜKSEK İHTİSAS ÜNİVERSİTESİ",
+        "university_type": "vakıf",
+        "city": "Ankara",
+        "email_domains": null
+    },
+    {
+        "name": "ZONGULDAK BÜLENT ECEVİT ÜNİVERSİTESİ",
+        "university_type": "devlet",
+        "city": "Zonguldak",
+        "email_domains": "[\"beun.edu.tr\"]"
+    }
+]

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
+  console.log("Şu anki kullanıcı verisi:", user);
   const [activeTab, setActiveTab] = useState<'info' | 'about' | 'listings' | 'forum' | 'applications'>('info');
 
   // Dinamik Avatar Oluşturma
@@ -57,7 +58,7 @@ export const ProfilePage: React.FC = () => {
                   {user?.first_name} {user?.last_name}
                 </h2>
                 <p className="text-indigo-600 font-semibold text-sm mt-1">
-                  @{user?.email?.split('@')[0]}
+                  @{user?.username}
                 </p>
               </div>
               

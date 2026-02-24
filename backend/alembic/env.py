@@ -23,6 +23,8 @@ from models import (
     ai,
     settings,
     university,
+    department,
+    sync,
 )
 
 config = context.config
