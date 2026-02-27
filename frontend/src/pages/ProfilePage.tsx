@@ -5,8 +5,8 @@ import { useAuth } from '../hooks/useAuth';
 import axios from 'axios';
 
 export const ProfilePage: React.FC = () => {
-  const { username } = useParams<{ username: string }>(); 
-  const { user: currentUser } = useAuth(); 
+  const { username } = useParams<{ username: string }>();
+  const { user: currentUser } = useAuth();
   const [otherUserData, setOtherUserData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'listings' | 'favorites'>('info');
@@ -23,7 +23,7 @@ export const ProfilePage: React.FC = () => {
         setOtherUserData(null); // Kendi profilimize döndüğümüzde eskiyi temizle
         return;
       }
-      
+
       setLoading(true);
       try {
         const response = await axios.get(`http://localhost:8000/api/v1/users/profile/${username}`);
@@ -40,7 +40,7 @@ export const ProfilePage: React.FC = () => {
   }, [username, isOwnProfile]); // URL değişimini takip et
 
   if (loading) return <MainLayout><div className="p-20 text-center">Yükleniyor...</div></MainLayout>;
-  
+
   // profileData yoksa (ve isOwnProfile değilse) hata göster
   if (!profileData) return <MainLayout><div className="p-20 text-center text-red-500 font-bold">Kullanıcı bulunamadı!</div></MainLayout>;
 
@@ -52,7 +52,7 @@ export const ProfilePage: React.FC = () => {
           <h1 className="text-3xl font-extrabold text-gray-900 mb-10">
             {isOwnProfile ? "👤 Profilim" : `👤 ${profileData.first_name}'in Profili`}
           </h1>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-1 space-y-6">
               <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8 text-center">
@@ -66,7 +66,7 @@ export const ProfilePage: React.FC = () => {
                 </h2>
                 <p className="text-indigo-600 font-semibold text-sm mt-1">@{profileData.username}</p>
               </div>
-              
+
               <nav className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-3 space-y-1">
                 <button onClick={() => setActiveTab('info')} className={`w-full text-left px-6 py-4 rounded-2xl transition-all ${activeTab === 'info' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-500'}`}>📊 Bilgiler</button>
                 {isOwnProfile && <button onClick={() => setActiveTab('favorites')} className={`w-full text-left px-6 py-4 rounded-2xl transition-all ${activeTab === 'favorites' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-500'}`}>❤️ Favorilerim</button>}
@@ -74,11 +74,11 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div className="lg:col-span-3 bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <InfoField label="Ad Soyad" value={`${profileData.first_name} ${profileData.last_name}`} />
-                  <InfoField label="Üniversite" value={profileData.university} />
-                  <InfoField label="Bölüm" value={profileData.department_rel?.name || profileData.department} />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <InfoField label="Ad Soyad" value={`${profileData.first_name} ${profileData.last_name}`} />
+                <InfoField label="Üniversite" value={profileData.university} />
+                <InfoField label="Bölüm" value={profileData.department_rel?.name || profileData.department} />
+              </div>
             </div>
           </div>
         </div>

@@ -126,6 +126,7 @@ class LoginRequest(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+    username: str
     first_name: str
     last_name: str
     role: str
@@ -326,6 +327,7 @@ async def login(
                 email=user.email,
                 first_name=user.first_name,
                 last_name=user.last_name,
+                username=user.username,
                 role=user.role.value,
                 # 🚀 Veritabanındaki eski değer yerine servisten gelen resmi isim
                 university=official_university_name, 
@@ -842,8 +844,8 @@ async def get_current_user_info(
         email=user.email,
         first_name=user.first_name,
         last_name=user.last_name,
+        username=user.username,
         role=user.role.value,
-        # 🚀 KRİTİK: Statik metni değil, servisden gelen resmi ismi döndür
         university=official_university_name, 
         department_id=user.department_id,
         department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",

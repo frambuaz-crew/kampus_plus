@@ -41,25 +41,28 @@ class UniversityService:
         email: str,
         session: AsyncSession,
     ) -> str:
-        """Email adresinden üniversite ismini optimize bir şekilde çıkarır."""
         if not email or "@" not in email:
             return "Bilinmeyen Üniversite"
         
         full_domain, root_name = self._get_clean_domain_parts(email)
         
-        # 💡 ADIM 1: Özel Mapping Kontrolü (Hızlı sonuç)
+        # 🚀 1. Önce Özel Mapping (Hızlı Sonuç)
         if root_name in self.SPECIAL_OVERRIDES:
             return self.SPECIAL_OVERRIDES[root_name]
 
-        # 💡 ADIM 2: Veritabanında Akıllı Arama
-        # Tüm üniversiteleri çekmek yerine sadece domain eşleşeni arıyoruz.
+        # 🚀 2. VERİTABANI ARAMASI (GÜNCELLE)
         try:
-            # email_domains bir JSON string olduğu için LIKE ile içinde arıyoruz
-            # Örn: %"selcuk.edu.tr"% araması JSON array içindeki tam eşleşmeyi yakalar
+            # Domain'i normalize edelim (ü -> u, ö -> o gibi)
+            # YÖK scripti genellikle temiz domainler kaydeder.
+            normalized_domain = full_domain.encode('idna').decode('ascii')
+
+            # SQL LIKE sorgusunu daha temiz yapalım
+            # JSON array içinde "domain.edu.tr" şeklinde arar
             stmt = select(University).where(
                 University.is_active == True,
                 or_(
-                    University.email_domains.like(f'%"%{full_domain}%"'),
+                    University.email_domains.like(f'%"{full_domain}"%'),
+                    University.email_domains.like(f'%"{normalized_domain}"%'),
                     University.name.ilike(f"%{root_name}%")
                 )
             ).limit(1)
@@ -68,11 +71,12 @@ class UniversityService:
             uni = result.scalar_one_or_none()
             
             if uni:
-                return uni.name
+                return uni.name # 🎯 Buldu! "Konya Teknik Üniversitesi" döner.
+                
         except Exception as e:
             logger.error(f"Üniversite aranırken DB hatası: {e}")
 
-        # 💡 ADIM 3: Fallback (Hiçbir yerde bulunamazsa otomatik oluştur)
+        # 🚀 3. FALLBACK (Eğer DB'de yoksa)
         return self._generate_fallback_name(root_name)
     
     def _generate_fallback_name(self, root_name: str) -> str:
