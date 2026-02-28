@@ -406,7 +406,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           )}
 
-          {/* İÇERİK SEKMELERİ (GLASMORPHISM & PİLLER) */}
+          {/* İÇERİK SEKMELERİ */}
           {!isEditing && (
             <>
               <div className="flex justify-center md:justify-start gap-2 mb-8 p-1 bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 w-fit mx-auto md:mx-0">
@@ -432,7 +432,6 @@ export const ProfilePage: React.FC = () => {
                 )}
               </div>
 
-              {/* SEKME İÇERİKLERİ */}
               <div className="animate-in fade-in slide-in-from-bottom-5 duration-500">
 
                 {/* BİLGİLER SEKMESİ */}
@@ -539,7 +538,6 @@ export const ProfilePage: React.FC = () => {
                             {fav.price && <p className="text-indigo-600 font-black text-xs">{fav.price} TL</p>}
                           </div>
 
-                          {/* İncele Butonu Hover efekti */}
                           <div className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-white via-white/90 to-transparent w-16 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end pr-4">
                             <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center group-hover:scale-110 transition-transform font-bold shadow-sm">
                               ❯

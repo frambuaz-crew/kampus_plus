@@ -97,7 +97,6 @@ async def upload_profile_picture(
 @router.get("/{username}/activity")
 async def get_user_activity(username: str, session: AsyncSession = Depends(get_db)):
     """Kullanıcının yaptığı tüm paylaşımları (Forum, Pazar vs.) getirir."""
-    # Önce kullanıcıyı bul
     stmt = select(User).where(User.username == username)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()

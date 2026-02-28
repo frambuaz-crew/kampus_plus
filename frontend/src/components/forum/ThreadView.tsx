@@ -60,7 +60,6 @@ const PostCard: React.FC<{ post: ForumTopic | ForumReply; isThread?: boolean }> 
               <UserIcon size={22} />
             </div>
           )}
-
           <div>
             <div className="flex items-center gap-2 font-extrabold text-gray-900">
               {authorFullName}
