@@ -465,7 +465,7 @@ export const ProfilePage: React.FC = () => {
                           )}
                           <div className="flex-1 min-w-0 pr-6">
                             <span className="text-[9px] font-black text-pink-500 uppercase tracking-widest bg-pink-50 px-2 py-0.5 rounded flex items-center w-fit mb-1.5 gap-1">
-                              ❤️ {fav.target_type === 'marketplace_listing' ? 'Pazar' : 'Forum'}
+                              ❤️ {fav.target_type === 'marketplace_listing' ? 'Pazar' : fav.target_type === 'career_listing' ? 'Kariyer' : 'Forum'}
                             </span>
                             <h4 className="font-bold text-gray-900 line-clamp-2 leading-tight group-hover:text-pink-600 transition-colors text-sm mb-1">{fav.title}</h4>
                             {fav.price && <p className="text-indigo-600 font-black text-xs">{fav.price} TL</p>}

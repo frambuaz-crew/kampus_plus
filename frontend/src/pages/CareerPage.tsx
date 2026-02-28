@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -25,6 +25,7 @@ import {
   Info,
   Flag,
   ExternalLink,
+  Bookmark,
 } from 'lucide-react';
 import { apiClient } from '../api/config';
 import { getImageUrl } from '../utils/imageUrl';
@@ -142,6 +143,44 @@ const FormField: React.FC<{ label: string; required?: boolean; hint?: string; co
 // ─── Listing Card ──────────────────────────────────────────────────────────────────
 
 const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = ({ listing, onClick }) => {
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      try {
+        const response = await apiClient.get("/users/favorites/all");
+        if (response.data && response.data.favorites) {
+          const isFav = response.data.favorites.some(
+            (fav: any) => fav.target_id === listing.id
+          );
+          setIsFavorite(isFav);
+        }
+      } catch (error) {
+        console.error("Error checking favorites", error);
+      }
+    };
+    checkFavoriteStatus();
+  }, [listing.id]);
+
+  const toggleFavorite = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      const payload = {
+        target_type: "career_listing",
+        target_id: listing.id
+      };
+      const response = await apiClient.post("/users/favorites/toggle", payload);
+      if (response.data && response.data.success) {
+        setIsFavorite(response.data.action === "added");
+      }
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        alert("Favorilere eklemek için giriş yapmalısınız.");
+      }
+    }
+  };
+
   const cfg = TYPE_CONFIG[listing.listing_type];
   const TypeIcon = cfg.Icon;
   const subtitle = (listing.listing_type === 'job' || listing.listing_type === 'internship')
@@ -151,9 +190,17 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg hover:border-slate-300 transition-all cursor-pointer group"
+      className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg hover:border-slate-300 transition-all cursor-pointer group relative"
     >
-      <div className="flex items-start justify-between mb-4">
+      <button
+        onClick={toggleFavorite}
+        className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors flex items-center justify-center"
+        title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+      >
+        <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-indigo-600 text-indigo-600' : ''}`} />
+      </button>
+
+      <div className="flex items-start justify-between mb-4 pr-10">
         <div className={`flex items-center gap-2 px-3 py-1.5 ${cfg.bgLight} border rounded-lg`} style={{ borderColor: 'transparent' }}>
           <TypeIcon className={`w-4 h-4 ${cfg.textColor}`} />
           <span className={`text-xs font-semibold ${cfg.textColor}`}>{cfg.labelFull}</span>
@@ -164,7 +211,7 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
         </span>
       </div>
 
-      <h3 className="text-base font-semibold text-slate-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
+      <h3 className="text-base font-semibold text-slate-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2 pr-2">
         {listing.title}
       </h3>
 
@@ -200,7 +247,11 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-        <div className="flex items-center gap-2">
+        <Link
+          to={`/dashboard/profile/${listing.creator?.username}`}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          onClick={(e) => e.stopPropagation()}
+        >
           {listing.creator?.profile_picture_url ? (
             <img
               src={getImageUrl(listing.creator.profile_picture_url)}
@@ -213,10 +264,14 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
             </div>
           )}
           <div className="text-xs">
-            <p className="font-medium text-slate-900">@{listing.creator?.username || '—'}</p>
-            {listing.creator?.university && <p className="text-slate-500 truncate max-w-[140px]">{listing.creator.university}</p>}
+            <p className="font-semibold text-slate-900">
+              {listing.creator ? `${listing.creator.full_name || listing.creator.username}` : "İlan Sahibi"}
+            </p>
+            <p className="text-slate-500 font-medium tracking-wide">
+              {listing.creator?.university || "Kampüs İçi Öğrenci"}
+            </p>
           </div>
-        </div>
+        </Link>
         <div className="flex items-center gap-1 text-slate-400 text-xs">
           <Eye className="w-3.5 h-3.5" />
           {listing.view_count}
@@ -244,6 +299,41 @@ const ListingDetailView: React.FC<{
   const [applyMsg, setApplyMsg] = useState('');
   const [applyLoading, setApplyLoading] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      try {
+        const response = await apiClient.get("/users/favorites/all");
+        if (response.data && response.data.favorites) {
+          const isFav = response.data.favorites.some(
+            (fav: any) => fav.target_id === listing.id
+          );
+          setIsFavorite(isFav);
+        }
+      } catch (error) {
+        console.error("Error checking favorites", error);
+      }
+    };
+    checkFavoriteStatus();
+  }, [listing.id]);
+
+  const toggleFavorite = async () => {
+    try {
+      const payload = {
+        target_type: "career_listing",
+        target_id: listing.id
+      };
+      const response = await apiClient.post("/users/favorites/toggle", payload);
+      if (response.data && response.data.success) {
+        setIsFavorite(response.data.action === "added");
+      }
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        alert("Favorilere eklemek için giriş yapmalısınız.");
+      }
+    }
+  };
 
   const isJobOrInternship = listing.listing_type === 'job' || listing.listing_type === 'internship';
 
@@ -291,12 +381,21 @@ const ListingDetailView: React.FC<{
                 <p className="text-slate-600 mt-1 font-medium">Aranan: {listing.required_position}</p>
               )}
             </div>
-            {isOwner && (
-              <button onClick={() => { if (window.confirm('İlanı silmek istiyor musunuz?')) onDelete(listing.id); }}
-                className="text-sm text-red-500 hover:text-red-700 font-medium whitespace-nowrap mt-1">
-                Sil
+            <div className="flex items-center gap-4">
+              <button
+                onClick={toggleFavorite}
+                className={`p-2 rounded-full transition-colors flex items-center justify-center ${isFavorite ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'}`}
+                title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+              >
+                <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-indigo-600' : ''}`} />
               </button>
-            )}
+              {isOwner && (
+                <button onClick={() => { if (window.confirm('İlanı silmek istiyor musunuz?')) onDelete(listing.id); }}
+                  className="text-sm text-red-500 hover:text-red-700 font-medium whitespace-nowrap mt-1">
+                  Sil
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
             <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full"><MapPin className="w-3.5 h-3.5" />{listing.location}</span>
@@ -311,16 +410,26 @@ const ListingDetailView: React.FC<{
         <div className="p-7 space-y-6">
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
             <p className="text-xs text-slate-500 uppercase font-bold mb-3 tracking-wide">İlan Veren</p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold">
-                {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
-              </div>
+            <Link to={`/dashboard/profile/${listing.creator?.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-fit block">
+              {listing.creator?.profile_picture_url ? (
+                <img
+                  src={getImageUrl(listing.creator.profile_picture_url)}
+                  alt={listing.creator.username || 'Creator'}
+                  className="w-10 h-10 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold">
+                  {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                </div>
+              )}
               <div>
-                <p className="font-semibold text-slate-900">@{listing.creator?.username || '—'}</p>
+                <p className="font-semibold text-slate-900">
+                  {listing.creator ? `${listing.creator.full_name || listing.creator.username}` : "İlan Sahibi"}
+                </p>
                 {listing.creator?.university && <p className="text-sm text-slate-500">{listing.creator.university}</p>}
                 {listing.creator?.department && <p className="text-sm text-slate-500">{listing.creator.department}</p>}
               </div>
-            </div>
+            </Link>
           </div>
 
           <div>
