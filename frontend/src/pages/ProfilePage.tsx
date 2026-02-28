@@ -122,7 +122,7 @@ export const ProfilePage: React.FC = () => {
 };
 
 // Yardımcı Alt Bileşen - GÜNCELLENDİ 🚀
-const InfoField = ({ label, value, className = "" }: { label: string; value?: any; className?: string }) => {
+const InfoField = ({ label, value, className = "" }: { label: string; value?: string | { name?: string } | null; className?: string }) => {
   // Eğer gelen değer bir nesne ise (Department objesi gibi), içindeki 'name' alanını alıyoruz.
   // Eğer düz metin (string) ise direkt kendisini kullanıyoruz.
   const displayValue = (value && typeof value === 'object') ? value.name : value;

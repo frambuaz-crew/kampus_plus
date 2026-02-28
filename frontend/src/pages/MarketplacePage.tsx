@@ -4,11 +4,12 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { ListingCard } from '../components/marketplace/ListingCard';
 import { NewListingForm } from '../components/marketplace/NewListingForm';
 import { ListingDetailView } from '../components/marketplace/ListingDetailView';
+import type { MarketplaceListing } from '../types/marketplace';
 
 export const MarketplacePage: React.FC = () => {
   const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
-  const [listings, setListings] = useState([]);
-  const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [listings, setListings] = useState<MarketplaceListing[]>([]);
+  const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,7 +24,7 @@ export const MarketplacePage: React.FC = () => {
         return parsed.id || parsed.user_id;
       }
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
@@ -39,11 +40,11 @@ export const MarketplacePage: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await apiClient.get('/marketplace/');
-      const sortedData = (response.data || []).sort((a: any, b: any) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      const sortedData = (response.data as MarketplaceListing[] || []).sort((a, b) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       );
       setListings(sortedData);
-    } catch (err) {
+    } catch {
       setError('İlanlar şu an getirilemiyor.');
     } finally {
       setLoading(false);
@@ -55,7 +56,7 @@ export const MarketplacePage: React.FC = () => {
       await apiClient.delete(`/marketplace/${listingId}`);
       setView('list');
       await loadListings();
-    } catch (err) {
+    } catch {
       setError('İlan silinirken bir hata oluştu.');
     }
   };
@@ -68,20 +69,20 @@ export const MarketplacePage: React.FC = () => {
       });
       setView('list');
       await loadListings();
-    } catch (err) {
+    } catch {
       setError('İlan oluşturulamadı.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleListingClick = (listing: any) => {
+  const handleListingClick = (listing: MarketplaceListing) => {
     setSelectedListing(listing);
     setView('detail');
   };
 
   const filteredListings = categoryFilter 
-    ? listings.filter((l: any) => l.category === categoryFilter)
+    ? listings.filter((listing) => listing.category === categoryFilter)
     : listings;
 
   return (
@@ -134,9 +135,11 @@ export const MarketplacePage: React.FC = () => {
                 onContact={(id) => console.log("Satıcı ID:", id)}
               />
             </div>
+          ) : loading ? (
+            <div className="py-20 text-center text-gray-500">İlanlar yükleniyor...</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredListings.map((item: any) => (
+              {filteredListings.map((item) => (
                 <div key={item.id} onClick={() => handleListingClick(item)}>
                   <ListingCard listing={item} />
                 </div>

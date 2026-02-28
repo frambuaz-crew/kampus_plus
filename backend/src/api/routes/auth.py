@@ -42,6 +42,17 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Initialize auth service
 auth_service = AuthService()
+settings = get_settings()
+
+
+def _refresh_cookie_settings() -> dict:
+    is_production = settings.environment == "production"
+    return {
+        "httponly": True,
+        "secure": is_production,
+        "samesite": "strict" if is_production else "lax",
+        "path": "/api/v1/auth",
+    }
 
 # Rate limiting for resend verification (in-memory cache)
 # Format: {email: [timestamp1, timestamp2, ...]}
@@ -310,11 +321,8 @@ async def login(
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="strict",
             max_age=refresh_token_days * 24 * 60 * 60,
-            path="/api/v1/auth"
+            **_refresh_cookie_settings(),
         )
         
         # 4. Yanıtı döndür
@@ -473,11 +481,8 @@ async def admin_login(
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="strict",
             max_age=refresh_token_days * 24 * 60 * 60,
-            path="/api/v1/auth"
+            **_refresh_cookie_settings(),
         )
 
         # 5. Başarılı yanıtı döndür
@@ -558,11 +563,8 @@ async def refresh(
         response.set_cookie(
             key="refresh_token",
             value=new_refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="strict",
             max_age=auth_service.settings.jwt_refresh_token_expire_days * 24 * 60 * 60,
-            path="/api/v1/auth"
+            **_refresh_cookie_settings(),
         )
         
         return RefreshResponse(

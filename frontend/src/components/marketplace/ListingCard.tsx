@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
+import type { MarketplaceListing } from "../../types/marketplace";
 
 interface ListingCardProps {
-  listing: any;
+  listing: MarketplaceListing;
 }
 
 export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
@@ -29,7 +30,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
       }
 
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };

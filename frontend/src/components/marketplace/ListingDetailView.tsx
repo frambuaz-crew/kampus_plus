@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import type { MarketplaceListing } from '../../types/marketplace';
 
 interface ListingDetailViewProps {
-  listing: any;
+  listing: MarketplaceListing;
   onBack: () => void;
   onContact: (sellerId: string) => void;
   onDelete?: (listingId: string) => Promise<void>; // İlan silme fonksiyonu
@@ -30,7 +31,7 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
         ? JSON.parse(listing.image_urls) 
         : listing.image_urls;
       return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   };
@@ -74,6 +75,13 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
         {/* Sağ Taraf: Detaylar ve Satıcı Bilgisi */}
         <div className="lg:w-1/2 p-8 flex flex-col justify-between">
           <div>
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-4 text-xs font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800"
+            >
+              ← Geri Dön
+            </button>
             <div className="flex justify-between items-center mb-4">
               <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-bold uppercase tracking-widest">
                 {listing.category}

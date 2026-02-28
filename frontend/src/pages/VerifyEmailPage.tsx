@@ -12,7 +12,7 @@
  * URL: /verify-email?token=...
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/config';
 import axios from 'axios';
@@ -29,16 +29,7 @@ export const VerifyEmailPage: React.FC = () => {
 
   const token = searchParams.get('token');
 
-  useEffect(() => {
-    // 3. Eğer zaten istek atıldıysa veya token yoksa dur
-    if (!token || hasRequested.current) return;
-
-    // İstek atıldığını işaretle
-    hasRequested.current = true;
-    verifyEmail(token);
-  }, [token]);
-
-  const verifyEmail = async (verificationToken: string) => {
+  const verifyEmail = useCallback(async (verificationToken: string) => {
     setStatus('loading');
     setMessage('Email adresiniz doğrulanıyor...');
 
@@ -80,7 +71,17 @@ export const VerifyEmailPage: React.FC = () => {
         setMessage('Ağ hatası. Lütfen bağlantınızı kontrol edin ve tekrar deneyin.');
       }
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!token || hasRequested.current) return;
+    hasRequested.current = true;
+    const timerId = window.setTimeout(() => {
+      verifyEmail(token);
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+  }, [token, verifyEmail]);
 
   const handleResendVerification = async () => {
     if (!email.trim()) {

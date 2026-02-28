@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { NewDashboard } from './pages/NewDashboard';
@@ -17,7 +16,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { MessagesChatPage } from './pages/MessagesChatPage';
-import { AIAssistantPage } from './pages/AIAssistantPage';
 import { MarketplacePage } from './pages/MarketplacePage';
 import { CareerPage } from './pages/CareerPage';
 import { CourseSchedulePage } from './pages/CourseSchedulePage';
@@ -67,7 +65,7 @@ function App() {
             path="/dashboard/ai-assistant"
             element={
               <ProtectedRoute>
-                <AIAssistantPage />
+                <ChatPage />
               </ProtectedRoute>
             }
           />

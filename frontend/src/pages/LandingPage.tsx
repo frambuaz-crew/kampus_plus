@@ -17,6 +17,7 @@ import Header from '../app/components/Header.tsx';
 import Sidebar from '../app/components/Sidebar.tsx';
 import DashboardHero from '../app/components/DashboardHero.tsx';
 import ContentCard from '../app/components/ContentCard';
+import type { ContentCardData } from '../app/components/ContentCard';
 import AuthModal from '../app/components/AuthModal';
 import PreviewModal from '../app/components/PreviewModal';
 import Footer from '../app/components/Footer';
@@ -28,15 +29,15 @@ export const LandingPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<any | null>(null);
+  const [selectedCard, setSelectedCard] = useState<ContentCardData | null>(null);
   const [selectedUniversity, setSelectedUniversity] = useState<string>('Tüm Üniversiteler');
 
-  function handlePreview(card: any) {
+  function handlePreview(card: ContentCardData) {
     setSelectedCard(card);
     setPreviewModalOpen(true);
   }
 
-  function handleLockedClick(card: any) {
+  function handleLockedClick(card: ContentCardData) {
     // Open auth modal that will navigate to register/login
     setSelectedCard(card);
     setAuthModalOpen(true);

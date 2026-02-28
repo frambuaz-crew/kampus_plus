@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { apiClient } from '../api/config';
+import axios from 'axios';
 
 export const ResetPasswordPage: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   
@@ -28,9 +28,13 @@ export const ResetPasswordPage: React.FC = () => {
       try {
         await apiClient.get(`/auth/reset-password/validate?token=${token}`);
         setIsValid(true);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setIsValid(false);
-        setError(err.response?.data?.error?.message || 'Token geçersiz veya süresi dolmuş');
+        if (axios.isAxiosError(err)) {
+          setError(err.response?.data?.error?.message || 'Token geçersiz veya süresi dolmuş');
+        } else {
+          setError('Token geçersiz veya süresi dolmuş');
+        }
       } finally {
         setIsValidating(false);
       }
@@ -64,9 +68,13 @@ export const ResetPasswordPage: React.FC = () => {
         confirm_password: confirmPassword, // ✅ Eksik olan alan eklendi
       });
       setIsSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Backend'den dönen spesifik hata mesajını göster
-      setError(err.response?.data?.error?.message || 'Bir hata oluştu');
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error?.message || 'Bir hata oluştu');
+      } else {
+        setError('Bir hata oluştu');
+      }
     } finally {
       setIsLoading(false);
     }

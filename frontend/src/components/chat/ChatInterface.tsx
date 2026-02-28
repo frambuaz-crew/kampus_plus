@@ -15,24 +15,25 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/config';
-import type { ChatMessage, SendMessageResponse, Reference } from '../../types/chat';
+import type {
+  ChatMessage,
+  ConversationResponse,
+  RemainingMessagesResponse,
+  SendMessageResponse,
+  Reference,
+} from '../../types/chat';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatInterfaceProps {
-  sessionId: string | null;
-  initialMessages?: ChatMessage[];
-  onMessageSent?: () => void;
+  reloadKey?: number;
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
-  sessionId, 
-  initialMessages = [], 
-  onMessageSent 
-}) => {
-  const navigate = useNavigate();
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages.filter(msg => msg !== undefined));
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -42,54 +43,33 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (initialMessages && initialMessages.length > 0) {
-      setMessages(initialMessages.filter(msg => msg !== undefined));
-      setIsLoading(false);
-    } else if (sessionId) {
-      loadMessages();
-    } else {
-      setMessages([]);
-      setIsLoading(false);
-    }
-    loadRemainingMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+    loadInitialChatData();
+  }, [reloadKey]);
 
-  // Auto-scroll to latest message
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isSending]);
 
-  const loadMessages = async () => {
-    if (!sessionId) {
-      if (!initialMessages || initialMessages.length === 0) {
-        setMessages([]);
-      }
-      setIsLoading(false);
-      return;
-    }
-    
+  const loadInitialChatData = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiClient.get(`/ai/conversation`);
-      const messagesData = response.data.messages || [];
-      setMessages(Array.isArray(messagesData) ? messagesData : []);
+      const [remainingRes, conversationRes] = await Promise.all([
+        apiClient.get<RemainingMessagesResponse>('/ai/remaining-messages'),
+        apiClient.get<ConversationResponse>('/ai/conversation'),
+      ]);
+
+      setRemainingMessages(remainingRes.data.remaining ?? 50);
+      setConversationId(conversationRes.data.conversation_id ?? null);
+      setMessages(Array.isArray(conversationRes.data.messages) ? conversationRes.data.messages : []);
     } catch (err) {
-      console.error('Mesajlar yüklenemedi:', err);
-      setError('Mesajlar yüklenemedi');
+      console.error('AI sohbet verileri yüklenemedi:', err);
+      setError('Sohbet yüklenemedi. Lütfen sayfayı yenileyip tekrar deneyin.');
+      setRemainingMessages(50);
+      setConversationId(null);
       setMessages([]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadRemainingMessages = async () => {
-    try {
-      const response = await apiClient.get(`/ai/remaining-messages`);
-      setRemainingMessages(response.data.remaining || 50);
-    } catch (err) {
-      setRemainingMessages(50);
     }
   };
 
@@ -108,7 +88,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     // Optimistic user message
     const tempUserMessage: ChatMessage = {
       id: `temp-${Date.now()}`,
-      session_id: sessionId,
+      session_id: conversationId,
       role: 'user',
       content: messageContent,
       created_at: new Date().toISOString(),
@@ -133,10 +113,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       });
 
       setRemainingMessages(response.data.remaining_messages);
-      
-      if (onMessageSent) {
-        onMessageSent();
-      }
+      setConversationId(response.data.conversation_id);
     } catch (err) {
       // Remove temp message on error
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
@@ -200,62 +177,117 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div
         key={message.id}
         data-role={message.role}
-        className={`mb-4 ${isUser ? 'text-right' : 'text-left'}`}
+        className={`mb-5 flex ${isUser ? 'justify-end' : 'justify-start'}`}
       >
-        <div className={`inline-block max-w-[80%] ${isUser ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'} rounded-lg px-4 py-2`}>
-          <div className="whitespace-pre-wrap break-words">{message.content}</div>
-          <div className="text-xs mt-1 opacity-70">
+        <div
+          className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ring-1 ${
+            isUser
+              ? 'bg-indigo-600 text-white ring-indigo-500/40'
+              : 'bg-white text-slate-800 ring-slate-200'
+          }`}
+        >
+          <div className="break-words text-sm leading-6">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                ul: ({ children }) => <ul className="mb-2 list-disc pl-6 last:mb-0">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-2 list-decimal pl-6 last:mb-0">{children}</ol>,
+                li: ({ children }) => <li className="mb-1">{children}</li>,
+                code: ({ className, children, ...props }) => {
+                  const isCodeBlock = Boolean(className?.includes('language-'));
+                  if (isCodeBlock) {
+                    return (
+                      <code
+                        className="block overflow-x-auto rounded-lg bg-slate-900/90 px-3 py-2 text-xs text-slate-100"
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  }
+
+                  return (
+                    <code className="rounded bg-slate-100 px-1 py-0.5 text-xs text-slate-800" {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                a: ({ href, children }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={isUser ? 'underline decoration-indigo-200' : 'text-indigo-600 underline'}
+                  >
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
+
+          <div className={`mt-2 text-[11px] ${isUser ? 'text-indigo-100' : 'text-slate-500'}`}>
             {formatTimestamp(message.created_at)}
           </div>
+          
+          {!isUser && references.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {references.map((ref, index) => (
+                <a
+                  key={index}
+                  href={ref.url}
+                  className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-700 transition-colors hover:bg-indigo-100"
+                >
+                  {ref.label}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
-
-        {/* References (linkler) - Spec'e göre */}
-        {!isUser && references.length > 0 && (
-          <div className="mt-2 text-left space-y-1">
-            {references.map((ref, index) => (
-              <button
-                key={index}
-                onClick={() => navigate(ref.url)}
-                className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline bg-indigo-50 px-3 py-1 rounded border border-indigo-200"
-              >
-                {ref.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     );
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">Mesajlar yükleniyor...</div>
+      <div className="flex h-full items-center justify-center bg-slate-50">
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-600 shadow-sm">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          <span className="text-sm font-medium">Sohbet hazırlanıyor...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex h-full min-h-0 flex-col bg-slate-50">
+      <div className="border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm sm:px-6">
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span className="font-medium text-slate-600">Kampüs AI Asistan</span>
+          {remainingMessages !== null && <span>{remainingMessages}/50 mesaj hakkın kaldı</span>}
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-400">
-            <div className="text-center">
-              <p className="text-lg mb-2">🤖 Merhaba! Ben senin kampüs asistanınım.</p>
-              <p className="text-sm mb-1">Ders programın, akademik takvim, forum, pazar ve</p>
-              <p className="text-sm">kariyer ilanları hakkında sorularını yanıtlayabilirim.</p>
-              <p className="text-sm mt-2 text-gray-500">Nasıl yardımcı olabilirim?</p>
+          <div className="flex h-full items-center justify-center text-slate-400">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+              <p className="mb-2 text-lg font-semibold text-slate-700">Merhaba! Kampüs Asistanın burada 👋</p>
+              <p className="text-sm">Ders, akademik takvim, forum, pazar ve kariyer konularında sorularını sorabilirsin.</p>
             </div>
           </div>
         ) : (
           <>
             {messages.filter(msg => msg && msg.role).map(renderMessage)}
             {isSending && (
-              <div data-role="assistant" className="mb-4 text-left">
-                <div className="inline-block bg-gray-100 text-gray-900 rounded-lg px-4 py-2">
-                  <div className="flex items-center space-x-2">
-                    <span className="animate-pulse">🤖 Düşünüyor...</span>
+              <div data-role="assistant" className="mb-5 flex justify-start">
+                <div className="max-w-[85%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                    <span className="font-medium">Asistan düşünüyor...</span>
                   </div>
                 </div>
               </div>
@@ -265,20 +297,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Error Display */}
       {error && (
-        <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-red-700 text-sm">
+        <div className="border-t border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 sm:px-6">
           {error}
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="border-t border-gray-200 p-4">
-        <div className="flex space-x-2">
+      <div className="border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
+        <div className="flex gap-2">
           <textarea
             ref={textareaRef}
             aria-label="Mesaj girişi"
-            placeholder="Mesajınızı yazın... (Shift+Enter ile yeni satır)"
+            placeholder="Mesajını yaz... (Enter: gönder, Shift+Enter: yeni satır)"
             value={inputValue}
             onChange={(e) => {
               if (e.target.value.length <= 500) {
@@ -287,7 +317,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             }}
             onKeyDown={handleKeyDown}
             disabled={isSending}
-            className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="min-h-[52px] flex-1 resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100"
             rows={3}
             maxLength={500}
           />
@@ -295,20 +325,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             aria-label="Gönder"
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isSending}
-            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="self-end rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             Gönder
           </button>
         </div>
-        
-        {/* Remaining Messages Counter */}
-        <div className="mt-2 flex justify-between items-center text-xs text-gray-500">
+
+        <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
           <span>
             {inputValue.length}/500 karakter
           </span>
           {remainingMessages !== null && (
             <span>
-              {remainingMessages}/50 mesaj kaldı bugün
+              Bugün {remainingMessages}/50 mesaj hakkın kaldı
             </span>
           )}
         </div>

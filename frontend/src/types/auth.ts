@@ -3,8 +3,6 @@
  * * Spec: 002-register-page/spec.md, 003-login-page/spec.md, 010-profile/spec.md
  */
 
-import type { Department } from './department'; // Yeni oluşturduğun tipi import ediyoruz
-
 export interface User {
   id: string;
   email: string;
@@ -14,7 +12,7 @@ export interface User {
   role: 'student' | 'instructor' | 'admin';
   university: string; 
   department_id: number; // Artik string değil, number (ID)
-  department?: Department | null; // Opsiyonel olarak ilişki nesnesini de tutabiliriz
+  department?: string | null;
   is_verified: boolean;
   profile_picture_url?: string | null;
   created_at: string;

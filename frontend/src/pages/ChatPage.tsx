@@ -10,46 +10,15 @@
  * - MainLayout kullanır (Header + Sidebar + Main Content)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { apiClient } from '../api/config';
 import { ChatInterface } from '../components/chat/ChatInterface';
 import { MainLayout } from '../components/layout/MainLayout';
-import type { ChatMessage } from '../types/chat';
 
 export const ChatPage: React.FC = () => {
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [chatReloadKey, setChatReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-
-  // Load conversation on mount
-  useEffect(() => {
-    loadConversation();
-  }, []);
-
-  const loadConversation = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await apiClient.get('/ai/conversation');
-      
-      if (response.data.conversation_id) {
-        setConversationId(response.data.conversation_id);
-        setMessages(response.data.messages || []);
-      } else {
-        // No conversation yet, will be created on first message
-        setConversationId(null);
-        setMessages([]);
-      }
-    } catch (err) {
-      console.error('Konuşma yüklenemedi:', err);
-      setError('Konuşma yüklenemedi');
-      setMessages([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleNewConversation = async () => {
     try {
@@ -58,29 +27,13 @@ export const ChatPage: React.FC = () => {
       await apiClient.delete('/ai/conversation');
       
       // Clear state
-      setConversationId(null);
-      setMessages([]);
+      setChatReloadKey((prev) => prev + 1);
       setShowConfirmDialog(false);
     } catch (err) {
       console.error('Konuşma silinemedi:', err);
       setError('Konuşma silinemedi');
     }
   };
-
-  const handleMessageSent = () => {
-    // Reload conversation to get updated messages
-    loadConversation();
-  };
-
-  if (isLoading) {
-    return (
-      <MainLayout>
-        <div className="h-full flex items-center justify-center bg-gray-50">
-          <div className="text-gray-500">Yükleniyor...</div>
-        </div>
-      </MainLayout>
-    );
-  }
 
   return (
     <MainLayout>
@@ -105,11 +58,7 @@ export const ChatPage: React.FC = () => {
 
         {/* Chat Interface */}
         <div className="flex-1 overflow-hidden">
-          <ChatInterface
-            sessionId={conversationId}
-            initialMessages={messages}
-            onMessageSent={handleMessageSent}
-          />
+          <ChatInterface reloadKey={chatReloadKey} />
         </div>
 
         {/* Confirm Dialog */}

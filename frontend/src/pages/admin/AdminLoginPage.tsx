@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth'; 
+import axios from 'axios';
 
 export const AdminLoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -26,10 +27,13 @@ export const AdminLoginPage: React.FC = () => {
       // Giriş başarılı! Şimdi karanlık dashboard'a uçuyoruz.
       navigate('/admin/dashboard', { replace: true }); 
 
-    } catch (err: any) {
-      // Backend'den gelen spesifik hata mesajını yakalıyoruz
-      const msg = err.response?.data?.detail?.error?.message || "Invalid credentials";
-      setError(msg);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const msg = err.response?.data?.detail?.error?.message || 'Invalid credentials';
+        setError(msg);
+      } else {
+        setError('Invalid credentials');
+      }
     } finally {
       setLoading(false);
     }
