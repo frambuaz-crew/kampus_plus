@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
+import { getImageUrl } from '../utils/imageUrl';
 
 interface OtherUser {
   id: string;
@@ -154,7 +155,7 @@ export const MessagesPage: React.FC = () => {
                         <div className="relative flex-shrink-0">
                           {conv.other_user.profile_picture_url ? (
                             <img
-                              src={conv.other_user.profile_picture_url}
+                              src={getImageUrl(conv.other_user.profile_picture_url)}
                               alt={conv.other_user.username}
                               className="w-12 h-12 rounded-full object-cover"
                             />

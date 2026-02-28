@@ -12,11 +12,13 @@ export interface User {
   last_name: string;
   username: string;
   role: 'student' | 'instructor' | 'admin';
-  university: string; 
+  university: string;
   department_id: number; // Artik string değil, number (ID)
   department?: Department | null; // Opsiyonel olarak ilişki nesnesini de tutabiliriz
   is_verified: boolean;
   profile_picture_url?: string | null;
+  bio?: string | null;
+  theme_preference?: string | null;
   created_at: string;
 }
 
@@ -48,7 +50,8 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<User>;
-  adminLogin: (credentials: LoginCredentials) => Promise<User>; 
+  adminLogin: (credentials: LoginCredentials) => Promise<User>;
   logout: () => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
+  updateUser: (data: Partial<User>) => void;
 }

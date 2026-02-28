@@ -57,6 +57,7 @@ class TopicAuthorResponse(BaseModel):
     username: str
     first_name: str
     last_name: str
+    profile_picture_url: Optional[str] = None
     
     model_config = {"from_attributes": True}
 
@@ -86,6 +87,7 @@ class ReplyAuthorResponse(BaseModel):
     username: str
     first_name: str
     last_name: str
+    profile_picture_url: Optional[str] = None
     
     model_config = {"from_attributes": True}
 
@@ -221,6 +223,7 @@ async def get_topics(
                 "username": topic.author.username,
                 "first_name": topic.author.first_name,
                 "last_name": topic.author.last_name,
+                "profile_picture_url": topic.author.profile_picture_url,
             }
         
         topics_list.append({
@@ -307,6 +310,7 @@ async def get_threads(
                 "username": topic.author.username,
                 "first_name": topic.author.first_name,
                 "last_name": topic.author.last_name,
+                "profile_picture_url": topic.author.profile_picture_url,
             }
         
         items_list.append({
@@ -391,6 +395,7 @@ async def get_topic_detail(
             username=topic.author.username,
             first_name=topic.author.first_name,
             last_name=topic.author.last_name,
+            profile_picture_url=topic.author.profile_picture_url,
         )
     
     topic_response = TopicResponse(
@@ -418,6 +423,7 @@ async def get_topic_detail(
                 username=reply.author.username,
                 first_name=reply.author.first_name,
                 last_name=reply.author.last_name,
+                profile_picture_url=reply.author.profile_picture_url,
             )
         
         replies_list.append(ReplyResponse(

@@ -23,6 +23,7 @@ class CreatorInfo(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     university: Optional[str] = None
+    profile_picture_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -51,7 +52,7 @@ async def get_listings(
 ):
     # User modelinden username kolonunu da çekiyoruz (SARI YENİ)
     stmt = (
-        select(MarketplaceListing, User.first_name, User.last_name, User.university, User.username)
+        select(MarketplaceListing, User.first_name, User.last_name, User.university, User.username, User.profile_picture_url)
         .outerjoin(User, MarketplaceListing.seller_id == User.id)
         .where(MarketplaceListing.status == "active")
     )
@@ -74,7 +75,8 @@ async def get_listings(
             "username": row[4],  # User.username
             "first_name": row[1], # User.first_name
             "last_name": row[2],  # User.last_name
-            "university": row[3] if row[3] else "Kampüs İçi"
+            "university": row[3] if row[3] else "Kampüs İçi",
+            "profile_picture_url": row[5] # User.profile_picture_url
         }
         
         final_listings.append(listing)

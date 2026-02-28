@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { apiClient } from '../api/config';
 import { MainLayout } from '../components/layout/MainLayout';
 import { SearchBar } from '../components/forum/SearchBar';
@@ -14,13 +15,17 @@ type ForumView = 'categories' | 'category-threads' | 'thread-detail' | 'new-thre
 
 export const ForumPage: React.FC = () => {
   const { user } = useAuth(); // 2. Kullanıcı bilgisini alıyoruz
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [view, setView] = useState<ForumView>('categories');
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [currentThread, setCurrentThread] = useState<ThreadWithReplies | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  
+
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +33,12 @@ export const ForumPage: React.FC = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    if (id && view !== 'thread-detail' && !currentThread) {
+      handleThreadClick(id);
+    }
+  }, [id, view, currentThread]);
 
   const fetchCategories = async () => {
     try {
@@ -143,8 +154,11 @@ export const ForumPage: React.FC = () => {
 
   const Breadcrumbs = () => (
     <nav className="flex items-center space-x-2 text-sm mb-8 bg-white/50 backdrop-blur-md p-4 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in duration-500">
-      <button 
-        onClick={() => setView('categories')} 
+      <button
+        onClick={() => {
+          setView('categories');
+          if (id) navigate('/dashboard/forum');
+        }}
         className="flex items-center text-gray-400 hover:text-indigo-600 transition-colors font-medium"
       >
         <Home size={16} className="mr-2" /> Forum
@@ -154,8 +168,11 @@ export const ForumPage: React.FC = () => {
       {selectedCategory && (
         <>
           <ChevronRight size={14} className="text-gray-300" />
-          <button 
-            onClick={() => setView('category-threads')} 
+          <button
+            onClick={() => {
+              setView('category-threads');
+              if (id) navigate('/dashboard/forum');
+            }}
             className="font-bold text-gray-700 hover:text-indigo-600 transition-colors"
           >
             {selectedCategory.name}
@@ -179,13 +196,13 @@ export const ForumPage: React.FC = () => {
     <MainLayout>
       <div className="min-h-screen bg-gray-50 text-gray-900 pb-20">
         <div className="max-w-7xl mx-auto px-6 pt-10">
-          
+
           {/* 4. Kişiselleştirilmiş Premium Header */}
           <header className="mb-12 p-12 rounded-[2rem] bg-gradient-to-br from-white to-indigo-50 border border-indigo-100/50 shadow-xl shadow-indigo-100/40 relative overflow-hidden">
             <div className="absolute -top-24 -right-24 p-10 opacity-[0.04] select-none pointer-events-none text-indigo-600 rotate-12">
-               <MessageSquare size={300} />
+              <MessageSquare size={300} />
             </div>
-            
+
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
               <div className="max-w-2xl">
                 <h1 className="text-5xl font-black text-gray-900 tracking-tight mb-4 leading-tight">
@@ -195,7 +212,7 @@ export const ForumPage: React.FC = () => {
                   <span className="font-bold text-gray-700">{user?.university}</span> kampüsünde ve <span className="font-bold text-gray-700">{user?.department?.name}</span> alanında neler konuşuluyor, keşfet.
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setView('new-thread')}
                 className="group flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-5 rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95"
               >
@@ -221,29 +238,29 @@ export const ForumPage: React.FC = () => {
               {view === 'categories' && (
                 // 5. Yeni Üçlü Odak Sistemi
                 <div className="space-y-16">
-                  <CategorySection 
-                    title="🏰 Benim Kampüsüm" 
+                  <CategorySection
+                    title="🏰 Benim Kampüsüm"
                     description={`${user?.university} öğrencilerine özel duyurular, etkinlikler ve tartışmalar.`}
                     icon={<Building2 size={28} className="text-indigo-600" />}
-                    items={myUniversityCat ? [myUniversityCat] : []} 
-                    onCategoryClick={handleCategoryClick} 
+                    items={myUniversityCat ? [myUniversityCat] : []}
+                    onCategoryClick={handleCategoryClick}
                     emptyMessage="Kampüsüne ait bir kategori bulunamadı."
                   />
-                  <CategorySection 
-                    title="🔬 Meslektaş Alanım (TR Geneli)" 
+                  <CategorySection
+                    title="🔬 Meslektaş Alanım (TR Geneli)"
                     description={`Türkiye'deki tüm ${user?.department?.name || ''} öğrencileriyle bilgi paylaşımı.`}
                     icon={<GraduationCap size={28} className="text-emerald-600" />}
-                    items={myDepartmentCat ? [myDepartmentCat] : []} 
-                    onCategoryClick={handleCategoryClick} 
+                    items={myDepartmentCat ? [myDepartmentCat] : []}
+                    onCategoryClick={handleCategoryClick}
                     emptyMessage="Bölümüne ait bir kategori bulunamadı."
                   />
-                  <CategorySection 
-                    title="🌍 Ortak Alan" 
+                  <CategorySection
+                    title="🌍 Ortak Alan"
                     description="Pazar yeri, etkinlikler ve tüm öğrencileri ilgilendiren serbest kürsü."
                     icon={<Users size={28} className="text-amber-600" />}
-                    items={generalCats} 
+                    items={generalCats}
                     onCategoryClick={handleCategoryClick}
-                    emptyMessage="Henüz genel bir kategori bulunmuyor." 
+                    emptyMessage="Henüz genel bir kategori bulunmuyor."
                   />
                 </div>
               )}
@@ -253,26 +270,41 @@ export const ForumPage: React.FC = () => {
               )}
 
               {view === 'thread-detail' && currentThread && (
-                <ThreadView 
-                  data={currentThread} onReplySubmit={handleReplySubmit} 
-                  onHelpful={async (postId) => {
-                    await apiClient.post(`/forum/posts/${postId}/helpful`);
-                    handleThreadClick(currentThread.thread.id);
-                  }}
-                  onReport={handleFlagPost} onRefresh={() => handleThreadClick(currentThread.thread.id)} 
-                  isSubmitting={isSubmitting}
-                />
+                <div className="animate-in fade-in slide-in-from-bottom-4">
+                  <button
+                    onClick={() => {
+                      if ((location.state as any)?.from) {
+                        navigate((location.state as any).from, { state: { tab: (location.state as any).tab } });
+                      } else {
+                        setView(selectedCategory ? 'category-threads' : 'categories');
+                        if (id) navigate('/dashboard/forum');
+                      }
+                    }}
+                    className="mb-6 text-indigo-600 font-bold underline flex items-center"
+                  >
+                    ← Geri Dön
+                  </button>
+                  <ThreadView
+                    data={currentThread} onReplySubmit={handleReplySubmit}
+                    onHelpful={async (postId) => {
+                      await apiClient.post(`/forum/posts/${postId}/helpful`);
+                      handleThreadClick(currentThread.thread.id);
+                    }}
+                    onReport={handleFlagPost} onRefresh={() => handleThreadClick(currentThread.thread.id)}
+                    isSubmitting={isSubmitting}
+                  />
+                </div>
               )}
 
               {/* 6. Yeni Konu Açma Formuna Kategorileri Geçiyoruz */}
               {view === 'new-thread' && (
-                <NewThreadForm 
+                <NewThreadForm
                   // Burada sadece kullanıcının yazabileceği kategorileri geçeceğiz.
                   // Backend verisi gelince burayı myUniversityCat, myDepartmentCat ve generalCats'i birleştirerek yapacağız.
-                  categories={categories} 
-                  onSubmit={handleCreateThread} 
-                  onCancel={() => setView('categories')} 
-                  isSubmitting={isSubmitting} 
+                  categories={categories}
+                  onSubmit={handleCreateThread}
+                  onCancel={() => setView('categories')}
+                  isSubmitting={isSubmitting}
                 />
               )}
             </div>
@@ -301,7 +333,7 @@ const CategorySection = ({ title, description, icon, items, onCategoryClick, emp
         <p className="text-gray-500 font-bold text-sm tracking-wide leading-relaxed max-w-2xl">{description}</p>
       </div>
     </div>
-    
+
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       {items.length > 0 ? (
         items.map(category => (
@@ -309,8 +341,8 @@ const CategorySection = ({ title, description, icon, items, onCategoryClick, emp
         ))
       ) : (
         <div className="col-span-full py-16 bg-white rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 shadow-sm">
-           <MessageSquare size={48} className="mb-4 opacity-10" />
-           <p className="font-bold tracking-tight text-lg italic">{emptyMessage}</p>
+          <MessageSquare size={48} className="mb-4 opacity-10" />
+          <p className="font-bold tracking-tight text-lg italic">{emptyMessage}</p>
         </div>
       )}
     </div>

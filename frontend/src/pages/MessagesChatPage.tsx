@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
+import { getImageUrl } from '../utils/imageUrl';
 
 interface Message {
   id: string;
@@ -177,10 +178,18 @@ export const MessagesChatPage: React.FC = () => {
             </button>
 
             {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-              {conv?.other_user?.full_name?.charAt(0).toUpperCase() ||
-                conv?.other_user?.username?.charAt(0).toUpperCase() || '?'}
-            </div>
+            {conv?.other_user?.profile_picture_url ? (
+              <img
+                src={getImageUrl(conv.other_user.profile_picture_url)}
+                alt={conv?.other_user?.username || ''}
+                className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm border border-gray-100"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+                {conv?.other_user?.full_name?.charAt(0).toUpperCase() ||
+                  conv?.other_user?.username?.charAt(0).toUpperCase() || '?'}
+              </div>
+            )}
 
             <div className="flex-1 min-w-0">
               {loadingConv ? (
@@ -267,19 +276,17 @@ export const MessagesChatPage: React.FC = () => {
                         className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1`}
                       >
                         <div
-                          className={`relative max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm ${
-                            isMe
+                          className={`relative max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm ${isMe
                               ? 'bg-indigo-600 text-white rounded-br-sm'
                               : 'bg-white text-slate-900 border border-slate-100 rounded-bl-sm'
-                          }`}
+                            }`}
                         >
                           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                             {msg.content}
                           </p>
                           <p
-                            className={`text-xs mt-1 text-right ${
-                              isMe ? 'text-indigo-200' : 'text-slate-400'
-                            }`}
+                            className={`text-xs mt-1 text-right ${isMe ? 'text-indigo-200' : 'text-slate-400'
+                              }`}
                           >
                             {formatMsgTime(msg.created_at)}
                             {isMe && (

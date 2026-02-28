@@ -28,6 +28,7 @@ class CreatorInfo(BaseModel):
     full_name: Optional[str] = None
     university: Optional[str] = None
     department: Optional[str] = None
+    profile_picture_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -110,6 +111,7 @@ def _listing_to_response(listing: CareerListing, user: Optional[User] = None) ->
             full_name=f"{user.first_name} {user.last_name}".strip() or None,
             university=user.university,
             department=getattr(user, "department", None),
+            profile_picture_url=user.profile_picture_url,
         )
     elif listing.posted_by_user:
         u = listing.posted_by_user
@@ -119,6 +121,7 @@ def _listing_to_response(listing: CareerListing, user: Optional[User] = None) ->
             full_name=f"{u.first_name} {u.last_name}".strip() or None,
             university=u.university,
             department=getattr(u, "department", None),
+            profile_picture_url=u.profile_picture_url,
         )
 
     return CareerListingResponse(

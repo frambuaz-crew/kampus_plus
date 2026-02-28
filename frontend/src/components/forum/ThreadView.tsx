@@ -5,6 +5,7 @@ import { tr } from 'date-fns/locale';
 import { ReplyForm } from './ReplyForm';
 import type { ThreadWithReplies, ForumPost } from '../../types/forum';
 import { useAuth } from '../../hooks/useAuth';
+import { getImageUrl } from '../../utils/imageUrl';
 
 interface ThreadViewProps {
   data: ThreadWithReplies;
@@ -23,9 +24,9 @@ const PostCard: React.FC<{
   onReport: (id: string) => void;
   currentUserId?: string;
 }> = ({ post, isThread = false, onHelpful, onReport, currentUserId }) => {
-  
+
   // 10 dakika düzenleme kuralı
-  const canModify = currentUserId === post.author.id && 
+  const canModify = currentUserId === post.author.id &&
     (new Date().getTime() - new Date(post.created_at).getTime()) < 10 * 60 * 1000;
 
   return (
@@ -33,9 +34,17 @@ const PostCard: React.FC<{
       {/* Kart Header: Kullanıcı Bilgileri - Aydınlık */}
       <div className="bg-gray-50/80 p-5 flex items-center justify-between border-b border-gray-100">
         <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-sm">
-            <UserIcon size={22} />
-          </div>
+          {post.author.profile_picture_url ? (
+            <img
+              src={getImageUrl(post.author.profile_picture_url)}
+              alt={`${post.author.first_name} ${post.author.last_name}`}
+              className="w-12 h-12 rounded-full object-cover border border-indigo-100 shadow-sm"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-sm">
+              <UserIcon size={22} />
+            </div>
+          )}
           <div>
             <div className="font-extrabold text-gray-900 flex items-center gap-2">
               {post.author.first_name} {post.author.last_name}
@@ -46,11 +55,11 @@ const PostCard: React.FC<{
               )}
             </div>
             <div className="text-xs text-gray-500 font-bold flex items-center mt-0.5">
-            <span className="text-indigo-600">🎓 {post.author.university}</span>
-            <span className="mx-2 text-gray-300">|</span>
-            {/* Department bir nesne olduğu için içindeki .name alanını yazdırıyoruz */}
-            <span>{post.author.department?.name || 'Genel'}</span>
-          </div>
+              <span className="text-indigo-600">🎓 {post.author.university}</span>
+              <span className="mx-2 text-gray-300">|</span>
+              {/* Department bir nesne olduğu için içindeki .name alanını yazdırıyoruz */}
+              <span>{post.author.department?.name || 'Genel'}</span>
+            </div>
           </div>
         </div>
         <div className="text-[11px] font-bold text-gray-400 flex items-center bg-white px-3 py-1 rounded-full border border-gray-100 shadow-sm">
@@ -66,7 +75,7 @@ const PostCard: React.FC<{
             {post.title}
           </h2>
         )}
-        
+
         <div className="text-gray-700 leading-relaxed whitespace-pre-wrap mb-8 text-base font-medium">
           {post.content}
         </div>
@@ -79,10 +88,10 @@ const PostCard: React.FC<{
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {post.attachments.map((file) => (
-                <a 
-                  key={file.id} 
-                  href={file.file_url} 
-                  download 
+                <a
+                  key={file.id}
+                  href={file.file_url}
+                  download
                   className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-200 hover:border-indigo-400 hover:shadow-md transition-all group shadow-sm"
                 >
                   <span className="text-sm text-gray-700 font-bold truncate pr-4">{file.filename}</span>
@@ -108,15 +117,15 @@ const PostCard: React.FC<{
       {/* Kart Footer: Aksiyonlar */}
       <div className="bg-gray-50/50 px-8 py-4 flex items-center justify-between border-t border-gray-100">
         <div className="flex items-center space-x-6">
-          <button 
+          <button
             onClick={() => onHelpful(post.id)}
             className="flex items-center space-x-2 text-sm font-bold text-gray-500 hover:text-indigo-600 transition-colors group"
           >
             <ThumbsUp size={18} className="group-hover:-translate-y-0.5 transition-transform" />
             <span>{post.helpful_count} Yararlı</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => onReport(post.id)}
             className="flex items-center space-x-2 text-sm font-bold text-gray-400 hover:text-red-500 transition-colors"
           >
@@ -148,12 +157,12 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, onH
   return (
     <div className="animate-fade-in space-y-8">
       {/* 1. Ana Konu */}
-      <PostCard 
-        post={thread} 
-        isThread 
-        onHelpful={onHelpful} 
-        onReport={onReport} 
-        currentUserId={user?.id} 
+      <PostCard
+        post={thread}
+        isThread
+        onHelpful={onHelpful}
+        onReport={onReport}
+        currentUserId={user?.id}
       />
 
       {/* 2. Cevaplar Başlığı */}
@@ -163,7 +172,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, onH
           CEVAPLAR ({replies.length})
         </h3>
         {!showReplyForm && (
-          <button 
+          <button
             onClick={() => setShowReplyForm(true)}
             className="bg-white border border-gray-200 px-5 py-2 rounded-xl text-sm font-black text-indigo-600 hover:border-indigo-600 hover:shadow-md transition-all shadow-sm"
           >
@@ -175,12 +184,12 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, onH
       {/* 3. Cevap Listesi */}
       <div className="space-y-6">
         {replies.map((reply) => (
-          <PostCard 
-            key={reply.id} 
-            post={reply} 
-            onHelpful={onHelpful} 
-            onReport={onReport} 
-            currentUserId={user?.id} 
+          <PostCard
+            key={reply.id}
+            post={reply}
+            onHelpful={onHelpful}
+            onReport={onReport}
+            currentUserId={user?.id}
           />
         ))}
         {replies.length === 0 && !showReplyForm && (
@@ -206,12 +215,12 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, onH
               <Trash2 size={20} />
             </button>
           </div>
-          <ReplyForm 
+          <ReplyForm
             onSubmit={async (val) => {
               await onReplySubmit(val);
               setShowReplyForm(false);
-            }} 
-            isSubmitting={isSubmitting} 
+            }}
+            isSubmitting={isSubmitting}
             onCancel={() => setShowReplyForm(false)}
           />
         </div>

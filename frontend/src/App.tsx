@@ -47,13 +47,13 @@ function App() {
           <Route path="/terms" element={<TermsOfServicePage />} />
 
           {/* Protected Routes - Dashboard */}
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute requireRole="student">
                 <NewDashboard />
-              </ProtectedRoute>} 
-            />
+              </ProtectedRoute>}
+          />
           <Route
             path="/dashboard/search"
             element={
@@ -79,6 +79,14 @@ function App() {
             }
           />
           <Route
+            path="/dashboard/forum/:id"
+            element={
+              <ProtectedRoute>
+                <ForumPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard/marketplace"
             element={
               <ProtectedRoute>
@@ -87,7 +95,23 @@ function App() {
             }
           />
           <Route
+            path="/dashboard/marketplace/:id"
+            element={
+              <ProtectedRoute>
+                <MarketplacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard/career"
+            element={
+              <ProtectedRoute>
+                <CareerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/career/:id"
             element={
               <ProtectedRoute>
                 <CareerPage />
@@ -164,7 +188,7 @@ function App() {
             }
           >
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} /> 
+            <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="academic/pending-contributions" element={<div>Bekleyen Katkılar Gelecek</div>} />
             <Route path="academic/course-schedule" element={<div>Ders Programı Yönetimi Gelecek</div>} />
             <Route path="academic/calendar" element={<div>Akademik Takvim Yönetimi Gelecek</div>} />

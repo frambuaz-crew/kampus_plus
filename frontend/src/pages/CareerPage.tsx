@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -27,6 +27,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { apiClient } from '../api/config';
+import { getImageUrl } from '../utils/imageUrl';
 import { MainLayout } from '../components/layout/MainLayout';
 
 // ─── Types ────────────────────────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ interface CareerListing {
     full_name?: string;
     university?: string;
     department?: string;
+    profile_picture_url?: string;
   };
 }
 
@@ -81,20 +83,20 @@ const TYPE_CONFIG: Record<ListingType, {
   Icon: React.FC<{ className?: string }>;
   gradient: string; bgLight: string; textColor: string; borderActive: string; badgeBg: string;
 }> = {
-  job:        { label: 'İş İlanı',       labelFull: 'İş İlanı',       desc: 'Tam veya yarı zamanlı pozisyon',       Icon: Briefcase,     gradient: 'from-blue-500 to-blue-600',    bgLight: 'bg-blue-50',    textColor: 'text-blue-700',    borderActive: 'border-blue-500',    badgeBg: 'bg-blue-100' },
-  internship: { label: 'Staj',          labelFull: 'Staj İlanı',      desc: 'Öğrencilere özel staj fırsatı',           Icon: GraduationCap, gradient: 'from-emerald-500 to-teal-600', bgLight: 'bg-emerald-50', textColor: 'text-emerald-700', borderActive: 'border-emerald-500', badgeBg: 'bg-emerald-100' },
-  startup:    { label: 'Startup',       labelFull: 'Startup Ekibi',   desc: 'Girişim için kurucu ortak ara',          Icon: Rocket,        gradient: 'from-violet-500 to-purple-600', bgLight: 'bg-violet-50',  textColor: 'text-violet-700',  borderActive: 'border-violet-500',  badgeBg: 'bg-violet-100' },
-  project:    { label: 'Proje',         labelFull: 'Proje Arkadaşı', desc: 'Proje geliştirmek için ekip',           Icon: Users,         gradient: 'from-amber-500 to-amber-600',  bgLight: 'bg-amber-50',   textColor: 'text-amber-700',   borderActive: 'border-amber-500',   badgeBg: 'bg-amber-100' },
+  job: { label: 'İş İlanı', labelFull: 'İş İlanı', desc: 'Tam veya yarı zamanlı pozisyon', Icon: Briefcase, gradient: 'from-blue-500 to-blue-600', bgLight: 'bg-blue-50', textColor: 'text-blue-700', borderActive: 'border-blue-500', badgeBg: 'bg-blue-100' },
+  internship: { label: 'Staj', labelFull: 'Staj İlanı', desc: 'Öğrencilere özel staj fırsatı', Icon: GraduationCap, gradient: 'from-emerald-500 to-teal-600', bgLight: 'bg-emerald-50', textColor: 'text-emerald-700', borderActive: 'border-emerald-500', badgeBg: 'bg-emerald-100' },
+  startup: { label: 'Startup', labelFull: 'Startup Ekibi', desc: 'Girişim için kurucu ortak ara', Icon: Rocket, gradient: 'from-violet-500 to-purple-600', bgLight: 'bg-violet-50', textColor: 'text-violet-700', borderActive: 'border-violet-500', badgeBg: 'bg-violet-100' },
+  project: { label: 'Proje', labelFull: 'Proje Arkadaşı', desc: 'Proje geliştirmek için ekip', Icon: Users, gradient: 'from-amber-500 to-amber-600', bgLight: 'bg-amber-50', textColor: 'text-amber-700', borderActive: 'border-amber-500', badgeBg: 'bg-amber-100' },
 };
 
 const SECTORS = ['Yazılım', 'Mühendislik', 'Tasarım', 'Pazarlama', 'Veri Bilimi', 'Diğer'];
 const LOCATIONS = ['Remote', 'Ankara', 'İstanbul', 'İzmir', 'Konya', 'Diğer'];
 const PAYMENT_TYPES = [
-  { value: 'paid',         label: 'Üretli' },
-  { value: 'unpaid',       label: 'Ücretsiz' },
+  { value: 'paid', label: 'Üretli' },
+  { value: 'unpaid', label: 'Ücretsiz' },
   { value: 'project_based', label: 'Proje Bazlı' },
-  { value: 'equity',       label: 'Hisse Ortaklığı' },
-  { value: 'learning',     label: 'Öğrenme Amaçlı' },
+  { value: 'equity', label: 'Hisse Ortaklığı' },
+  { value: 'learning', label: 'Öğrenme Amaçlı' },
 ];
 const PAYMENT_LABELS: Record<string, string> = {
   paid: 'Üretli', unpaid: 'Ücretsiz', project_based: 'Proje Bazlı', equity: 'Hisse Ortaklığı', learning: 'Öğrenme Amaçlı',
@@ -199,9 +201,17 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
 
       <div className="flex items-center justify-between pt-4 border-t border-slate-100">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-            {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
-          </div>
+          {listing.creator?.profile_picture_url ? (
+            <img
+              src={getImageUrl(listing.creator.profile_picture_url)}
+              alt={listing.creator.username || 'Creator'}
+              className="w-8 h-8 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
+              {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+            </div>
+          )}
           <div className="text-xs">
             <p className="font-medium text-slate-900">@{listing.creator?.username || '—'}</p>
             {listing.creator?.university && <p className="text-slate-500 truncate max-w-[140px]">{listing.creator.university}</p>}
@@ -400,11 +410,10 @@ const ListingDetailView: React.FC<{
                     <button
                       onClick={handleApply}
                       disabled={applyMsg.trim().length < 5 || applyLoading}
-                      className={`w-full mt-3 py-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                        applyMsg.trim().length >= 5 && !applyLoading
-                          ? `bg-gradient-to-r ${cfg.gradient} text-white hover:shadow-lg hover:scale-[1.01]`
-                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      }`}
+                      className={`w-full mt-3 py-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${applyMsg.trim().length >= 5 && !applyLoading
+                        ? `bg-gradient-to-r ${cfg.gradient} text-white hover:shadow-lg hover:scale-[1.01]`
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
                     >
                       {applyLoading ? (
                         <>
@@ -584,9 +593,8 @@ const NewListingFormView: React.FC<{
               const isSelected = form.listing_type === type;
               return (
                 <button key={type} type="button" onClick={() => set('listing_type', type)}
-                  className={`relative text-left p-5 border-2 rounded-xl transition-all ${
-                    isSelected ? `${cfg.borderActive} ${cfg.bgLight} shadow-md` : 'border-slate-200 hover:border-slate-300 bg-white'
-                  }`}>
+                  className={`relative text-left p-5 border-2 rounded-xl transition-all ${isSelected ? `${cfg.borderActive} ${cfg.bgLight} shadow-md` : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}>
                   {isSelected && (
                     <div className={`absolute top-3 right-3 w-6 h-6 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center`}>
                       <Check className="w-4 h-4 text-white" strokeWidth={3} />
@@ -694,9 +702,8 @@ const NewListingFormView: React.FC<{
                   <FormField label="Proje Süresi">
                     <div className="flex gap-3">
                       {(['short_term', 'long_term'] as const).map((d) => (
-                        <label key={d} className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          form.duration === d ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 hover:border-slate-300 text-slate-600'
-                        }`}>
+                        <label key={d} className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${form.duration === d ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                          }`}>
                           <input type="radio" name="duration" value={d} checked={form.duration === d} onChange={() => set('duration', d)} className="sr-only" />
                           <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${form.duration === d ? 'border-amber-500' : 'border-slate-300'}`}>
                             {form.duration === d && <div className="w-2 h-2 rounded-full bg-amber-500" />}
@@ -716,9 +723,8 @@ const NewListingFormView: React.FC<{
                         : ['paid', 'unpaid', 'learning'].includes(p.value)
                     ).map((p) => (
                       <button key={p.value} type="button" onClick={() => set('payment_type', p.value)}
-                        className={`px-4 py-2 text-xs font-semibold rounded-xl border-2 transition-all ${
-                          form.payment_type === p.value ? 'border-violet-400 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}>
+                        className={`px-4 py-2 text-xs font-semibold rounded-xl border-2 transition-all ${form.payment_type === p.value ? 'border-violet-400 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                          }`}>
                         {p.label}
                       </button>
                     ))}
@@ -743,13 +749,12 @@ const NewListingFormView: React.FC<{
                 İptal
               </button>
               <button type="submit" disabled={!isFormValid() || submitting}
-                className={`px-8 py-2.5 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm ${
-                  isFormValid() && !submitting
-                    ? `bg-gradient-to-r ${selectedCfg?.gradient || 'from-indigo-600 to-purple-600'} text-white hover:shadow-lg hover:scale-[1.02]`
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                }`}>
+                className={`px-8 py-2.5 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm ${isFormValid() && !submitting
+                  ? `bg-gradient-to-r ${selectedCfg?.gradient || 'from-indigo-600 to-purple-600'} text-white hover:shadow-lg hover:scale-[1.02]`
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}>
                 {submitting ? (
-                  <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Yayınlanıyor...</>
+                  <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>Yayınlanıyor...</>
                 ) : (
                   <><Sparkles className="w-4 h-4" />İlanı Yayınla</>
                 )}
@@ -765,6 +770,10 @@ const NewListingFormView: React.FC<{
 // ─── Main Page ──────────────────────────────────────────────────────────────────────
 
 export const CareerPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
   const [listings, setListings] = useState<CareerListing[]>([]);
   const [selectedListing, setSelectedListing] = useState<CareerListing | null>(null);
@@ -797,6 +806,16 @@ export const CareerPage: React.FC = () => {
 
   useEffect(() => { if (view === 'list') loadListings(); }, [view, loadListings]);
 
+  useEffect(() => {
+    if (id && view === 'list' && listings.length > 0) {
+      const found = listings.find(l => l.id === id);
+      if (found) {
+        setSelectedListing(found);
+        setView('detail');
+      }
+    }
+  }, [id, listings, view]);
+
   const handleListingClick = (listing: CareerListing) => { setSelectedListing(listing); setView('detail'); };
   const handleDelete = async (id: string) => {
     try { await apiClient.delete(`/career/listings/${id}`); setView('list'); await loadListings(); }
@@ -805,11 +824,11 @@ export const CareerPage: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); setSearch(searchInput); setPage(1); };
 
   const categories: { type: ListingType | 'all'; label: string; Icon: React.FC<{ className?: string }>; count: number }[] = [
-    { type: 'all',        label: 'Tüm İlanlar',      Icon: TrendingUp,    count: listings.length },
-    { type: 'job',        label: 'İş İlanları',       Icon: Briefcase,     count: listings.filter((l) => l.listing_type === 'job').length },
-    { type: 'internship', label: 'Staj Fırsatları',  Icon: GraduationCap, count: listings.filter((l) => l.listing_type === 'internship').length },
-    { type: 'startup',    label: 'Startup Ekipleri', Icon: Rocket,        count: listings.filter((l) => l.listing_type === 'startup').length },
-    { type: 'project',    label: 'Proje Arkadaşları', Icon: Users,         count: listings.filter((l) => l.listing_type === 'project').length },
+    { type: 'all', label: 'Tüm İlanlar', Icon: TrendingUp, count: listings.length },
+    { type: 'job', label: 'İş İlanları', Icon: Briefcase, count: listings.filter((l) => l.listing_type === 'job').length },
+    { type: 'internship', label: 'Staj Fırsatları', Icon: GraduationCap, count: listings.filter((l) => l.listing_type === 'internship').length },
+    { type: 'startup', label: 'Startup Ekipleri', Icon: Rocket, count: listings.filter((l) => l.listing_type === 'startup').length },
+    { type: 'project', label: 'Proje Arkadaşları', Icon: Users, count: listings.filter((l) => l.listing_type === 'project').length },
   ];
 
   return (
@@ -838,7 +857,19 @@ export const CareerPage: React.FC = () => {
 
           {/* Detail */}
           {view === 'detail' && selectedListing && (
-            <ListingDetailView listing={selectedListing} onBack={() => setView('list')} currentUserId={currentUserId} onDelete={handleDelete} />
+            <ListingDetailView
+              listing={selectedListing}
+              onBack={() => {
+                if ((location.state as any)?.from) {
+                  navigate((location.state as any).from, { state: { tab: (location.state as any).tab } });
+                } else {
+                  setView('list');
+                  if (id) navigate('/dashboard/career');
+                }
+              }}
+              currentUserId={currentUserId}
+              onDelete={handleDelete}
+            />
           )}
 
           {/* List */}
@@ -902,11 +933,10 @@ export const CareerPage: React.FC = () => {
                     const isActive = activeCategory === type;
                     return (
                       <button key={type} onClick={() => { setActiveCategory(type); setPage(1); }}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${
-                          isActive
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                            : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                        }`}>
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${isActive
+                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                          : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                          }`}>
                         <Icon className="w-4 h-4" />
                         <span>{label}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isActive ? 'bg-white/20' : 'bg-slate-100'}`}>

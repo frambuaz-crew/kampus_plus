@@ -16,6 +16,7 @@ from .notifications import Notification
 from .ai import AIConversation, AIMessage, AISystemSettings, AIKnowledgeBase
 from .settings import ContactMessage
 from .university import University
+from .favorite import UserFavorite
 
 __all__ = [
     "Base",
@@ -53,4 +54,6 @@ __all__ = [
     "ContactMessage",
     # University
     "University",
+    # Favorites
+    "UserFavorite",
 ]

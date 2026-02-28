@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { apiClient } from '../api/config';
 import { MainLayout } from '../components/layout/MainLayout';
 import { ListingCard } from '../components/marketplace/ListingCard';
@@ -26,6 +27,10 @@ export interface Listing {
 }
 
 export const MarketplacePage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
   const [listings, setListings] = useState<Listing[]>([]); // any yerine Listing[] (SARI YENİ)
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null); // any yerine Listing | null (SARI YENİ)
@@ -53,12 +58,22 @@ export const MarketplacePage: React.FC = () => {
     loadListings();
   }, []);
 
+  useEffect(() => {
+    if (id && view === 'list' && listings.length > 0) {
+      const found = listings.find(l => l.id === id);
+      if (found) {
+        setSelectedListing(found);
+        setView('detail');
+      }
+    }
+  }, [id, listings, view]);
+
   const loadListings = async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await apiClient.get('/marketplace/');
-      const sortedData = (response.data || []).sort((a: Listing, b: Listing) => 
+      const sortedData = (response.data || []).sort((a: Listing, b: Listing) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setListings(sortedData);
@@ -99,7 +114,7 @@ export const MarketplacePage: React.FC = () => {
     setView('detail');
   };
 
-  const filteredListings = categoryFilter 
+  const filteredListings = categoryFilter
     ? listings.filter((l: Listing) => l.category === categoryFilter)
     : listings;
 
@@ -112,7 +127,7 @@ export const MarketplacePage: React.FC = () => {
               <span className="mr-3">🛒</span> Kampüs Pazar
             </h1>
             <div className="flex items-center gap-3">
-              <select 
+              <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm"
@@ -142,12 +157,27 @@ export const MarketplacePage: React.FC = () => {
             </div>
           ) : view === 'detail' && selectedListing ? (
             <div className="animate-in fade-in zoom-in-95">
-              <button onClick={() => setView('list')} className="mb-6 text-indigo-600 font-bold underline flex items-center">← Geri Dön</button>
-              <ListingDetailView 
-                listing={selectedListing} 
-                onBack={() => setView('list')}
+              <button
+                onClick={() => {
+                  if ((location.state as any)?.from) {
+                    navigate((location.state as any).from, { state: { tab: (location.state as any).tab } });
+                  } else {
+                    setView('list');
+                    if (id) navigate('/dashboard/marketplace');
+                  }
+                }}
+                className="mb-6 text-indigo-600 font-bold underline flex items-center"
+              >
+                ← Geri Dön
+              </button>
+              <ListingDetailView
+                listing={selectedListing}
+                onBack={() => {
+                  setView('list');
+                  if (id) navigate('/dashboard/marketplace');
+                }}
                 onDelete={handleDeleteListing}
-                currentUserId={currentUserId} 
+                currentUserId={currentUserId}
                 onContact={(creator) => console.log("İletişim kurulacak kişi:", creator)} // SARI YENİ
               />
             </div>
