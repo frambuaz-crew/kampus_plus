@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { ReplyForm } from './ReplyForm';
 import type { ForumReply, ForumTopic, ThreadWithReplies } from '../../types/forum';
+import { getImageUrl } from '../../utils/imageUrl';
 
 interface ThreadViewProps {
   data: ThreadWithReplies;
@@ -16,13 +17,28 @@ const PostCard: React.FC<{ post: ForumTopic | ForumReply; isThread?: boolean }> 
     ? `${post.author.first_name} ${post.author.last_name}`
     : 'Bilinmeyen Kullanıcı';
 
+  const authorSubtitle = post.author
+    ? [post.author.university, typeof post.author.department === 'string' ? post.author.department : post.author.department?.name]
+        .filter(Boolean)
+        .join(' | ')
+    : null;
+
   return (
     <div className={`mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ${isThread ? 'border-l-4 border-l-indigo-600' : ''}`}>
       <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/80 p-5">
         <div className="flex items-center space-x-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-sm">
-            <UserIcon size={22} />
-          </div>
+          {post.author?.profile_picture_url ? (
+            <img
+              src={getImageUrl(post.author.profile_picture_url)}
+              alt={authorFullName}
+              className="h-12 w-12 rounded-full border border-indigo-100 object-cover shadow-sm"
+            />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-sm">
+              <UserIcon size={22} />
+            </div>
+          )}
+
           <div>
             <div className="flex items-center gap-2 font-extrabold text-gray-900">
               {authorFullName}
@@ -34,9 +50,11 @@ const PostCard: React.FC<{ post: ForumTopic | ForumReply; isThread?: boolean }> 
             </div>
             <div className="mt-0.5 text-xs font-bold text-gray-500">
               {post.author?.username ? `@${post.author.username}` : '@unknown'}
+              {authorSubtitle ? ` • ${authorSubtitle}` : ''}
             </div>
           </div>
         </div>
+
         <div className="flex items-center rounded-full border border-gray-100 bg-white px-3 py-1 text-[11px] font-bold text-gray-400 shadow-sm">
           <Calendar size={12} className="mr-1.5" />
           {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: tr })}
@@ -84,6 +102,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
         {replies.map((reply) => (
           <PostCard key={reply.id} post={reply} />
         ))}
+
         {replies.length === 0 && !showReplyForm && (
           <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-100 bg-white py-16 text-center shadow-sm">
             <div className="mb-4 rounded-full bg-indigo-50 p-4">
@@ -99,10 +118,13 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
         <div className="animate-in slide-in-from-bottom-4 rounded-3xl border border-indigo-100 bg-white p-8 shadow-2xl duration-500">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-8 w-2 rounded-full bg-indigo-600"></div>
+              <div className="h-8 w-2 rounded-full bg-indigo-600" />
               <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Cevap Yaz</h4>
             </div>
-            <button onClick={() => setShowReplyForm(false)} className="rounded-full bg-gray-50 p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-900">
+            <button
+              onClick={() => setShowReplyForm(false)}
+              className="rounded-full bg-gray-50 p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-900"
+            >
               <Trash2 size={20} />
             </button>
           </div>

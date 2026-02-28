@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import type { MarketplaceListing } from "../../types/marketplace";
+import { Link } from "react-router-dom";
+import { apiClient } from "../../api/config";
+import { getImageUrl } from "../../utils/imageUrl";
+import axios from "axios";
 
 interface ListingCardProps {
   listing: MarketplaceListing;
@@ -10,6 +14,64 @@ interface ListingCardProps {
 export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const baseUrl = "http://localhost:8000";
+
+  interface FavoriteRecord {
+    target_id: string;
+  }
+
+  // Check initial favorite status
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      try {
+        const response = await apiClient.get("/users/favorites/all");
+        if (response.data && response.data.favorites) {
+          const isFav = response.data.favorites.some(
+            (fav: FavoriteRecord) => fav.target_id === listing.id
+          );
+          setIsFavorite(isFav);
+          console.log(`[ListingCard] Initial favorite status for ${listing.id}:`, isFav);
+        }
+      } catch (error) {
+        console.error("[ListingCard] Error checking initial favorites", error);
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [listing.id]);
+
+  const toggleFavorite = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    console.log("[ListingCard] Kalp butonuna tıklandı! Event:", e);
+    e.stopPropagation();
+    e.preventDefault();
+
+    const userId = localStorage.getItem("user");
+    if (!userId) {
+      alert("Favorilere eklemek için giriş yapmalısınız.");
+      return;
+    }
+
+    try {
+      const payload = {
+        target_type: "marketplace_listing",
+        target_id: listing.id
+      };
+
+      console.log("[ListingCard] İstek atılıyor payload:", payload);
+      const response = await apiClient.post("/users/favorites/toggle", payload);
+      console.log("[ListingCard] Backend API Yanıtı:", response.data);
+
+      if (response.data && response.data.success) {
+        setIsFavorite(response.data.action === "added");
+        console.log(`[ListingCard] State güncellendi. Yeni favori durumu: ${response.data.action === "added"}`);
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        alert("Favorilere eklemek için giriş yapmalısınız.");
+      } else {
+        console.error("[ListingCard] Favori işlemi detaylı hata:", error);
+      }
+    }
+  };
 
   const getFirstImage = () => {
     if (!listing || !listing.image_urls) return null;
@@ -40,10 +102,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all group relative">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsFavorite(!isFavorite);
-        }}
+        onClick={toggleFavorite}
         className="absolute top-3 right-3 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm hover:scale-110 transition-transform"
       >
         <span
@@ -78,27 +137,37 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
       </div>
 
       <div className="p-4">
-        <div
-          className="flex items-center gap-2 mb-3 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() =>
-            console.log("Profil sayfasına git:", listing.seller_id)
-          }
+        {/* PROFİL LİNKİ GÜNCELLEMESİ (SARI YENİ) */}
+        <Link
+          to={listing.creator?.username ? `/dashboard/profile/${listing.creator.username}` : '/dashboard/profile'}
+          className="flex items-center gap-2 mb-3 cursor-pointer hover:opacity-80 transition-opacity w-fit"
+          onClick={(e) => e.stopPropagation()} // Kart detayının açılmasını engeller
         >
-          <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-[11px] font-bold text-indigo-600 border border-indigo-200 uppercase">
-            {listing.seller_name
-              ? listing.seller_name[0].toUpperCase()
-              : "U"}
-          </div>
+          {listing.creator?.profile_picture_url ? (
+            <img
+              src={getImageUrl(listing.creator.profile_picture_url)}
+              alt={listing.creator.first_name || 'Seller'}
+              className="w-7 h-7 rounded-full object-cover border border-indigo-200"
+            />
+          ) : (
+            <div className="w-7 h-7 flex-shrink-0 bg-indigo-100 rounded-full flex items-center justify-center text-[11px] font-bold text-indigo-600 border border-indigo-200 uppercase overflow-hidden">
+              {listing.creator?.first_name
+                ? listing.creator.first_name[0].toUpperCase()
+                : "U"}
+            </div>
+          )}
 
           <div className="flex flex-col">
             <span className="text-xs font-bold text-gray-800 leading-none mb-0.5">
-              {listing.seller_name || "Üniversite Öğrencisi"}
+              {listing.creator
+                ? `${listing.creator.first_name} ${listing.creator.last_name}`
+                : "Üniversite Öğrencisi"}
             </span>
             <span className="text-[10px] text-gray-400 leading-none uppercase">
-              {listing.university || "Kampüs İçi"}
+              {listing.creator?.university || "Kampüs İçi"}
             </span>
           </div>
-        </div>
+        </Link>
 
         <div className="flex justify-between items-start mb-1">
           <h3
@@ -123,9 +192,9 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
               📅{" "}
               {listing.created_at
                 ? formatDistanceToNow(new Date(listing.created_at), {
-                    addSuffix: true,
-                    locale: tr,
-                  })
+                  addSuffix: true,
+                  locale: tr,
+                })
                 : "Yeni eklendi"}
             </span>
 

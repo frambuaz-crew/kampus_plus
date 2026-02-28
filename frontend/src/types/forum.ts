@@ -21,6 +21,9 @@ export interface ForumAuthor {
   username: string;
   first_name: string;
   last_name: string;
+  profile_picture_url?: string | null;
+  university?: string | null;
+  department?: string | { name?: string } | null;
 }
 
 export interface ForumTopic {

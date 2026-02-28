@@ -24,7 +24,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
           const response = await apiClient.get('/auth/me');
-          
+
           setToken(storedToken);
           setUser(response.data);
           localStorage.setItem('user', JSON.stringify(response.data));
@@ -51,7 +51,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-    
+
     return userData;
   };
 
@@ -65,7 +65,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-    
+
     return userData;
   };
 
@@ -89,6 +89,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await apiClient.post('/auth/register', data);
   };
 
+  // 6. Kullanıcıyı Güncelle (Profil resmi vb. değiştiğinde auth state'i eşitlemek için)
+  const updateUser = (newData: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updatedUser = { ...prev, ...newData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      return updatedUser;
+    });
+  };
+
   // 🚀 TEK VE GÜNCEL VALUE NESNESİ
   const value: AuthContextType = {
     user,
@@ -99,6 +109,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     adminLogin, // Artık burada ve güvende!
     logout,
     register,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

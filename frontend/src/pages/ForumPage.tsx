@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { SearchBar } from '../components/forum/SearchBar';
 import { CategoryCard } from '../components/forum/CategoryCard';
@@ -18,6 +19,11 @@ import {
 
 type ForumView = 'categories' | 'category-threads' | 'thread-detail' | 'new-thread' | 'search';
 
+interface BackState {
+  from?: string;
+  tab?: string;
+}
+
 const SEARCH_CATEGORY: Category = {
   id: 'search-results',
   name: 'Arama Sonuçları',
@@ -28,6 +34,10 @@ const SEARCH_CATEGORY: Category = {
 
 export const ForumPage: React.FC = () => {
   const { user } = useAuth();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [view, setView] = useState<ForumView>('categories');
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -41,6 +51,26 @@ export const ForumPage: React.FC = () => {
   useEffect(() => {
     void fetchCategories();
   }, []);
+
+  useEffect(() => {
+    if (id && !currentThread) {
+      const loadFromRoute = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const res = await getForumTopicDetail(id);
+          setCurrentThread({ thread: res.topic, replies: res.replies });
+          setView('thread-detail');
+        } catch {
+          setError('Konu detayı yüklenemedi.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      void loadFromRoute();
+    }
+  }, [id, currentThread]);
 
   const fetchCategories = async () => {
     try {
@@ -68,6 +98,9 @@ export const ForumPage: React.FC = () => {
       });
       setThreads(res.topics || []);
       setView('category-threads');
+      if (id) {
+        navigate('/dashboard/forum', { replace: true });
+      }
     } catch {
       setError('Konular yüklenemedi.');
     } finally {
@@ -82,6 +115,9 @@ export const ForumPage: React.FC = () => {
       const res = await getForumTopicDetail(threadId);
       setCurrentThread({ thread: res.topic, replies: res.replies });
       setView('thread-detail');
+      if (id !== threadId) {
+        navigate(`/dashboard/forum/${threadId}`, { replace: false, state: location.state });
+      }
     } catch {
       setError('Konu detayı yüklenemedi.');
     } finally {
@@ -168,10 +204,34 @@ export const ForumPage: React.FC = () => {
     return selectedCategory;
   }, [view, selectedCategory, threads.length]);
 
+  const goBackFromThread = () => {
+    const state = (location.state as BackState | null) || null;
+    if (state?.from) {
+      navigate(state.from, { state: state.tab ? { tab: state.tab } : undefined });
+      return;
+    }
+
+    setCurrentThread(null);
+    if (selectedCategory) {
+      setView('category-threads');
+    } else {
+      setView('categories');
+    }
+
+    if (id) {
+      navigate('/dashboard/forum', { replace: true });
+    }
+  };
+
   const Breadcrumbs = () => (
     <nav className="mb-8 flex items-center space-x-2 rounded-2xl border border-gray-100 bg-white/50 p-4 text-sm shadow-sm backdrop-blur-md animate-in fade-in duration-500">
       <button
-        onClick={() => setView('categories')}
+        onClick={() => {
+          setView('categories');
+          if (id) {
+            navigate('/dashboard/forum', { replace: true });
+          }
+        }}
         className="flex items-center font-medium text-gray-400 transition-colors hover:text-indigo-600"
       >
         <Home size={16} className="mr-2" /> Forum
@@ -276,7 +336,15 @@ export const ForumPage: React.FC = () => {
               )}
 
               {view === 'thread-detail' && currentThread && (
-                <ThreadView data={currentThread} onReplySubmit={handleReplySubmit} isSubmitting={isSubmitting} />
+                <div className="animate-in fade-in slide-in-from-bottom-4">
+                  <button
+                    onClick={goBackFromThread}
+                    className="mb-6 flex items-center font-bold text-indigo-600 underline"
+                  >
+                    ← Geri Dön
+                  </button>
+                  <ThreadView data={currentThread} onReplySubmit={handleReplySubmit} isSubmitting={isSubmitting} />
+                </div>
               )}
 
               {view === 'new-thread' && (

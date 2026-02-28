@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import {
   Search,
   Plus,
@@ -25,14 +25,35 @@ import {
   Info,
   Flag,
   ExternalLink,
+  Bookmark,
 } from 'lucide-react';
 import { apiClient } from '../api/config';
+import { getImageUrl } from '../utils/imageUrl';
 import { MainLayout } from '../components/layout/MainLayout';
 
 // ─── Types ────────────────────────────────────────────────────────────────────────────
 
 type ListingType = 'job' | 'internship' | 'startup' | 'project';
 type SortOrder = 'newest' | 'oldest';
+
+interface FavoriteRecord {
+  target_id: string;
+}
+
+interface BackState {
+  from?: string;
+  tab?: string;
+}
+
+const isUnauthorizedError = (error: unknown): boolean => {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    typeof (error as { response?: { status?: number } }).response?.status === 'number' &&
+    (error as { response?: { status?: number } }).response?.status === 401
+  );
+};
 
 interface CareerListing {
   id: string;
@@ -57,6 +78,7 @@ interface CareerListing {
     full_name?: string;
     university?: string;
     department?: string;
+    profile_picture_url?: string;
   };
 }
 
@@ -81,20 +103,20 @@ const TYPE_CONFIG: Record<ListingType, {
   Icon: React.FC<{ className?: string }>;
   gradient: string; bgLight: string; textColor: string; borderActive: string; badgeBg: string;
 }> = {
-  job:        { label: 'İş İlanı',       labelFull: 'İş İlanı',       desc: 'Tam veya yarı zamanlı pozisyon',       Icon: Briefcase,     gradient: 'from-blue-500 to-blue-600',    bgLight: 'bg-blue-50',    textColor: 'text-blue-700',    borderActive: 'border-blue-500',    badgeBg: 'bg-blue-100' },
-  internship: { label: 'Staj',          labelFull: 'Staj İlanı',      desc: 'Öğrencilere özel staj fırsatı',           Icon: GraduationCap, gradient: 'from-emerald-500 to-teal-600', bgLight: 'bg-emerald-50', textColor: 'text-emerald-700', borderActive: 'border-emerald-500', badgeBg: 'bg-emerald-100' },
-  startup:    { label: 'Startup',       labelFull: 'Startup Ekibi',   desc: 'Girişim için kurucu ortak ara',          Icon: Rocket,        gradient: 'from-violet-500 to-purple-600', bgLight: 'bg-violet-50',  textColor: 'text-violet-700',  borderActive: 'border-violet-500',  badgeBg: 'bg-violet-100' },
-  project:    { label: 'Proje',         labelFull: 'Proje Arkadaşı', desc: 'Proje geliştirmek için ekip',           Icon: Users,         gradient: 'from-amber-500 to-amber-600',  bgLight: 'bg-amber-50',   textColor: 'text-amber-700',   borderActive: 'border-amber-500',   badgeBg: 'bg-amber-100' },
+  job: { label: 'İş İlanı', labelFull: 'İş İlanı', desc: 'Tam veya yarı zamanlı pozisyon', Icon: Briefcase, gradient: 'from-blue-500 to-blue-600', bgLight: 'bg-blue-50', textColor: 'text-blue-700', borderActive: 'border-blue-500', badgeBg: 'bg-blue-100' },
+  internship: { label: 'Staj', labelFull: 'Staj İlanı', desc: 'Öğrencilere özel staj fırsatı', Icon: GraduationCap, gradient: 'from-emerald-500 to-teal-600', bgLight: 'bg-emerald-50', textColor: 'text-emerald-700', borderActive: 'border-emerald-500', badgeBg: 'bg-emerald-100' },
+  startup: { label: 'Startup', labelFull: 'Startup Ekibi', desc: 'Girişim için kurucu ortak ara', Icon: Rocket, gradient: 'from-violet-500 to-purple-600', bgLight: 'bg-violet-50', textColor: 'text-violet-700', borderActive: 'border-violet-500', badgeBg: 'bg-violet-100' },
+  project: { label: 'Proje', labelFull: 'Proje Arkadaşı', desc: 'Proje geliştirmek için ekip', Icon: Users, gradient: 'from-amber-500 to-amber-600', bgLight: 'bg-amber-50', textColor: 'text-amber-700', borderActive: 'border-amber-500', badgeBg: 'bg-amber-100' },
 };
 
 const SECTORS = ['Yazılım', 'Mühendislik', 'Tasarım', 'Pazarlama', 'Veri Bilimi', 'Diğer'];
 const LOCATIONS = ['Remote', 'Ankara', 'İstanbul', 'İzmir', 'Konya', 'Diğer'];
 const PAYMENT_TYPES = [
-  { value: 'paid',         label: 'Üretli' },
-  { value: 'unpaid',       label: 'Ücretsiz' },
+  { value: 'paid', label: 'Üretli' },
+  { value: 'unpaid', label: 'Ücretsiz' },
   { value: 'project_based', label: 'Proje Bazlı' },
-  { value: 'equity',       label: 'Hisse Ortaklığı' },
-  { value: 'learning',     label: 'Öğrenme Amaçlı' },
+  { value: 'equity', label: 'Hisse Ortaklığı' },
+  { value: 'learning', label: 'Öğrenme Amaçlı' },
 ];
 const PAYMENT_LABELS: Record<string, string> = {
   paid: 'Üretli', unpaid: 'Ücretsiz', project_based: 'Proje Bazlı', equity: 'Hisse Ortaklığı', learning: 'Öğrenme Amaçlı',
@@ -140,6 +162,44 @@ const FormField: React.FC<{ label: string; required?: boolean; hint?: string; co
 // ─── Listing Card ──────────────────────────────────────────────────────────────────
 
 const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = ({ listing, onClick }) => {
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      try {
+        const response = await apiClient.get("/users/favorites/all");
+        if (response.data && response.data.favorites) {
+          const isFav = response.data.favorites.some(
+            (fav: FavoriteRecord) => fav.target_id === listing.id
+          );
+          setIsFavorite(isFav);
+        }
+      } catch (error) {
+        console.error("Error checking favorites", error);
+      }
+    };
+    checkFavoriteStatus();
+  }, [listing.id]);
+
+  const toggleFavorite = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      const payload = {
+        target_type: "career_listing",
+        target_id: listing.id
+      };
+      const response = await apiClient.post("/users/favorites/toggle", payload);
+      if (response.data && response.data.success) {
+        setIsFavorite(response.data.action === "added");
+      }
+    } catch (error: unknown) {
+      if (isUnauthorizedError(error)) {
+        alert("Favorilere eklemek için giriş yapmalısınız.");
+      }
+    }
+  };
+
   const cfg = TYPE_CONFIG[listing.listing_type];
   const TypeIcon = cfg.Icon;
   const subtitle = (listing.listing_type === 'job' || listing.listing_type === 'internship')
@@ -149,9 +209,17 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg hover:border-slate-300 transition-all cursor-pointer group"
+      className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg hover:border-slate-300 transition-all cursor-pointer group relative"
     >
-      <div className="flex items-start justify-between mb-4">
+      <button
+        onClick={toggleFavorite}
+        className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors flex items-center justify-center"
+        title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+      >
+        <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-indigo-600 text-indigo-600' : ''}`} />
+      </button>
+
+      <div className="flex items-start justify-between mb-4 pr-10">
         <div className={`flex items-center gap-2 px-3 py-1.5 ${cfg.bgLight} border rounded-lg`} style={{ borderColor: 'transparent' }}>
           <TypeIcon className={`w-4 h-4 ${cfg.textColor}`} />
           <span className={`text-xs font-semibold ${cfg.textColor}`}>{cfg.labelFull}</span>
@@ -162,7 +230,7 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
         </span>
       </div>
 
-      <h3 className="text-base font-semibold text-slate-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
+      <h3 className="text-base font-semibold text-slate-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2 pr-2">
         {listing.title}
       </h3>
 
@@ -198,15 +266,31 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-            {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
-          </div>
+        <Link
+          to={`/dashboard/profile/${listing.creator?.username}`}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {listing.creator?.profile_picture_url ? (
+            <img
+              src={getImageUrl(listing.creator.profile_picture_url)}
+              alt={listing.creator.username || 'Creator'}
+              className="w-8 h-8 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
+              {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+            </div>
+          )}
           <div className="text-xs">
-            <p className="font-medium text-slate-900">@{listing.creator?.username || '—'}</p>
-            {listing.creator?.university && <p className="text-slate-500 truncate max-w-[140px]">{listing.creator.university}</p>}
+            <p className="font-semibold text-slate-900">
+              {listing.creator ? `${listing.creator.full_name || listing.creator.username}` : "İlan Sahibi"}
+            </p>
+            <p className="text-slate-500 font-medium tracking-wide">
+              {listing.creator?.university || "Kampüs İçi Öğrenci"}
+            </p>
           </div>
-        </div>
+        </Link>
         <div className="flex items-center gap-1 text-slate-400 text-xs">
           <Eye className="w-3.5 h-3.5" />
           {listing.view_count}
@@ -234,6 +318,41 @@ const ListingDetailView: React.FC<{
   const [applyMsg, setApplyMsg] = useState('');
   const [applyLoading, setApplyLoading] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      try {
+        const response = await apiClient.get("/users/favorites/all");
+        if (response.data && response.data.favorites) {
+          const isFav = response.data.favorites.some(
+            (fav: FavoriteRecord) => fav.target_id === listing.id
+          );
+          setIsFavorite(isFav);
+        }
+      } catch (error) {
+        console.error("Error checking favorites", error);
+      }
+    };
+    checkFavoriteStatus();
+  }, [listing.id]);
+
+  const toggleFavorite = async () => {
+    try {
+      const payload = {
+        target_type: "career_listing",
+        target_id: listing.id
+      };
+      const response = await apiClient.post("/users/favorites/toggle", payload);
+      if (response.data && response.data.success) {
+        setIsFavorite(response.data.action === "added");
+      }
+    } catch (error: unknown) {
+      if (isUnauthorizedError(error)) {
+        alert("Favorilere eklemek için giriş yapmalısınız.");
+      }
+    }
+  };
 
   const isJobOrInternship = listing.listing_type === 'job' || listing.listing_type === 'internship';
 
@@ -281,12 +400,21 @@ const ListingDetailView: React.FC<{
                 <p className="text-slate-600 mt-1 font-medium">Aranan: {listing.required_position}</p>
               )}
             </div>
-            {isOwner && (
-              <button onClick={() => { if (window.confirm('İlanı silmek istiyor musunuz?')) onDelete(listing.id); }}
-                className="text-sm text-red-500 hover:text-red-700 font-medium whitespace-nowrap mt-1">
-                Sil
+            <div className="flex items-center gap-4">
+              <button
+                onClick={toggleFavorite}
+                className={`p-2 rounded-full transition-colors flex items-center justify-center ${isFavorite ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'}`}
+                title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+              >
+                <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-indigo-600' : ''}`} />
               </button>
-            )}
+              {isOwner && (
+                <button onClick={() => { if (window.confirm('İlanı silmek istiyor musunuz?')) onDelete(listing.id); }}
+                  className="text-sm text-red-500 hover:text-red-700 font-medium whitespace-nowrap mt-1">
+                  Sil
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-4">
             <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full"><MapPin className="w-3.5 h-3.5" />{listing.location}</span>
@@ -301,16 +429,26 @@ const ListingDetailView: React.FC<{
         <div className="p-7 space-y-6">
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
             <p className="text-xs text-slate-500 uppercase font-bold mb-3 tracking-wide">İlan Veren</p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold">
-                {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
-              </div>
+            <Link to={`/dashboard/profile/${listing.creator?.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-fit">
+              {listing.creator?.profile_picture_url ? (
+                <img
+                  src={getImageUrl(listing.creator.profile_picture_url)}
+                  alt={listing.creator.username || 'Creator'}
+                  className="w-10 h-10 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold">
+                  {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                </div>
+              )}
               <div>
-                <p className="font-semibold text-slate-900">@{listing.creator?.username || '—'}</p>
+                <p className="font-semibold text-slate-900">
+                  {listing.creator ? `${listing.creator.full_name || listing.creator.username}` : "İlan Sahibi"}
+                </p>
                 {listing.creator?.university && <p className="text-sm text-slate-500">{listing.creator.university}</p>}
                 {listing.creator?.department && <p className="text-sm text-slate-500">{listing.creator.department}</p>}
               </div>
-            </div>
+            </Link>
           </div>
 
           <div>
@@ -400,11 +538,10 @@ const ListingDetailView: React.FC<{
                     <button
                       onClick={handleApply}
                       disabled={applyMsg.trim().length < 5 || applyLoading}
-                      className={`w-full mt-3 py-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                        applyMsg.trim().length >= 5 && !applyLoading
-                          ? `bg-gradient-to-r ${cfg.gradient} text-white hover:shadow-lg hover:scale-[1.01]`
-                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      }`}
+                      className={`w-full mt-3 py-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${applyMsg.trim().length >= 5 && !applyLoading
+                        ? `bg-gradient-to-r ${cfg.gradient} text-white hover:shadow-lg hover:scale-[1.01]`
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
                     >
                       {applyLoading ? (
                         <>
@@ -584,9 +721,8 @@ const NewListingFormView: React.FC<{
               const isSelected = form.listing_type === type;
               return (
                 <button key={type} type="button" onClick={() => set('listing_type', type)}
-                  className={`relative text-left p-5 border-2 rounded-xl transition-all ${
-                    isSelected ? `${cfg.borderActive} ${cfg.bgLight} shadow-md` : 'border-slate-200 hover:border-slate-300 bg-white'
-                  }`}>
+                  className={`relative text-left p-5 border-2 rounded-xl transition-all ${isSelected ? `${cfg.borderActive} ${cfg.bgLight} shadow-md` : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}>
                   {isSelected && (
                     <div className={`absolute top-3 right-3 w-6 h-6 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center`}>
                       <Check className="w-4 h-4 text-white" strokeWidth={3} />
@@ -694,9 +830,8 @@ const NewListingFormView: React.FC<{
                   <FormField label="Proje Süresi">
                     <div className="flex gap-3">
                       {(['short_term', 'long_term'] as const).map((d) => (
-                        <label key={d} className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${
-                          form.duration === d ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 hover:border-slate-300 text-slate-600'
-                        }`}>
+                        <label key={d} className={`flex-1 flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${form.duration === d ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                          }`}>
                           <input type="radio" name="duration" value={d} checked={form.duration === d} onChange={() => set('duration', d)} className="sr-only" />
                           <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${form.duration === d ? 'border-amber-500' : 'border-slate-300'}`}>
                             {form.duration === d && <div className="w-2 h-2 rounded-full bg-amber-500" />}
@@ -716,9 +851,8 @@ const NewListingFormView: React.FC<{
                         : ['paid', 'unpaid', 'learning'].includes(p.value)
                     ).map((p) => (
                       <button key={p.value} type="button" onClick={() => set('payment_type', p.value)}
-                        className={`px-4 py-2 text-xs font-semibold rounded-xl border-2 transition-all ${
-                          form.payment_type === p.value ? 'border-violet-400 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}>
+                        className={`px-4 py-2 text-xs font-semibold rounded-xl border-2 transition-all ${form.payment_type === p.value ? 'border-violet-400 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                          }`}>
                         {p.label}
                       </button>
                     ))}
@@ -743,13 +877,12 @@ const NewListingFormView: React.FC<{
                 İptal
               </button>
               <button type="submit" disabled={!isFormValid() || submitting}
-                className={`px-8 py-2.5 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm ${
-                  isFormValid() && !submitting
-                    ? `bg-gradient-to-r ${selectedCfg?.gradient || 'from-indigo-600 to-purple-600'} text-white hover:shadow-lg hover:scale-[1.02]`
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                }`}>
+                className={`px-8 py-2.5 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm ${isFormValid() && !submitting
+                  ? `bg-gradient-to-r ${selectedCfg?.gradient || 'from-indigo-600 to-purple-600'} text-white hover:shadow-lg hover:scale-[1.02]`
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}>
                 {submitting ? (
-                  <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Yayınlanıyor...</>
+                  <><svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>Yayınlanıyor...</>
                 ) : (
                   <><Sparkles className="w-4 h-4" />İlanı Yayınla</>
                 )}
@@ -765,6 +898,10 @@ const NewListingFormView: React.FC<{
 // ─── Main Page ──────────────────────────────────────────────────────────────────────
 
 export const CareerPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
   const [listings, setListings] = useState<CareerListing[]>([]);
   const [selectedListing, setSelectedListing] = useState<CareerListing | null>(null);
@@ -797,6 +934,16 @@ export const CareerPage: React.FC = () => {
 
   useEffect(() => { if (view === 'list') loadListings(); }, [view, loadListings]);
 
+  useEffect(() => {
+    if (id && view === 'list' && listings.length > 0) {
+      const found = listings.find(l => l.id === id);
+      if (found) {
+        setSelectedListing(found);
+        setView('detail');
+      }
+    }
+  }, [id, listings, view]);
+
   const handleListingClick = (listing: CareerListing) => { setSelectedListing(listing); setView('detail'); };
   const handleDelete = async (id: string) => {
     try { await apiClient.delete(`/career/listings/${id}`); setView('list'); await loadListings(); }
@@ -805,11 +952,11 @@ export const CareerPage: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); setSearch(searchInput); setPage(1); };
 
   const categories: { type: ListingType | 'all'; label: string; Icon: React.FC<{ className?: string }>; count: number }[] = [
-    { type: 'all',        label: 'Tüm İlanlar',      Icon: TrendingUp,    count: listings.length },
-    { type: 'job',        label: 'İş İlanları',       Icon: Briefcase,     count: listings.filter((l) => l.listing_type === 'job').length },
-    { type: 'internship', label: 'Staj Fırsatları',  Icon: GraduationCap, count: listings.filter((l) => l.listing_type === 'internship').length },
-    { type: 'startup',    label: 'Startup Ekipleri', Icon: Rocket,        count: listings.filter((l) => l.listing_type === 'startup').length },
-    { type: 'project',    label: 'Proje Arkadaşları', Icon: Users,         count: listings.filter((l) => l.listing_type === 'project').length },
+    { type: 'all', label: 'Tüm İlanlar', Icon: TrendingUp, count: listings.length },
+    { type: 'job', label: 'İş İlanları', Icon: Briefcase, count: listings.filter((l) => l.listing_type === 'job').length },
+    { type: 'internship', label: 'Staj Fırsatları', Icon: GraduationCap, count: listings.filter((l) => l.listing_type === 'internship').length },
+    { type: 'startup', label: 'Startup Ekipleri', Icon: Rocket, count: listings.filter((l) => l.listing_type === 'startup').length },
+    { type: 'project', label: 'Proje Arkadaşları', Icon: Users, count: listings.filter((l) => l.listing_type === 'project').length },
   ];
 
   return (
@@ -838,7 +985,20 @@ export const CareerPage: React.FC = () => {
 
           {/* Detail */}
           {view === 'detail' && selectedListing && (
-            <ListingDetailView listing={selectedListing} onBack={() => setView('list')} currentUserId={currentUserId} onDelete={handleDelete} />
+            <ListingDetailView
+              listing={selectedListing}
+              onBack={() => {
+                const state = (location.state as BackState | null) || null;
+                if (state?.from) {
+                  navigate(state.from, { state: state.tab ? { tab: state.tab } : undefined });
+                } else {
+                  setView('list');
+                  if (id) navigate('/dashboard/career');
+                }
+              }}
+              currentUserId={currentUserId}
+              onDelete={handleDelete}
+            />
           )}
 
           {/* List */}
@@ -902,11 +1062,10 @@ export const CareerPage: React.FC = () => {
                     const isActive = activeCategory === type;
                     return (
                       <button key={type} onClick={() => { setActiveCategory(type); setPage(1); }}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${
-                          isActive
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                            : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                        }`}>
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium whitespace-nowrap transition-all text-sm ${isActive
+                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                          : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                          }`}>
                         <Icon className="w-4 h-4" />
                         <span>{label}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isActive ? 'bg-white/20' : 'bg-slate-100'}`}>

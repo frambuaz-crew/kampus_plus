@@ -17,6 +17,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { apiClient } from '../../api/config';
+import { getImageUrl } from '../../utils/imageUrl';
 
 interface Notification {
   id: string;
@@ -49,7 +50,7 @@ interface Conversation {
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   // State for dropdowns
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
@@ -73,7 +74,7 @@ export const Header: React.FC = () => {
   useEffect(() => {
     loadNotifications();
     loadConversations();
-    
+
     // Polling: 30 saniyede bir güncelle
     const interval = setInterval(() => {
       loadNotifications();
@@ -147,16 +148,16 @@ export const Header: React.FC = () => {
     if (user?.profile_picture_url) {
       return (
         <img
-          src={user.profile_picture_url}
+          src={getImageUrl(user.profile_picture_url)}
           alt={`${user.first_name} ${user.last_name}`}
           className="w-10 h-10 rounded-full object-cover"
         />
       );
     }
-    
+
     const initials = `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`.toUpperCase();
     const bgColor = user?.id ? getUserColor(user.id) : '#4ECDC4';
-    
+
     return (
       <div
         className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
@@ -213,9 +214,9 @@ export const Header: React.FC = () => {
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="w-full px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 max-w-[1920px] mx-auto">
-          
+
           {/* Logo - Left */}
-          <div 
+          <div
             className="flex items-center space-x-3 cursor-pointer group"
             onClick={() => navigate('/dashboard')}
           >
@@ -301,9 +302,8 @@ export const Header: React.FC = () => {
                             }
                             setNotificationsOpen(false);
                           }}
-                          className={`w-full px-4 py-3 hover:bg-gray-50 text-left border-b border-gray-50 ${
-                            !notif.read ? 'bg-blue-50' : ''
-                          }`}
+                          className={`w-full px-4 py-3 hover:bg-gray-50 text-left border-b border-gray-50 ${!notif.read ? 'bg-blue-50' : ''
+                            }`}
                         >
                           <div className="flex items-start space-x-3">
                             <span className="text-xl">{getNotificationIcon(notif.type)}</span>
@@ -396,14 +396,13 @@ export const Header: React.FC = () => {
                               navigate(`/dashboard/messages/${conv.id}`);
                               setMessagesOpen(false);
                             }}
-                            className={`w-full px-4 py-3 hover:bg-gray-50 text-left border-b border-gray-50 ${
-                              hasUnread ? 'bg-blue-50' : ''
-                            }`}
+                            className={`w-full px-4 py-3 hover:bg-gray-50 text-left border-b border-gray-50 ${hasUnread ? 'bg-blue-50' : ''
+                              }`}
                           >
                             <div className="flex items-start space-x-3">
                               {otherUser.profile_picture_url ? (
                                 <img
-                                  src={otherUser.profile_picture_url}
+                                  src={getImageUrl(otherUser.profile_picture_url)}
                                   alt={`${otherUser.first_name} ${otherUser.last_name}`}
                                   className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                                 />
@@ -467,10 +466,10 @@ export const Header: React.FC = () => {
                 <span className="text-sm font-medium hidden lg:block">
                   {user?.first_name} {user?.last_name}
                 </span>
-                <svg 
-                  className="w-4 h-4 text-gray-500 hidden lg:block" 
-                  fill="none" 
-                  stroke="currentColor" 
+                <svg
+                  className="w-4 h-4 text-gray-500 hidden lg:block"
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -495,7 +494,7 @@ export const Header: React.FC = () => {
 
                   {/* Menu Items */}
                   <div className="py-2">
-                    <button 
+                    <button
                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3"
                       onClick={() => {
                         navigate('/dashboard/profile');
@@ -505,7 +504,7 @@ export const Header: React.FC = () => {
                       <span>👤</span>
                       <span>Profilim</span>
                     </button>
-                    <button 
+                    <button
                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3"
                       onClick={() => {
                         navigate('/dashboard/settings');
@@ -522,7 +521,7 @@ export const Header: React.FC = () => {
 
                   {/* Logout */}
                   <div className="py-2">
-                    <button 
+                    <button
                       onClick={handleLogout}
                       className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-3 font-medium"
                     >
