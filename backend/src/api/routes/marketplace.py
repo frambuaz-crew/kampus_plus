@@ -16,6 +16,17 @@ from src.models.user import User
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
+# --- ARKADAŞININ KARİYER SAYFASIYLA AYNI STANDART (SARI YENİ) ---
+class CreatorInfo(BaseModel):
+    id: str
+    username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    university: Optional[str] = None
+    profile_picture_url: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
 class ListingResponse(BaseModel):
     id: str
     title: str
@@ -28,9 +39,8 @@ class ListingResponse(BaseModel):
     image_urls: Optional[str] = None
     created_at: datetime
     seller_id: str
-    # Frontend için eklediğimiz alanlar
-    seller_name: Optional[str] = None
-    university: Optional[str] = None
+    # Artık seller_name ve seller_username yerine bu objeyi kullanıyoruz (SARI YENİ)
+    creator: Optional[CreatorInfo] = None 
 
     model_config = {"from_attributes": True}
 
@@ -40,9 +50,9 @@ async def get_listings(
     category: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_db)
 ):
-    # User modelindeki gerçek kolonları (first_name, last_name) kullanıyoruz
+    # User modelinden username kolonunu da çekiyoruz (SARI YENİ)
     stmt = (
-        select(MarketplaceListing, User.first_name, User.last_name, User.university)
+        select(MarketplaceListing, User.first_name, User.last_name, User.university, User.username, User.profile_picture_url)
         .outerjoin(User, MarketplaceListing.seller_id == User.id)
         .where(MarketplaceListing.status == "active")
     )
@@ -58,19 +68,21 @@ async def get_listings(
     final_listings = []
     for row in result:
         listing = row[0]
-        # Ad ve soyadı birleştirerek seller_name oluşturuyoruz
-        first_name = row[1]
-        last_name = row[2]
         
-        if first_name and last_name:
-            listing.seller_name = f"{first_name} {last_name}"
-        else:
-            listing.seller_name = "Üniversite Öğrencisi"
-            
-        listing.university = row[3] if row[3] else "Kampüs İçi"
+        # Bilgileri "creator" objesi içine paketliyoruz (SARI YENİ)
+        listing.creator = {
+            "id": listing.seller_id,
+            "username": row[4],  # User.username
+            "first_name": row[1], # User.first_name
+            "last_name": row[2],  # User.last_name
+            "university": row[3] if row[3] else "Kampüs İçi",
+            "profile_picture_url": row[5] # User.profile_picture_url
+        }
+        
         final_listings.append(listing)
 
     return final_listings
+
 @router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_listing(
     listing_id: str,
@@ -78,7 +90,6 @@ async def delete_listing(
     session: AsyncSession = Depends(get_db)
 ):
     """İlanı veren kişinin kendi ilanını silmesini sağlar."""
-    # İlanı bul
     stmt = select(MarketplaceListing).where(MarketplaceListing.id == listing_id)
     result = await session.execute(stmt)
     listing = result.scalar_one_or_none()
@@ -86,14 +97,12 @@ async def delete_listing(
     if not listing:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
 
-    # Yetki kontrolü: İlanın sahibi mevcut kullanıcı mı?
     if listing.seller_id != current_user.id:
         raise HTTPException(
             status_code=403, 
             detail="Bu ilanı silme yetkiniz bulunmamaktadır."
         )
 
-    # İlanı sil (veya status="deleted" olarak güncelle)
     await session.delete(listing)
     try:
         await session.commit()
@@ -101,6 +110,7 @@ async def delete_listing(
     except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail="İlan silinirken bir hata oluştu.")
+
 @router.post("/", response_model=ListingResponse, status_code=status.HTTP_201_CREATED)
 async def create_listing(
     title: str = Form(...),

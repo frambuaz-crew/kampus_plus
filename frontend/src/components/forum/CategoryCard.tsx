@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Layers, Clock, ArrowRight } from 'lucide-react';
+import { Layers, ArrowRight } from 'lucide-react';
 import type { Category } from '../../types/forum';
 
 interface CategoryCardProps {
@@ -8,19 +8,6 @@ interface CategoryCardProps {
 }
 
 export const CategoryCard: React.FC<CategoryCardProps> = ({ category, onClick }) => {
-  
-  const formatTime = (dateString?: string) => {
-    if (!dateString) return 'Mesaj yok';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
-    
-    if (diffInMinutes < 1) return 'Az önce';
-    if (diffInMinutes < 60) return `${diffInMinutes} dakika önce`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} saat önce`;
-    return date.toLocaleDateString('tr-TR');
-  };
-
   return (
     <div 
       onClick={() => onClick(category)}
@@ -52,18 +39,10 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({ category, onClick })
       </div>
 
       {/* İstatistikler Paneli - Gri Tonlar */}
-      <div className="mt-6 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="mt-6 pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex items-center text-gray-600 text-xs font-medium">
           <Layers size={14} className="mr-2 text-indigo-500" />
-          <span className="font-bold text-gray-900 mr-1">{category.thread_count || 0}</span> konu
-        </div>
-        <div className="flex items-center text-gray-600 text-xs font-medium">
-          <MessageSquare size={14} className="mr-2 text-purple-500" />
-          <span className="font-bold text-gray-900 mr-1">{category.reply_count || 0}</span> cevap
-        </div>
-        <div className="flex items-center text-gray-500 text-xs col-span-2 sm:col-span-1">
-          <Clock size={14} className="mr-2 text-blue-400" />
-          <span className="truncate">Son: {formatTime(category.last_activity)}</span>
+          <span className="font-bold text-gray-900 mr-1">{category.topic_count || 0}</span> konu
         </div>
       </div>
 

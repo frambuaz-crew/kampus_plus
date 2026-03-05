@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pin, MessageSquare, ThumbsUp, Clock, Paperclip, Filter, ChevronDown } from 'lucide-react';
+import { Pin, MessageSquare, ThumbsUp, Clock } from 'lucide-react';
 import type { ThreadListItem, Category } from '../../types/forum';
 
 interface ThreadListProps {
@@ -32,7 +32,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ category, threads, onThr
             {category.name}
           </h2>
           <p className="text-sm text-gray-500 mt-1 font-medium italic">
-            {category.thread_count} akademik tartışma
+            {category.topic_count} akademik tartışma
           </p>
         </div>
 
@@ -72,16 +72,14 @@ export const ThreadList: React.FC<ThreadListProps> = ({ category, threads, onThr
               </div>
               
               <div className="flex flex-wrap items-center gap-y-2 text-sm text-gray-500 font-medium">
-                <span className="text-indigo-600 hover:underline">👤 {thread.author.first_name} {thread.author.last_name}</span>
-                <span className="mx-2 text-gray-300">•</span>
-                <span className="bg-gray-100 px-2.5 py-0.5 rounded-md text-[11px] font-bold text-gray-600 border border-gray-200 uppercase tracking-tight">
-                  🎓 {thread.author.university}
+                <span className="text-indigo-600 hover:underline">
+                  👤 {thread.author ? `${thread.author.first_name} ${thread.author.last_name}` : 'Bilinmeyen Kullanıcı'}
                 </span>
-                {thread.files && thread.files.length > 0 && (
+                {thread.author?.username && (
                   <>
                     <span className="mx-2 text-gray-300">•</span>
-                    <span className="flex items-center text-amber-600 bg-amber-100/50 px-2 py-0.5 rounded-md text-[11px] font-bold">
-                      <Paperclip size={12} className="mr-1" /> {thread.files.length} EK
+                    <span className="bg-gray-100 px-2.5 py-0.5 rounded-md text-[11px] font-bold text-gray-600 border border-gray-200 tracking-tight">
+                      @{thread.author.username}
                     </span>
                   </>
                 )}
@@ -106,8 +104,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({ category, threads, onThr
 
               <div className="hidden lg:flex flex-col items-end min-w-[120px] text-right border-l border-gray-100 pl-6">
                 <span className="text-xs text-gray-700 font-bold flex items-center">
-                   <Clock size={12} className="mr-2 text-gray-400" /> 
-                   {new Date(thread.created_at).toLocaleDateString('tr-TR')}
+                   <Clock size={12} className="mr-2 text-gray-400" />
+                   {new Date(thread.last_reply_at || thread.created_at).toLocaleDateString('tr-TR')}
                 </span>
                 <span className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-widest">Oluşturuldu</span>
               </div>

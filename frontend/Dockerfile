@@ -5,7 +5,7 @@
 #
 # Build commands:
 #   Development: docker build --target development -t kampus-frontend:dev .
-#   Production:  docker build --target production --build-arg VITE_API_URL=https://api.kampusplus.edu.tr/v1 -t kampus-frontend:prod .
+#   Production:  docker build --target production --build-arg VITE_API_URL=https://api.kampusplus.edu.tr/api/v1 -t kampus-frontend:prod .
 #
 # ============================================================================
 
@@ -47,7 +47,7 @@ WORKDIR /app
 
 # Build-time environment variables
 # Vite requires VITE_ prefixed variables at build time
-ARG VITE_API_URL=http://localhost:8000/v1
+ARG VITE_API_URL=http://localhost:8000/api/v1
 ENV VITE_API_URL=$VITE_API_URL
 
 # Copy source code

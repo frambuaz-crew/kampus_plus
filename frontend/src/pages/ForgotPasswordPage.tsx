@@ -7,11 +7,11 @@
  */
 
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { apiClient } from '../api/config';
+import axios from 'axios';
 
 export const ForgotPasswordPage: React.FC = () => {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -25,8 +25,12 @@ export const ForgotPasswordPage: React.FC = () => {
     try {
       await apiClient.post('/auth/forgot-password', { email });
       setIsSuccess(true);
-    } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Bir hata oluştu');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error?.message || 'Bir hata oluştu');
+      } else {
+        setError('Bir hata oluştu');
+      }
     } finally {
       setIsLoading(false);
     }

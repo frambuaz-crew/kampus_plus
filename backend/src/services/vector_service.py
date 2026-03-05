@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple, Dict
 
 import faiss
 import numpy as np
-import google.generativeai as genai
+from google import genai as google_genai
 
 from src.core.config import get_settings
 
@@ -28,8 +28,8 @@ class VectorStoreService:
         """Vector store servisini başlat."""
         self.settings = get_settings()
         
-        genai.configure(api_key=self.settings.google_api_key)
-        
+        self._genai_client = google_genai.Client(api_key=self.settings.google_api_key)
+
         self.data_dir = Path(self.settings.vector_store_path)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
@@ -91,12 +91,11 @@ class VectorStoreService:
     async def generate_embedding(self, text: str) -> List[float]:
         """Google Gemini API ile embedding vektörü oluştur."""
         try:
-            result = genai.embed_content(
-                model="models/text-embedding-004",
-                content=text,
-                task_type="retrieval_document"
+            result = self._genai_client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=text,
             )
-            return result['embedding']
+            return result.embeddings[0].values
         except Exception as e:
             logger.error(f"Embedding oluşturma hatası: {e}")
             raise
@@ -109,12 +108,11 @@ class VectorStoreService:
         try:
             embeddings = []
             for text in texts:
-                result = genai.embed_content(
-                    model="models/text-embedding-004",
-                    content=text,
-                    task_type="retrieval_document"
+                result = self._genai_client.models.embed_content(
+                    model="gemini-embedding-001",
+                    contents=text,
                 )
-                embeddings.append(result['embedding'])
+                embeddings.append(result.embeddings[0].values)
             return embeddings
         except Exception as e:
             logger.error(f"Batch embedding oluşturma hatası: {e}")

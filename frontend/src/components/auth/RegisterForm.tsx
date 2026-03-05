@@ -186,8 +186,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
 
     // Hata temizleme (Önemli: department_id hatasını da yakalar)
     if (errors[name]) {
-      const { [name]: _, ...rest } = errors;
-      setErrors(rest);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
     }
   };
 

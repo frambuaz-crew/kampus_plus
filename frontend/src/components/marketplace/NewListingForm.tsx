@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 
 interface NewListingFormProps {
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: FormData) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
 }

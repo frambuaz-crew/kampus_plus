@@ -5,6 +5,7 @@ AI sadece kampüs bilgileri ve platform navigasyonu konusunda yardımcı olur.
 Akademik ders içerikleri hakkında yardım VERMEZ.
 """
 
+import asyncio
 import logging
 from operator import itemgetter
 from typing import List, Dict, Optional, Any
@@ -61,22 +62,62 @@ Response Rules:
     def __init__(self, vector_service: Optional[VectorStoreService] = None):
         """AI servisini başlat."""
         self.vector_service = vector_service or VectorStoreService()
-        
-        self.llm = ChatGoogleGenerativeAI(
-            model=settings.gemini_model,
-            temperature=settings.gemini_temperature,
-            max_output_tokens=settings.gemini_max_tokens,
-            google_api_key=settings.google_api_key,
-            convert_system_message_to_human=True
-        )
-        logger.info(f"AIService initialized with Gemini ({settings.gemini_model})")
+
+        self._active_model = self._normalize_model_name(settings.gemini_model)
+        self.llm = self._create_llm(self._active_model)
+        logger.info(f"AIService initialized with Gemini ({self._active_model})")
         
         self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
+            model="models/gemini-embedding-001",
             google_api_key=settings.google_api_key
         )
         
         self.current_language = "tr"
+
+    @staticmethod
+    def _normalize_model_name(model_name: str) -> str:
+        """Gemini model adını provider'ın beklediği formata normalize et."""
+        normalized = (model_name or "").strip()
+        if normalized.startswith("models/"):
+            normalized = normalized.split("/", 1)[1]
+        return normalized or "gemini-3-flash-preview"
+
+    LLM_REQUEST_TIMEOUT = 40  # saniye – Gemini API başına hard limit
+    QUERY_TOTAL_TIMEOUT = 45  # saniye – toplam query() hard limit
+
+    def _create_llm(self, model_name: str) -> ChatGoogleGenerativeAI:
+        """LangChain Gemini LLM istemcisini oluştur."""
+        return ChatGoogleGenerativeAI(
+            model=model_name,
+            temperature=settings.gemini_temperature,
+            max_output_tokens=settings.gemini_max_tokens,
+            google_api_key=settings.google_api_key,
+            convert_system_message_to_human=True,
+            request_timeout=self.LLM_REQUEST_TIMEOUT,
+        )
+
+    def _is_model_not_found_error(self, error: Exception) -> bool:
+        """Hatanın model-adı kaynaklı olup olmadığını tespit et."""
+        error_text = str(error).lower()
+        return (
+            "model" in error_text
+            and (
+                "not found" in error_text
+                or "unsupported" in error_text
+                or "isn't supported" in error_text
+                or "404" in error_text
+            )
+        )
+
+    def _is_api_key_error(self, error: Exception) -> bool:
+        """Hatanın API key/auth kaynaklı olup olmadığını tespit et."""
+        error_text = str(error).lower()
+        return (
+            "api_key_invalid" in error_text
+            or "api key not valid" in error_text
+            or "permission denied" in error_text
+            or "unauthenticated" in error_text
+        )
     
     def _get_prompt_template(self) -> ChatPromptTemplate:
         """Mevcut dil için prompt şablonu al."""
@@ -211,13 +252,55 @@ Response Rules:
             
             retriever = self._create_retriever()
             source_docs = await retriever._aget_relevant_documents(question)
-            
-            answer = await chain.ainvoke({
-                "question": question,
-                "chat_history": chat_history
-            })
-            
-            formatted_sources = self._format_sources(source_docs)
+
+            try:
+                answer = await asyncio.wait_for(
+                    chain.ainvoke({
+                        "question": question,
+                        "chat_history": chat_history,
+                    }),
+                    timeout=self.QUERY_TOTAL_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "AI chain timed out after %ss. user_id=%s model=%s question_len=%s",
+                    self.QUERY_TOTAL_TIMEOUT,
+                    user_id,
+                    self._active_model,
+                    len(question or ""),
+                )
+                raise
+            except Exception as model_error:
+                fallback_model = "gemini-3-flash-preview"
+                if self._is_model_not_found_error(model_error) and self._active_model != fallback_model:
+                    logger.warning(
+                        "Gemini model failed, retrying with fallback model. current_model=%s fallback_model=%s error_type=%s error=%s",
+                        self._active_model,
+                        fallback_model,
+                        type(model_error).__name__,
+                        repr(model_error),
+                    )
+                    self._active_model = fallback_model
+                    self.llm = self._create_llm(self._active_model)
+                    chain = self._create_rag_chain()
+                    answer = await asyncio.wait_for(
+                        chain.ainvoke({
+                            "question": question,
+                            "chat_history": chat_history,
+                        }),
+                        timeout=self.QUERY_TOTAL_TIMEOUT,
+                    )
+                else:
+                    raise
+
+            logger.info(
+                "AI query succeeded. user_id=%s model=%s question_len=%s answer_len=%s",
+                user_id,
+                self._active_model,
+                len(question or ""),
+                len(answer or ""),
+            )
+            formatted_sources= self._format_sources(source_docs)
             
             return {
                 "answer": answer,
@@ -226,9 +309,31 @@ Response Rules:
             }
             
         except Exception as e:
-            logger.error(f"Error processing query for user {user_id}: {e}", exc_info=True)
+            logger.exception(
+                "AI query failed. user_id=%s session_id=%s model=%s question_len=%s error_type=%s error=%s",
+                user_id,
+                session_id,
+                self._active_model,
+                len(question or ""),
+                type(e).__name__,
+                repr(e),
+            )
+            if self._is_api_key_error(e):
+                user_message = "AI servisi şu anda yapılandırma hatası nedeniyle kullanılamıyor. Lütfen yöneticiye GOOGLE_API_KEY ayarını kontrol ettirin."
+            elif self._is_model_not_found_error(e):
+                user_message = (
+                    f"AI modeli ({self._active_model}) bu API sürümünde bulunamadı. "
+                    "Lütfen yöneticiye GEMINI_MODEL ayarını güncellemesini söyleyin (öneri: gemini-2.0-flash)."
+                )
+            elif isinstance(e, asyncio.TimeoutError):
+                user_message = "AI asistanı şu anda yanıt vermiyor (zaman aşımı). Lütfen birkaç saniye bekleyip tekrar deneyin."
+            elif "quota" in str(e).lower() or "resource_exhausted" in str(e).lower() or "429" in str(e):
+                user_message = "AI servisi şu anda yoğun. Lütfen birkaç saniye bekleyip tekrar deneyin."
+            else:
+                user_message = "Üzgünüm, sorunu işlerken bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+
             return {
-                "answer": "Üzgünüm, sorunu işlerken bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+                "answer": user_message,
                 "sources": [],
                 "session_id": session_id,
                 "error": str(e)
@@ -262,6 +367,19 @@ Response Rules:
     def get_supported_languages(self) -> List[str]:
         """Desteklenen dilleri döndür."""
         return ["tr", "en"]
+
+    def reset_conversation(self, user_id: Optional[str] = None, session_id: Optional[str] = None) -> None:
+        """Konuşma sıfırlama çağrılarında servis tarafındaki geçici durumu temizler.
+
+        Not: Servis şu anda kalıcı konuşma geçmişi tutmadığı için metod bilinçli olarak no-op'tur.
+        Route katmanında veritabanı kayıtları silinir; burada gelecekte eklenecek
+        in-memory/session cache yapıları için tek bir genişleme noktası sağlanır.
+        """
+        logger.info(
+            "AI conversation reset requested. user_id=%s session_id=%s",
+            user_id,
+            session_id,
+        )
     
     def switch_language(self, language: str) -> bool:
         """Prompt şablonu dilini değiştir."""

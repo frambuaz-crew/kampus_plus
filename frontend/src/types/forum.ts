@@ -1,100 +1,96 @@
 /**
  * Forum Type Definitions
- * 
- * Spec: 005-forum-page/spec.md
- * 
- * Forum ile ilgili TypeScript type tanımları.
- * NOT: Tüm kullanıcılar profilli (anonim paylaşım yok)
+ *
+ * Backend source of truth:
+ * - GET /api/v1/forum/categories
+ * - GET /api/v1/forum/topics
+ * - GET /api/v1/forum/topics/{topic_id}
+ * - POST /api/v1/forum/topics/{topic_id}/replies
  */
 
-import type { User } from './auth';
-
-export interface Category {
+export interface ForumCategory {
   id: string;
   name: string;
-  slug: string;
-  icon?: string;
-  category_type: 'university' | 'department' | 'general';
-  description?: string;
-  thread_count: number;
-  reply_count: number;
-  last_activity?: string;
+  description: string | null;
+  icon: string | null;
+  topic_count: number;
 }
 
-export interface Tag {
+export interface ForumAuthor {
   id: string;
-  name: string;
-  slug: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  profile_picture_url?: string | null;
+  university?: string | null;
+  department?: string | { name?: string } | null;
 }
 
-export interface FileAttachment {
-  id: string;
-  filename: string;
-  file_url: string;
-  file_size: number;
-}
-
-export interface ForumPost {
-  id: string;
-  thread_id: string | null;
-  parent_id: string | null;
-  author: User;
-  title: string | null;
-  content: string;
-  category?: Category;
-  tags?: Tag[];
-  attachments?: FileAttachment[];
-  helpful_count: number;
-  is_flagged: boolean;
-  is_pinned: boolean;
-  is_edited: boolean;
-  created_at: string;
-  updated_at: string;
-  edited_at: string | null;
-}
-
-// ThreadListItem arayüzünü şu şekilde güncellemek daha sağlıklı olur:
-export interface ThreadListItem {
+export interface ForumTopic {
   id: string;
   title: string;
-  author: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    university: string;
-  };
-  category: Category;
-  tags: string[]; // Etiketler genelde string dizisi olarak gelir
+  content: string;
+  author: ForumAuthor | null;
+  category_id: string;
+  category_name?: string | null;
   reply_count: number;
-  helpful_count: number;
   view_count: number;
-  // Sadece sayı yerine, dökümandaki gibi dosya özetini alalım
-  files?: { file_name: string; file_size: number }[]; 
+  helpful_count: number;
   is_pinned: boolean;
-  created_at: string; // Paylaşım zamanı
-  last_activity: string; // Son mesaj zamanı
+  last_reply_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
+
+export interface ForumReply {
+  id: string;
+  content: string;
+  author: ForumAuthor | null;
+  helpful_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ForumCategoriesResponse {
+  categories: ForumCategory[];
+}
+
+export interface ForumTopicsResponse {
+  topics: ForumTopic[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ForumTopicDetailResponse {
+  topic: ForumTopic;
+  replies: ForumReply[];
+}
+
+export interface CreateTopicPayload {
+  category_id: string;
+  title: string;
+  content: string;
+}
+
+export interface CreateTopicResponse {
+  success: boolean;
+  topic_id: string;
+}
+
+export interface CreateReplyPayload {
+  content: string;
+}
+
+export interface CreateReplyResponse {
+  success: boolean;
+  reply_id: string;
+}
+
+export type Category = ForumCategory;
+export type ThreadListItem = ForumTopic;
 
 export interface ThreadWithReplies {
-  thread: ForumPost;
-  replies: ForumPost[];
-}
-
-export interface SearchResult {
-  id: string;
-  thread_id: string | null;
-  type: 'thread' | 'reply';
-  title: string | null;
-  content: string;
-  author: User;
-  category?: Category;
-  tags?: Tag[];
-  created_at: string;
-  relevance_score?: number;
-}
-
-export interface CategoryListResponse {
-  universities: Category[];
-  departments: Category[];
-  general: Category[];
+  thread: ForumTopic;
+  replies: ForumReply[];
 }

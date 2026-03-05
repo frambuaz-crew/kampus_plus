@@ -8,6 +8,7 @@ Bu modül şunları sağlar:
 
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
+from uuid import uuid4
 # UUID import kaldırıldı - user_id artık string
 
 import bcrypt
@@ -100,6 +101,7 @@ def create_refresh_token(
     payload = {
         "user_id": str(user_id),
         "type": "refresh",
+        "jti": str(uuid4()),
         "exp": expire,
         "iat": now,
     }

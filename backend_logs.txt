@@ -1,0 +1,65 @@
+2026-02-27 23:27:00,490 INFO sqlalchemy.engine.Engine [cached since 961.9s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b',)
+2026-02-27 23:27:00,491 INFO sqlalchemy.engine.Engine SELECT conversations.id, conversations.type, conversations.reference_id, conversations.user1_id, conversations.user2_id, conversations.last_message_at, conversations.user1_unread_count, conversations.user2_unread_count, conversations.created_at 
+FROM conversations 
+WHERE conversations.user1_id = $1::VARCHAR OR conversations.user2_id = $2::VARCHAR ORDER BY conversations.last_message_at DESC 
+ LIMIT $3::INTEGER OFFSET $4::INTEGER
+2026-02-27 23:27:00,491 INFO sqlalchemy.engine.Engine [cached since 928.4s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b', '64a6a631-d367-463a-b8ba-706ec4da288b', 3, 0)
+2026-02-27 23:27:00,491 INFO sqlalchemy.engine.Engine SELECT notifications.id, notifications.user_id, notifications.type, notifications.title, notifications.message, notifications.actor_id, notifications.link, notifications.metadata_json, notifications.is_read, notifications.created_at 
+FROM notifications 
+WHERE notifications.user_id = $1::VARCHAR ORDER BY notifications.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-02-27 23:27:00,491 INFO sqlalchemy.engine.Engine [cached since 928.4s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b', 3, 0)
+2026-02-27 23:27:00,493 INFO sqlalchemy.engine.Engine COMMIT
+2026-02-27 23:27:00,493 INFO sqlalchemy.engine.Engine COMMIT
+2026-02-27 23:27:26,290 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-27 23:27:26,291 INFO sqlalchemy.engine.Engine SELECT 1
+2026-02-27 23:27:26,291 INFO sqlalchemy.engine.Engine [cached since 991.5s ago] ()
+2026-02-27 23:27:26,291 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-02-27 23:27:30,470 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-27 23:27:30,470 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.first_name, users.last_name, users.username, users.username_last_changed_at, users.university, users.department_id, users.role, users.is_verified, users.is_active, users.is_deleted, users.deleted_at, users.profile_picture_url, users.bio, users.theme_preference, users.terms_accepted_at, users.last_login, users.created_at, users.updated_at 
+FROM users 
+WHERE users.id = $1::VARCHAR
+2026-02-27 23:27:30,470 INFO sqlalchemy.engine.Engine [cached since 992s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b',)
+2026-02-27 23:27:30,471 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-27 23:27:30,471 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.first_name, users.last_name, users.username, users.username_last_changed_at, users.university, users.department_id, users.role, users.is_verified, users.is_active, users.is_deleted, users.deleted_at, users.profile_picture_url, users.bio, users.theme_preference, users.terms_accepted_at, users.last_login, users.created_at, users.updated_at 
+FROM users 
+WHERE users.id = $1::VARCHAR
+2026-02-27 23:27:30,471 INFO sqlalchemy.engine.Engine [cached since 992s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b',)
+2026-02-27 23:27:30,472 INFO sqlalchemy.engine.Engine SELECT departments.id AS departments_id, departments.name AS departments_name 
+FROM departments 
+WHERE departments.id IN ($1::INTEGER)
+2026-02-27 23:27:30,473 INFO sqlalchemy.engine.Engine [cached since 992s ago] (1,)
+2026-02-27 23:27:30,475 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM (SELECT conversations.id AS id, conversations.type AS type, conversations.reference_id AS reference_id, conversations.user1_id AS user1_id, conversations.user2_id AS user2_id, conversations.last_message_at AS last_message_at, conversations.user1_unread_count AS user1_unread_count, conversations.user2_unread_count AS user2_unread_count, conversations.created_at AS created_at 
+FROM conversations 
+WHERE conversations.user1_id = $1::VARCHAR OR conversations.user2_id = $2::VARCHAR) AS anon_1
+2026-02-27 23:27:30,475 INFO sqlalchemy.engine.Engine [cached since 991.9s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b', '64a6a631-d367-463a-b8ba-706ec4da288b')
+2026-02-27 23:27:30,476 INFO sqlalchemy.engine.Engine SELECT departments.id AS departments_id, departments.name AS departments_name 
+FROM departments 
+WHERE departments.id IN ($1::INTEGER)
+2026-02-27 23:27:30,476 INFO sqlalchemy.engine.Engine [cached since 992s ago] (1,)
+2026-02-27 23:27:30,477 INFO sqlalchemy.engine.Engine SELECT conversations.id 
+FROM conversations 
+WHERE conversations.user1_id = $1::VARCHAR OR conversations.user2_id = $2::VARCHAR
+2026-02-27 23:27:30,477 INFO sqlalchemy.engine.Engine [cached since 991.9s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b', '64a6a631-d367-463a-b8ba-706ec4da288b')
+2026-02-27 23:27:30,478 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM notifications 
+WHERE notifications.user_id = $1::VARCHAR AND notifications.is_read IS false
+2026-02-27 23:27:30,478 INFO sqlalchemy.engine.Engine [cached since 992s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b',)
+2026-02-27 23:27:30,479 INFO sqlalchemy.engine.Engine SELECT conversations.id, conversations.type, conversations.reference_id, conversations.user1_id, conversations.user2_id, conversations.last_message_at, conversations.user1_unread_count, conversations.user2_unread_count, conversations.created_at 
+FROM conversations 
+WHERE conversations.user1_id = $1::VARCHAR OR conversations.user2_id = $2::VARCHAR ORDER BY conversations.last_message_at DESC 
+ LIMIT $3::INTEGER OFFSET $4::INTEGER
+2026-02-27 23:27:30,479 INFO sqlalchemy.engine.Engine [cached since 958.5s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b', '64a6a631-d367-463a-b8ba-706ec4da288b', 3, 0)
+2026-02-27 23:27:30,479 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM (SELECT notifications.id AS id, notifications.user_id AS user_id, notifications.type AS type, notifications.title AS title, notifications.message AS message, notifications.actor_id AS actor_id, notifications.link AS link, notifications.metadata_json AS metadata_json, notifications.is_read AS is_read, notifications.created_at AS created_at 
+FROM notifications 
+WHERE notifications.user_id = $1::VARCHAR) AS anon_1
+2026-02-27 23:27:30,480 INFO sqlalchemy.engine.Engine [cached since 992s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b',)
+2026-02-27 23:27:30,480 INFO sqlalchemy.engine.Engine SELECT notifications.id, notifications.user_id, notifications.type, notifications.title, notifications.message, notifications.actor_id, notifications.link, notifications.metadata_json, notifications.is_read, notifications.created_at 
+FROM notifications 
+WHERE notifications.user_id = $1::VARCHAR ORDER BY notifications.created_at DESC 
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+2026-02-27 23:27:30,480 INFO sqlalchemy.engine.Engine [cached since 958.5s ago] ('64a6a631-d367-463a-b8ba-706ec4da288b', 3, 0)
+2026-02-27 23:27:30,481 INFO sqlalchemy.engine.Engine COMMIT
+2026-02-27 23:27:30,482 INFO sqlalchemy.engine.Engine COMMIT

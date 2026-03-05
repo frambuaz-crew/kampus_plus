@@ -26,7 +26,7 @@ const Sidebar: React.FC<Props> = ({ open, onRequestAuth }) => {
   ];
 
   return (
-    <aside className="hidden lg:block w-64 bg-white border-r border-gray-100 min-h-screen pt-16">
+    <aside className={`w-64 bg-white border-r border-gray-100 min-h-screen pt-16 ${open ? 'block' : 'hidden'} lg:block`}>
       <nav className="px-4 space-y-4">
         {groups.map((g, gi) => (
           <div key={gi}>

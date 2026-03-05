@@ -110,6 +110,9 @@ class User(Base):
     # Settings relationships
     contact_messages = relationship("ContactMessage", foreign_keys="ContactMessage.user_id", cascade="all, delete-orphan")
 
+    # Audit relationships
+    audit_logs = relationship("AuditLog", back_populates="user")
+
 
 class RefreshToken(Base):
     """JWT refresh token saklama modeli."""
@@ -139,3 +142,6 @@ class RefreshToken(Base):
     )
     
     user = relationship("User", back_populates="refresh_tokens")
+
+
+from .sync import AuditLog

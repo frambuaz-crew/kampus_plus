@@ -6,21 +6,15 @@
  * Platform geneli arama sayfası
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 
 export const GlobalSearchPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get('q') || '');
-
-  useEffect(() => {
-    const q = searchParams.get('q');
-    if (q) {
-      setQuery(q);
-    }
-  }, [searchParams]);
+  const paramQuery = useMemo(() => searchParams.get('q') || '', [searchParams]);
+  const [query, setQuery] = useState(paramQuery);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,14 +53,14 @@ export const GlobalSearchPage: React.FC = () => {
 
           {/* Results */}
           <div className="bg-white rounded-xl shadow-sm p-8">
-            {query ? (
+            {(query || paramQuery) ? (
               <div className="text-center py-16">
                 <span className="text-6xl block mb-4">🔍</span>
                 <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                   Arama Özelliği Yakında
                 </h2>
                 <p className="text-gray-600 mb-4">
-                  Arama sorgusu: <strong>"{query}"</strong>
+                  Arama sorgusu: <strong>"{query || paramQuery}"</strong>
                 </p>
                 <p className="text-sm text-gray-500">
                   Platform geneli arama özelliği şu anda geliştirilme aşamasında.

@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { NewDashboard } from './pages/NewDashboard';
@@ -17,7 +16,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { MessagesChatPage } from './pages/MessagesChatPage';
-import { AIAssistantPage } from './pages/AIAssistantPage';
 import { MarketplacePage } from './pages/MarketplacePage';
 import { CareerPage } from './pages/CareerPage';
 import { CourseSchedulePage } from './pages/CourseSchedulePage';
@@ -46,15 +44,14 @@ function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
 
-          
           {/* Protected Routes - Dashboard */}
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute requireRole="student">
                 <NewDashboard />
-              </ProtectedRoute>} 
-            />
+              </ProtectedRoute>}
+          />
           <Route
             path="/dashboard/search"
             element={
@@ -67,12 +64,20 @@ function App() {
             path="/dashboard/ai-assistant"
             element={
               <ProtectedRoute>
-                <AIAssistantPage />
+                <ChatPage />
               </ProtectedRoute>
             }
           />
           <Route
             path="/dashboard/forum"
+            element={
+              <ProtectedRoute>
+                <ForumPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/forum/:id"
             element={
               <ProtectedRoute>
                 <ForumPage />
@@ -88,7 +93,23 @@ function App() {
             }
           />
           <Route
+            path="/dashboard/marketplace/:id"
+            element={
+              <ProtectedRoute>
+                <MarketplacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard/career"
+            element={
+              <ProtectedRoute>
+                <CareerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/career/:id"
             element={
               <ProtectedRoute>
                 <CareerPage />
@@ -111,6 +132,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* 👤 Profil Rotaları (Güncellendi) */}
           <Route
             path="/dashboard/profile"
             element={
@@ -119,6 +142,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/profile/:username"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/dashboard/notifications"
             element={
@@ -149,36 +181,25 @@ function App() {
             path="/admin"
             element={
               <ProtectedRoute requireRole="admin">
-                <AdminLayout /> {/* Karanlık tema ve Sidebar'lı ana iskelet */}
+                <AdminLayout />
               </ProtectedRoute>
             }
           >
-            {/* 🎯 /admin yazıldığında direkt dashboard'a yönlendir */}
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            
-            {/* 📊 Admin Dashboard: İstatistiklerin olduğu ana sayfa */}
-            <Route path="dashboard" element={<AdminDashboard />} /> 
-            
-            {/* 🎓 Akademik Özellikler Yönetimi */}
+            <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="academic/pending-contributions" element={<div>Bekleyen Katkılar Gelecek</div>} />
             <Route path="academic/course-schedule" element={<div>Ders Programı Yönetimi Gelecek</div>} />
             <Route path="academic/calendar" element={<div>Akademik Takvim Yönetimi Gelecek</div>} />
-            
-            {/* 🚩 Moderasyon Rotaları */}
             <Route path="moderation/marketplace-reports" element={<div>Marketplace Raporları Gelecek</div>} />
             <Route path="moderation/career-reports" element={<div>Kariyer Raporları Gelecek</div>} />
-            
-            {/* 🤖 AI Assistant Yönetimi */}
             <Route path="ai/settings" element={<div>AI Ayarları Gelecek</div>} />
             <Route path="ai/knowledge-base" element={<div>Knowledge Base Gelecek</div>} />
             <Route path="ai/stats" element={<div>AI İstatistikleri Gelecek</div>} />
-            
-            {/* 👥 Kullanıcı ve Mesaj Yönetimi */}
             <Route path="users" element={<div>Kullanıcı Yönetimi Gelecek</div>} />
             <Route path="messages" element={<div>İletişim Mesajları Gelecek</div>} />
           </Route>
 
-          {/* Legacy Routes (for backward compatibility) */}
+          {/* Legacy Routes */}
           <Route
             path="/chat"
             element={
@@ -203,7 +224,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Legacy route for backward compatibility */}
           <Route
             path="/settings"
             element={
@@ -225,7 +245,5 @@ function App() {
     </AuthProvider>
   );
 }
-
-
 
 export default App;

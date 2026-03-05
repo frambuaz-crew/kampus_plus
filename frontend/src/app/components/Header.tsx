@@ -12,21 +12,13 @@ type Props = {
 const Header: React.FC<Props> = ({ isAuthenticated, onLogin, onRegister, onToggleSidebar, sidebarOpen }) => {
   const navigate = useNavigate();
 
-  const menuItems = [
-    { key: 'home', label: 'Ana Sayfa', icon: '🏠' },
-    { key: 'ai', label: 'AI Asistanım', icon: '🤖' },
-    { key: 'forum', label: 'Forum', icon: '💬' },
-    { key: 'market', label: 'Pazar', icon: '🛒' },
-    { key: 'career', label: 'Kariyer', icon: '💼' },
-  ];
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-3">
             {/* Hamburger only on small screens */}
-            <button className="md:hidden p-2" onClick={onToggleSidebar} aria-label="Toggle menu">
+            <button className="md:hidden p-2" onClick={onToggleSidebar} aria-label="Toggle menu" aria-expanded={sidebarOpen}>
               <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>

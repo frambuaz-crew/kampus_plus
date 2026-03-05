@@ -19,12 +19,12 @@ bcrypt
 python-dotenv
 
 # AI & Vector (Hata veren faiss burada)
-google-generativeai
+google-genai>=1.0.0
 faiss-cpu
 langchain
 langchain-core
 langchain-community
-langchain-google-genai
+langchain-google-genai>=2.0.7
 
 # HTTP & Utils
 httpx

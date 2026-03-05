@@ -132,8 +132,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           onChange={(e) => {
             setEmail(e.target.value);
             if (errors.email) {
-              const { email: _, ...rest } = errors;
-              setErrors(rest);
+              setErrors((prev) => {
+                const next = { ...prev };
+                delete next.email;
+                return next;
+              });
             }
           }}
           placeholder="ornek@selcuk.edu.tr"
@@ -159,8 +162,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             onChange={(e) => {
               setPassword(e.target.value);
               if (errors.password) {
-                const { password: _, ...rest } = errors;
-                setErrors(rest);
+                setErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.password;
+                  return next;
+                });
               }
             }}
             placeholder="••••••••"
