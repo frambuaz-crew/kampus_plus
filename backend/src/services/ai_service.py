@@ -7,6 +7,7 @@ Akademik ders içerikleri hakkında yardım VERMEZ.
 
 import asyncio
 import logging
+import re
 from operator import itemgetter
 from typing import List, Dict, Optional, Any
 from uuid import UUID
@@ -30,6 +31,10 @@ class AIService:
     """RAG tabanlı konuşma AI servisi."""
     
     CONTEXT_WINDOW_SIZE = 5
+    ACADEMIC_GUARDRAIL_RESPONSE = (
+        "Üzgünüm, ben bir kampüs asistanıyım. Sadece üniversite hayatı, kampüs imkanları ve etkinlikler "
+        "hakkında bilgi verebilirim. Ders veya ödev konularında yardımcı olamıyorum."
+    )
     
     TURKISH_SYSTEM_PROMPT = """Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve platform navigasyonu konusunda yardımcı oluyorsun.
 
@@ -80,7 +85,7 @@ Response Rules:
         normalized = (model_name or "").strip()
         if normalized.startswith("models/"):
             normalized = normalized.split("/", 1)[1]
-        return normalized or "gemini-3-flash-preview"
+        return normalized or "gemini-2.5-flash"
 
     LLM_REQUEST_TIMEOUT = 40  # saniye – Gemini API başına hard limit
     QUERY_TOTAL_TIMEOUT = 45  # saniye – toplam query() hard limit
@@ -225,6 +230,58 @@ Response Rules:
         )
         
         return chain
+
+    @staticmethod
+    def _should_block_academic_request(question: str) -> bool:
+        """Bariz ders/ödev komutlarını pre-flight aşamasında tespit et."""
+        normalized = re.sub(r"\s+", " ", (question or "").strip().lower())
+        if not normalized:
+            return False
+
+        # Bilgi/navigasyon niyetli zaman-konum soruları false-positive vermesin.
+        informational_markers = (
+            "ne zaman",
+            "nerede",
+            "hangi gün",
+            "saat kaç",
+            "kaçta",
+            "hangi salonda",
+            "hangi binada",
+        )
+
+        command_markers = (
+            r"\bçöz\b",
+            r"\bhesapla\b",
+            r"\byap\b",
+            r"\byazar mısın\b",
+            r"\byaz\b",
+            r"\bbul\b",
+            r"\bkodunu yaz\b",
+        )
+
+        has_informational_marker = any(marker in normalized for marker in informational_markers)
+        has_command_marker = any(re.search(pattern, normalized) for pattern in command_markers)
+        if has_informational_marker and not has_command_marker:
+            return False
+
+        direct_block_patterns = (
+            r"\bbunu çöz\b",
+            r"\bşunu çöz\b",
+            r"\bhesapla\b",
+            r"\bödevimi yap\b",
+            r"\bödev(imi|i)?\s+yap\b",
+            r"\bkodunu yaz\b",
+            r"\bbenim için kod yaz\b",
+        )
+        if any(re.search(pattern, normalized) for pattern in direct_block_patterns):
+            return True
+
+        # Konu kelimesi + komut fiili kombinasyonu bariz akademik yardım talebidir.
+        has_topic_marker = bool(re.search(r"\b(integral|türev)\b", normalized))
+        if has_topic_marker and has_command_marker:
+            return True
+
+        return False
     
     async def query(
         self,
@@ -247,6 +304,19 @@ Response Rules:
             session_id: Oturum ID'si
         """
         try:
+            if self._should_block_academic_request(question):
+                logger.info(
+                    "Academic pre-flight guardrail triggered. user_id=%s session_id=%s question_len=%s",
+                    user_id,
+                    session_id,
+                    len(question or ""),
+                )
+                return {
+                    "answer": self.ACADEMIC_GUARDRAIL_RESPONSE,
+                    "sources": [],
+                    "session_id": session_id,
+                }
+
             chat_history = self._format_chat_history(session_history or [])
             chain = self._create_rag_chain()
             
@@ -271,7 +341,7 @@ Response Rules:
                 )
                 raise
             except Exception as model_error:
-                fallback_model = "gemini-3-flash-preview"
+                fallback_model = "gemini-2.5-flash"
                 if self._is_model_not_found_error(model_error) and self._active_model != fallback_model:
                     logger.warning(
                         "Gemini model failed, retrying with fallback model. current_model=%s fallback_model=%s error_type=%s error=%s",
@@ -323,7 +393,7 @@ Response Rules:
             elif self._is_model_not_found_error(e):
                 user_message = (
                     f"AI modeli ({self._active_model}) bu API sürümünde bulunamadı. "
-                    "Lütfen yöneticiye GEMINI_MODEL ayarını güncellemesini söyleyin (öneri: gemini-2.0-flash)."
+                    "Lütfen yöneticiye GEMINI_MODEL ayarını güncellemesini söyleyin (öneri: gemini-2.5-flash)."
                 )
             elif isinstance(e, asyncio.TimeoutError):
                 user_message = "AI asistanı şu anda yanıt vermiyor (zaman aşımı). Lütfen birkaç saniye bekleyip tekrar deneyin."
