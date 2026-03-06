@@ -26,6 +26,7 @@ import type {
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Bot, LoaderCircle, Sparkles } from 'lucide-react';
 
 interface ChatInterfaceProps {
   reloadKey?: number;
@@ -39,6 +40,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [remainingMessages, setRemainingMessages] = useState<number | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -74,7 +76,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: isSending ? 'smooth' : 'auto',
+      });
+      return;
+    }
+
+    messagesEndRef.current?.scrollIntoView({ behavior: isSending ? 'smooth' : 'auto' });
   };
 
   const handleSendMessage = async () => {
@@ -180,24 +191,35 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
         <div
           className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ring-1 ${
             isUser
-              ? 'bg-indigo-600 text-white ring-indigo-500/40'
-              : 'bg-white text-slate-800 ring-slate-200'
+              ? 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white ring-indigo-500/30'
+              : 'border border-slate-100 bg-white/95 text-slate-800 ring-slate-200/70'
           }`}
         >
           <div className="break-words text-sm leading-6">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                ul: ({ children }) => <ul className="mb-2 list-disc pl-6 last:mb-0">{children}</ul>,
-                ol: ({ children }) => <ol className="mb-2 list-decimal pl-6 last:mb-0">{children}</ol>,
-                li: ({ children }) => <li className="mb-1">{children}</li>,
+                p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                strong: ({ children }) => <strong className="font-semibold tracking-tight">{children}</strong>,
+                ul: ({ children }) => <ul className="mb-3 list-disc space-y-1 pl-6 marker:text-indigo-400 last:mb-0">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-3 list-decimal space-y-1 pl-6 marker:font-semibold marker:text-indigo-400 last:mb-0">{children}</ol>,
+                li: ({ children }) => <li className="pl-1">{children}</li>,
+                blockquote: ({ children }) => (
+                  <blockquote className={`mb-3 rounded-r-xl border-l-4 px-3 py-2 text-[13px] italic ${isUser ? 'border-indigo-200 bg-indigo-500/20 text-indigo-50' : 'border-indigo-300 bg-indigo-50 text-slate-700'}`}>
+                    {children}
+                  </blockquote>
+                ),
+                pre: ({ children }) => (
+                  <pre className={`mb-3 overflow-x-auto rounded-xl border px-3 py-3 text-xs ${isUser ? 'border-indigo-300/50 bg-indigo-800/40 text-indigo-50' : 'border-slate-200 bg-slate-900 text-slate-100'}`}>
+                    {children}
+                  </pre>
+                ),
                 code: ({ className, children, ...props }) => {
                   const isCodeBlock = Boolean(className?.includes('language-'));
                   if (isCodeBlock) {
                     return (
                       <code
-                        className="block overflow-x-auto rounded-lg bg-slate-900/90 px-3 py-2 text-xs text-slate-100"
+                        className="font-mono text-xs"
                         {...props}
                       >
                         {children}
@@ -206,17 +228,28 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
                   }
 
                   return (
-                    <code className="rounded bg-slate-100 px-1 py-0.5 text-xs text-slate-800" {...props}>
+                    <code
+                      className={`rounded px-1.5 py-0.5 font-mono text-xs ${isUser ? 'bg-indigo-500/30 text-indigo-50' : 'bg-slate-100 text-slate-800'}`}
+                      {...props}
+                    >
                       {children}
                     </code>
                   );
                 },
+                table: ({ children }) => (
+                  <div className="mb-3 overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="min-w-full border-collapse text-left text-xs">{children}</table>
+                  </div>
+                ),
+                thead: ({ children }) => <thead className="bg-slate-100 text-slate-700">{children}</thead>,
+                th: ({ children }) => <th className="border-b border-slate-200 px-3 py-2 font-semibold">{children}</th>,
+                td: ({ children }) => <td className="border-b border-slate-100 px-3 py-2 align-top">{children}</td>,
                 a: ({ href, children }) => (
                   <a
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={isUser ? 'underline decoration-indigo-200' : 'text-indigo-600 underline'}
+                    className={isUser ? 'font-medium underline decoration-indigo-100 underline-offset-2' : 'font-medium text-indigo-600 underline underline-offset-2'}
                   >
                     {children}
                   </a>
@@ -253,7 +286,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
     return (
       <div className="flex h-full items-center justify-center bg-slate-50">
         <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-600 shadow-sm">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          <LoaderCircle className="h-4 w-4 animate-spin text-indigo-500" />
           <span className="text-sm font-medium">Sohbet hazırlanıyor...</span>
         </div>
       </div>
@@ -269,11 +302,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
+      <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-slate-400">
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-              <p className="mb-2 text-lg font-semibold text-slate-700">Merhaba! Kampüs Asistanın burada 👋</p>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                <Bot className="h-3.5 w-3.5" />
+                Kampüs AI
+              </div>
+              <p className="mb-2 text-lg font-semibold text-slate-700">Merhaba! Kampüs asistanın burada.</p>
               <p className="text-sm">Ders, akademik takvim, forum, pazar ve kariyer konularında sorularını sorabilirsin.</p>
             </div>
           </div>
@@ -282,10 +319,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
             {messages.filter(msg => msg && msg.role).map(renderMessage)}
             {isSending && (
               <div data-role="assistant" className="mb-5 flex justify-start">
-                <div className="max-w-[85%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                    <span className="font-medium">Asistan düşünüyor...</span>
+                <div className="max-w-[85%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm shadow-slate-200/70">
+                  <div className="flex items-center gap-2 text-sm text-slate-700">
+                    <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />
+                    <Sparkles className="h-4 w-4 animate-pulse text-cyan-500" />
+                    <span className="font-semibold">Yapay Zeka düşünüyor...</span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="h-2.5 w-40 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-2.5 w-52 animate-pulse rounded-full bg-slate-200" />
+                    <div className="h-2.5 w-28 animate-pulse rounded-full bg-slate-200" />
                   </div>
                 </div>
               </div>
