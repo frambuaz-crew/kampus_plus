@@ -6,6 +6,7 @@ Sadece resmi dokümanlar için FAISS vector store.
 
 import logging
 import importlib.util
+import pickle
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict
 
@@ -27,6 +28,8 @@ class VectorStoreService:
     def __init__(self):
         """Vector store servisini başlat."""
         self.settings = get_settings()
+        # Embedding boyutunu tek bir kaynaktan (settings) kullan.
+        self.EMBEDDING_DIMENSION = self.settings.vector_dimension
         
         self._genai_client = google_genai.Client(api_key=self.settings.google_api_key)
 
@@ -34,6 +37,7 @@ class VectorStoreService:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         self.official_index_path = self.data_dir / "vdb_official.index"
+        self.metadata_path = self.data_dir / "metadata_official.pkl"
         
         self.vdb_official = self._load_or_create_index(
             self.official_index_path,
@@ -54,6 +58,12 @@ class VectorStoreService:
         if path.exists():
             try:
                 index = faiss.read_index(str(path))
+                if index.d != self.EMBEDDING_DIMENSION:
+                    logger.warning(
+                        f"{name} dimension uyumsuz: index={index.d}, expected={self.EMBEDDING_DIMENSION}. "
+                        "Index sıfırdan oluşturuluyor."
+                    )
+                    return faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
                 logger.info(f"{name} yüklendi: {path} ({index.ntotal} vektör)")
                 return index
             except Exception as e:
@@ -64,25 +74,32 @@ class VectorStoreService:
         return index
     
     def _load_metadata_from_file(self) -> None:
-        """Test verileri için metadata dosyasını yükle."""
-        scripts_dir = Path(__file__).parent.parent.parent / "scripts"
-        metadata_file = scripts_dir / "metadata_official.py"
-        
-        if metadata_file.exists():
-            try:
-                spec = importlib.util.spec_from_file_location("metadata_official", metadata_file)
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-                    self.official_metadata = getattr(module, "OFFICIAL_METADATA", {})
-                    logger.info(f"Test verilerinden {len(self.official_metadata)} metadata yüklendi")
-            except Exception as e:
-                logger.warning(f"Metadata dosyası yüklenemedi: {e}")
+        """Metadata'yı pickle dosyasından yükle."""
+        if not self.metadata_path.exists():
+            self.official_metadata = {}
+            logger.info("Metadata dosyasi bulunamadi, bos metadata ile baslanacak")
+            return
+
+        try:
+            with self.metadata_path.open("rb") as metadata_file:
+                loaded = pickle.load(metadata_file)
+                if isinstance(loaded, dict):
+                    self.official_metadata = loaded
+                else:
+                    logger.warning("Metadata dosyasi dict formatinda degil, bos metadata kullaniliyor")
+                    self.official_metadata = {}
+
+            logger.info(f"Metadata yuklendi: {len(self.official_metadata)} kayit")
+        except Exception as e:
+            logger.warning(f"Metadata dosyasi yuklenemedi: {e}. Bos metadata kullaniliyor")
+            self.official_metadata = {}
     
     def save_indexes(self) -> None:
         """Tüm index'leri diske kaydet."""
         try:
             faiss.write_index(self.vdb_official, str(self.official_index_path))
+            with self.metadata_path.open("wb") as metadata_file:
+                pickle.dump(self.official_metadata, metadata_file)
             logger.info("Vector index'leri diske kaydedildi")
         except Exception as e:
             logger.error(f"Index kaydetme hatası: {e}")
@@ -135,12 +152,18 @@ class VectorStoreService:
         if not texts:
             return []
         
-        embeddings = await self.generate_embeddings_batch(texts)
-        vectors = np.array(embeddings, dtype=np.float32)
+        vectors = await self.generate_embeddings_batch(texts)
+        vectors_np = np.array(vectors, dtype=np.float32)
+
+        if vectors_np.ndim == 1:
+            vectors_np = vectors_np.reshape(1, -1)
+
+        print(f"DEBUG - FAISS Index Dimension: {self.vdb_official.d}")
+        print(f"DEBUG - Incoming Vectors Shape: {vectors_np.shape}")
         
         current_size = self.vdb_official.ntotal
         
-        self.vdb_official.add(vectors)
+        self.vdb_official.add(vectors_np)
         
         assigned_ids = list(range(current_size, current_size + len(texts)))
         

@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     vector_store_path: str = "./data/vectors"
     faiss_index_official: str = "vdb_official.index"
     faiss_index_user: str = "vdb_user.index"
-    vector_dimension: int = 768  # Google Gemini text-embedding-004 için 768
+    vector_dimension: int = 3072  # Google Gemini gemini-embedding-001 için 3072
     vector_search_k: int = 5
     
     # PDF İşleme
