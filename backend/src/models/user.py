@@ -66,6 +66,8 @@ class User(Base):
     
     terms_accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    daily_message_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    last_message_reset: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),

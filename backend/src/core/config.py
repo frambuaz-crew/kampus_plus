@@ -117,6 +117,8 @@ class Settings(BaseSettings):
     allowed_hosts: str = "localhost,127.0.0.1"
     rate_limit_per_minute: int = 100
     ai_rate_limit_per_minute: int = 10
+    ENABLE_USAGE_LIMIT: bool = False
+    DAILY_MESSAGE_LIMIT: int = 50
     
     @property
     def cors_origins_list(self) -> List[str]:

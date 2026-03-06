@@ -14,9 +14,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.config import settings
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
 from src.models.ai import AIConversation, AIMessage
@@ -25,8 +26,6 @@ from src.services.ai_service import AIService
 from src.services.vector_service import VectorStoreService, get_vector_service
 
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
-
-DAILY_MESSAGE_LIMIT = 50
 
 
 class ReferenceResponse(BaseModel):
@@ -77,11 +76,6 @@ _ai_service_instance: Optional[AIService] = None
 
 def _utc_naive() -> datetime:
 	return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _utc_day_start_naive() -> datetime:
-	now_utc = datetime.now(timezone.utc)
-	return datetime(now_utc.year, now_utc.month, now_utc.day)
 
 
 def _next_reset_at() -> datetime:
@@ -140,19 +134,44 @@ def _build_history_pairs(messages: List[AIMessage]) -> List[Dict[str, str]]:
 	return history_pairs
 
 
-async def _count_today_user_messages(session: AsyncSession, user_id: str) -> int:
-	day_start = _utc_day_start_naive()
-	stmt = (
-		select(func.count(AIMessage.id))
-		.join(AIConversation, AIMessage.conversation_id == AIConversation.id)
-		.where(
-			AIConversation.user_id == user_id,
-			AIMessage.role == "user",
-			AIMessage.created_at >= day_start,
-		)
-	)
+def _is_new_utc_day(last_reset: Optional[datetime]) -> bool:
+	if last_reset is None:
+		return True
+	today_utc = datetime.now(timezone.utc).date()
+	return last_reset.date() != today_utc
+
+
+async def _get_user_daily_usage_state(
+	session: AsyncSession,
+	user_id: str,
+	with_lock: bool = False,
+) -> User:
+	stmt = select(User).where(User.id == user_id)
+	if with_lock:
+		stmt = stmt.with_for_update()
+
 	result = await session.execute(stmt)
-	return int(result.scalar() or 0)
+	user = result.scalar_one_or_none()
+
+	if user is None:
+		raise HTTPException(
+			status_code=status.HTTP_404_NOT_FOUND,
+			detail={"error": {"code": "USER_NOT_FOUND", "message": "Kullanıcı bulunamadı."}},
+		)
+
+	if settings.ENABLE_USAGE_LIMIT and _is_new_utc_day(user.last_message_reset):
+		user.daily_message_count = 0
+		user.last_message_reset = _utc_naive()
+
+	return user
+
+
+async def _get_remaining_messages_for_user(session: AsyncSession, user_id: str) -> int:
+	if not settings.ENABLE_USAGE_LIMIT:
+		return settings.DAILY_MESSAGE_LIMIT
+
+	user = await _get_user_daily_usage_state(session=session, user_id=user_id)
+	return max(settings.DAILY_MESSAGE_LIMIT - user.daily_message_count, 0)
 
 
 def get_vector_service_dependency() -> VectorStoreService:
@@ -175,12 +194,11 @@ async def get_remaining_messages(
 	current_user: User = Depends(get_current_user),
 	session: AsyncSession = Depends(get_db),
 ) -> RemainingMessagesResponse:
-	used_messages = await _count_today_user_messages(session=session, user_id=current_user.id)
-	remaining = max(DAILY_MESSAGE_LIMIT - used_messages, 0)
+	remaining = await _get_remaining_messages_for_user(session=session, user_id=current_user.id)
 
 	return RemainingMessagesResponse(
 		remaining=remaining,
-		limit=DAILY_MESSAGE_LIMIT,
+		limit=settings.DAILY_MESSAGE_LIMIT,
 		resets_at=_next_reset_at(),
 	)
 
@@ -199,7 +217,7 @@ async def get_conversation(
 	convo_result = await session.execute(convo_stmt)
 	conversation = convo_result.scalar_one_or_none()
 
-	remaining = max(DAILY_MESSAGE_LIMIT - await _count_today_user_messages(session, current_user.id), 0)
+	remaining = await _get_remaining_messages_for_user(session=session, user_id=current_user.id)
 
 	if not conversation:
 		return ConversationResponse(conversation_id=None, messages=[], remaining_messages=remaining)
@@ -272,19 +290,29 @@ async def send_chat_message(
 			detail={"error": {"code": "INVALID_MESSAGE", "message": "Mesaj boş olamaz."}},
 		)
 
-	used_messages = await _count_today_user_messages(session=session, user_id=current_user.id)
-	if used_messages >= DAILY_MESSAGE_LIMIT:
-		raise HTTPException(
-			status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-			detail={
-				"error": {
-					"code": "DAILY_LIMIT_EXCEEDED",
-					"message": "Günlük mesaj limitine ulaşıldı.",
-					"remaining": 0,
-					"limit": DAILY_MESSAGE_LIMIT,
-				}
-			},
+	usage_user: Optional[User] = None
+	used_messages = 0
+
+	if settings.ENABLE_USAGE_LIMIT:
+		usage_user = await _get_user_daily_usage_state(
+			session=session,
+			user_id=current_user.id,
+			with_lock=True,
 		)
+		used_messages = usage_user.daily_message_count
+
+		if used_messages >= settings.DAILY_MESSAGE_LIMIT:
+			raise HTTPException(
+				status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+				detail={
+					"error": {
+						"code": "DAILY_LIMIT_EXCEEDED",
+						"message": "Günlük mesaj limitine ulaşıldı.",
+						"remaining": 0,
+						"limit": settings.DAILY_MESSAGE_LIMIT,
+					}
+				},
+			)
 
 	convo_stmt = (
 		select(AIConversation)
@@ -340,12 +368,20 @@ async def send_chat_message(
 	)
 	session.add(assistant_message)
 
+	if settings.ENABLE_USAGE_LIMIT and usage_user is not None:
+		usage_user.daily_message_count = used_messages + 1
+		if usage_user.last_message_reset is None:
+			usage_user.last_message_reset = _utc_naive()
+
 	conversation.updated_at = _utc_naive()
 	await session.commit()
 	await session.refresh(user_message)
 	await session.refresh(assistant_message)
 
-	remaining_messages = max(DAILY_MESSAGE_LIMIT - (used_messages + 1), 0)
+	if settings.ENABLE_USAGE_LIMIT:
+		remaining_messages = max(settings.DAILY_MESSAGE_LIMIT - (used_messages + 1), 0)
+	else:
+		remaining_messages = settings.DAILY_MESSAGE_LIMIT
 
 	return SendMessageResponse(
 		conversation_id=conversation.id,
