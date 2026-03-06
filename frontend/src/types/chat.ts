@@ -10,6 +10,7 @@ export interface Reference {
   type: string;
   label: string;
   url: string;
+  source_file: string;
 }
 
 export interface ChatMessage {

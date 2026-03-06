@@ -5,7 +5,6 @@ S3, MinIO veya cloud storage kullanılmaz.
 """
 from contextlib import asynccontextmanager
 from pathlib import Path
-import os
 
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -125,6 +124,20 @@ app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 static_path = Path("static")
 static_path.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 3. AI kaynak dokumanlari icin /api/v1/ai/documents dizini
+# Docker konteynerinde dokumanlar /app/data/raw_docs altinda tutulur.
+raw_docs_dir = Path("/app/data/raw_docs")
+raw_docs_dir.mkdir(parents=True, exist_ok=True)
+
+if not raw_docs_dir.exists() or not raw_docs_dir.is_dir():
+    raise RuntimeError(f"AI document directory is invalid: {raw_docs_dir}")
+
+app.mount(
+    "/api/v1/ai/documents",
+    StaticFiles(directory=str(raw_docs_dir.resolve()), check_dir=True),
+    name="ai-documents",
+)
 
 
 # Router'ları ekle

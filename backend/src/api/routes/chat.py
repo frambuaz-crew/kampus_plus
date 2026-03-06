@@ -33,6 +33,7 @@ class ReferenceResponse(BaseModel):
 	type: str
 	label: str
 	url: str
+	source_file: str
 
 
 class AIMessageResponse(BaseModel):
@@ -104,11 +105,20 @@ def _to_references(sources: List[Dict[str, Any]]) -> List[ReferenceResponse]:
 	for source in sources:
 		source_type = source.get("source_type", "official")
 		title = source.get("title") or "Kaynak"
+		source_file = (
+			source.get("source_file")
+			or (source.get("metadata") or {}).get("source_file")
+		)
+
+		if not source_file:
+			continue
+
 		references.append(
 			ReferenceResponse(
 				type=source_type,
 				label=title,
 				url=_source_url(source_type),
+				source_file=source_file,
 			)
 		)
 	return references

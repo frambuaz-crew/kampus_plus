@@ -123,7 +123,12 @@ def split_documents(docs: List[Document]) -> Tuple[List[str], List[Dict]]:
     chunk_metadata: List[Dict] = []
 
     for split_doc in split_docs:
-        source_file = split_doc.metadata.get("source_file", "unknown")
+        # Legacy metadata anahtarlarini source_file altinda normalize et.
+        source_file = (
+            split_doc.metadata.get("source_file")
+            or split_doc.metadata.get("file_name")
+            or Path(str(split_doc.metadata.get("source", "unknown"))).name
+        )
 
         enriched_text = (
             f"{split_doc.page_content}\n\n"

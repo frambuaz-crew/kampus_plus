@@ -33,6 +33,45 @@ interface ChatInterfaceProps {
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) => {
+  const DOCUMENTS_BASE_URL = 'http://localhost:8000/api/v1/ai/documents';
+
+  const normalizeSourceFile = (sourceFile: string): string => {
+    const trimmed = sourceFile.trim().replace(/\\/g, '/');
+    const baseName = trimmed.split('/').pop() || trimmed;
+    return baseName;
+  };
+
+  const buildDocumentUrl = (sourceFile: string): string => {
+    return `${DOCUMENTS_BASE_URL}/${encodeURIComponent(normalizeSourceFile(sourceFile))}`;
+  };
+
+  const getUniqueReferences = (references: Reference[]): Array<Reference & { sourceFileName: string }> => {
+    const uniqueMap = new Map<string, Reference & { sourceFileName: string }>();
+
+    references.forEach((ref) => {
+      const sourceFileName = ref.source_file?.trim() || '';
+      const normalizedSourceFile = normalizeSourceFile(sourceFileName);
+      const uniqueKey = normalizedSourceFile.toLowerCase();
+
+      if (!normalizedSourceFile || uniqueMap.has(uniqueKey)) {
+        return;
+      }
+
+      uniqueMap.set(uniqueKey, { ...ref, sourceFileName: normalizedSourceFile });
+    });
+
+    return Array.from(uniqueMap.values());
+  };
+
+  const sanitizeAssistantContent = (content: string): string => {
+    return content
+      .replace(/\s*\(\s*Resmi\s+Dokuman\s*\)\s*/gi, ' ')
+      .replace(/\s*\[\s*Kaynak\s*\d+\s*\]\s*/gi, ' ')
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
@@ -181,6 +220,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
     
     const isUser = message.role === 'user';
     const references: Reference[] = message.references || [];
+    const uniqueReferences = getUniqueReferences(references);
+    const primaryReference = uniqueReferences[0] || null;
+    const displayContent = isUser ? message.content : sanitizeAssistantContent(message.content);
 
     return (
       <div
@@ -256,7 +298,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
                 ),
               }}
             >
-              {message.content}
+              {displayContent}
             </ReactMarkdown>
           </div>
 
@@ -264,17 +306,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
             {formatTimestamp(message.created_at)}
           </div>
           
-          {!isUser && references.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {references.map((ref, index) => (
-                <a
-                  key={index}
-                  href={ref.url}
-                  className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-700 transition-colors hover:bg-indigo-100"
-                >
-                  {ref.label}
-                </a>
-              ))}
+          {!isUser && primaryReference && (
+            <div className="mt-3">
+              <a
+                href={buildDocumentUrl(primaryReference.sourceFileName)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+              >
+                Dosyayi Goruntule
+              </a>
             </div>
           )}
         </div>
