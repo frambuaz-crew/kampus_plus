@@ -1,10 +1,8 @@
 import React from 'react';
 import { 
   Users, GraduationCap, AlertTriangle, 
-  MessageSquare, Bot, CheckCircle, 
-  ArrowRight, Calendar, Clock
+  MessageSquare, Bot, CheckCircle,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 export const AdminDashboard: React.FC = () => {
   // 🚀 İKONLARI BİLEŞEN OLARAK SAKLIYORUZ (TypeScript dostu yöntem)
@@ -15,15 +13,6 @@ export const AdminDashboard: React.FC = () => {
     { label: 'Toplam Kullanıcı', value: '1,247', Icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
     { label: 'AI Mesaj (Bugün)', value: '2,543', Icon: Bot, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { label: 'Onaylanmış Veri', value: '45', Icon: CheckCircle, color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
-  ];
-
-  const quickAccess = [
-    { label: 'Ders Programı Yönetimi', path: '/admin/academic/course-schedule', Icon: Calendar },
-    { label: 'Akademik Takvim Yönetimi', path: '/admin/academic/calendar', Icon: Clock },
-    { label: 'Bekleyen Katkılar', path: '/admin/academic/pending-contributions', Icon: GraduationCap, count: 12 },
-    { label: 'Rapor Edilen İçerikler', path: '/admin/moderation/reports', Icon: AlertTriangle },
-    { label: 'AI Assistant Ayarları', path: '/admin/ai/settings', Icon: Bot },
-    { label: 'Kullanıcı Yönetimi', path: '/admin/users', Icon: Users },
   ];
 
   return (
@@ -53,38 +42,6 @@ export const AdminDashboard: React.FC = () => {
         })}
       </div>
 
-      {/* ⚡ Hızlı Erişim - Spec 2.3 gereği */}
-      <div className="space-y-6">
-        <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
-          <div className="w-2 h-8 bg-red-600 rounded-full"></div>
-          HIZLI ERİŞİM
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {quickAccess.map((item, idx) => {
-            const ItemIcon = item.Icon; // 💡 Değişkene atayarak bileşen olarak kullanıyoruz
-            return (
-              <Link 
-                key={idx} 
-                to={item.path}
-                className="bg-gray-900/60 border border-gray-800 hover:border-red-600/50 p-6 rounded-2xl flex items-center justify-between group transition-all"
-              >
-                <div className="flex items-center gap-4 text-gray-300 group-hover:text-white">
-                  <div className="text-gray-500 group-hover:text-red-500 transition-colors">
-                    <ItemIcon size={24} />
-                  </div>
-                  <span className="font-bold text-sm uppercase tracking-wide">{item.label}</span>
-                  {item.count && (
-                    <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black ml-1">
-                      {item.count}
-                    </span>
-                  )}
-                </div>
-                <ArrowRight size={18} className="text-gray-700 group-hover:text-white group-hover:translate-x-1 transition-all" />
-              </Link>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 };

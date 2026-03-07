@@ -24,6 +24,7 @@ from src.api.routes.messages import router as messages_router
 from src.services import get_vector_service
 from src.api.routes.marketplace import router as marketplace_router
 from src.api.routes.career import router as career_router
+from src.api.routes.academic import router as academic_router
 from src.api.routes import users
 
 
@@ -149,6 +150,7 @@ app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(messages_router, prefix="/api/v1")
 app.include_router(marketplace_router, prefix="/api/v1")
 app.include_router(career_router, prefix="/api/v1")
+app.include_router(academic_router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 
 @app.get("/")

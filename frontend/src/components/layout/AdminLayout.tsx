@@ -19,14 +19,14 @@ export const AdminLayout: React.FC = () => {
 
   // Admin Sidebar Linkleri
   const menuItems = [
-    { path: '/admin/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-    { path: '/admin/academic/pending-contributions', icon: <GraduationCap size={20} />, label: 'Academic' },
-    { path: '/admin/forum', icon: <MessageSquare size={20} />, label: 'Forum' },
-    { path: '/admin/moderation/marketplace-reports', icon: <ShoppingBag size={20} />, label: 'Marketplace' },
-    { path: '/admin/moderation/career-reports', icon: <Briefcase size={20} />, label: 'Career' },
-    { path: '/admin/ai/settings', icon: <Bot size={20} />, label: 'AI Assistant' },
-    { path: '/admin/users', icon: <Users size={20} />, label: 'Users' },
-    { path: '/admin/messages', icon: <Mail size={20} />, label: 'Messages' },
+    { path: '/admin/dashboard',                       icon: <LayoutDashboard size={20} />, label: 'Dashboard'    },
+    { path: '/admin/academic/pending-contributions',  icon: <GraduationCap size={20} />,   label: 'Academic'     },
+    { path: '/admin/forum',                           icon: <MessageSquare size={20} />,   label: 'Forum'        },
+    { path: '/admin/marketplace',                     icon: <ShoppingBag size={20} />,     label: 'Marketplace'  },
+    { path: '/admin/career',                          icon: <Briefcase size={20} />,       label: 'Career'       },
+    { path: '/admin/ai/settings',                     icon: <Bot size={20} />,             label: 'AI Assistant' },
+    { path: '/admin/users',                           icon: <Users size={20} />,           label: 'Users'        },
+    { path: '/admin/messages',                        icon: <Mail size={20} />,            label: 'Messages'     },
   ];
 
   return (

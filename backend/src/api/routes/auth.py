@@ -500,10 +500,11 @@ async def admin_login(
             user=UserResponse(
                 id=str(user.id),
                 email=user.email,
+                username=user.username,
                 first_name=user.first_name,
                 last_name=user.last_name,
                 role=user.role.value,
-                university=official_university_name, 
+                university=official_university_name,
                 department_id=user.department_id,
                 department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
                 is_verified=user.is_verified,

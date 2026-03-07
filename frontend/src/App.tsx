@@ -26,6 +26,13 @@ import { Error403Page } from './pages/Error403Page';
 import { AuthProvider } from './contexts/AuthContext';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminAcademicPage } from './pages/admin/AdminAcademicPage';
+import { AdminForumPage } from './pages/admin/AdminForumPage';
+import { AdminMarketplacePage } from './pages/admin/AdminMarketplacePage';
+import { AdminCareerPage } from './pages/admin/AdminCareerPage';
+import { AdminAIPage } from './pages/admin/AdminAIPage';
+import { AdminUsersPage } from './pages/admin/AdminUsersPage';
+import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
 import { AdminLayout } from './components/layout/AdminLayout';
 import './App.css';
 
@@ -187,16 +194,27 @@ function App() {
           >
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="academic/pending-contributions" element={<div>Bekleyen Katkılar Gelecek</div>} />
-            <Route path="academic/course-schedule" element={<div>Ders Programı Yönetimi Gelecek</div>} />
-            <Route path="academic/calendar" element={<div>Akademik Takvim Yönetimi Gelecek</div>} />
-            <Route path="moderation/marketplace-reports" element={<div>Marketplace Raporları Gelecek</div>} />
-            <Route path="moderation/career-reports" element={<div>Kariyer Raporları Gelecek</div>} />
-            <Route path="ai/settings" element={<div>AI Ayarları Gelecek</div>} />
-            <Route path="ai/knowledge-base" element={<div>Knowledge Base Gelecek</div>} />
-            <Route path="ai/stats" element={<div>AI İstatistikleri Gelecek</div>} />
-            <Route path="users" element={<div>Kullanıcı Yönetimi Gelecek</div>} />
-            <Route path="messages" element={<div>İletişim Mesajları Gelecek</div>} />
+            {/* Academic */}
+            <Route path="academic" element={<Navigate to="/admin/academic/pending-contributions" replace />} />
+            <Route path="academic/pending-contributions" element={<AdminAcademicPage />} />
+            <Route path="academic/course-schedule" element={<AdminAcademicPage />} />
+            <Route path="academic/calendar" element={<AdminAcademicPage />} />
+            {/* Forum */}
+            <Route path="forum" element={<AdminForumPage />} />
+            {/* Marketplace */}
+            <Route path="marketplace" element={<AdminMarketplacePage />} />
+            <Route path="moderation/marketplace-reports" element={<AdminMarketplacePage />} />
+            {/* Career */}
+            <Route path="career" element={<AdminCareerPage />} />
+            <Route path="moderation/career-reports" element={<AdminCareerPage />} />
+            {/* AI */}
+            <Route path="ai" element={<Navigate to="/admin/ai/settings" replace />} />
+            <Route path="ai/settings" element={<AdminAIPage />} />
+            <Route path="ai/knowledge-base" element={<AdminAIPage />} />
+            <Route path="ai/stats" element={<AdminAIPage />} />
+            {/* Users & Messages */}
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="messages" element={<AdminMessagesPage />} />
           </Route>
 
           {/* Legacy Routes */}
