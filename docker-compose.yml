@@ -63,6 +63,8 @@ services:
         echo '🚀 Starting KAMPÜS+ Backend...' &&
         python -m alembic upgrade head || echo '⚠️  Migration hatası (devam ediliyor)' &&
         python scripts/seed_data.py || echo '⚠️  Seed hatası (devam ediliyor)' &&
+        python scripts/vector_seed_konya.py || echo '⚠️  Vektör seed hatası (devam ediliyor)' &&
+        python scripts/ingest_docs.py || echo '⚠️  Doküman ingest hatası (devam ediliyor)' &&
         echo '✅ Starting FastAPI server...' &&
         uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --log-level warning
       "

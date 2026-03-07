@@ -42,13 +42,15 @@ async def seed_universities(session: AsyncSession) -> None:
     with open(json_path, 'r', encoding='utf-8') as f:
         universities_data = json.load(f)
 
-    print(f"   📦 {len(universities_data)} üniversite verisi işleniyor...")
-    
+    print(f"   {len(universities_data)} üniversite verisi işleniyor...")
+
+    # Tek sorguda mevcut tüm üniversite isimlerini çek
+    existing_result = await session.execute(select(University.name))
+    existing_names = {row[0] for row in existing_result.fetchall()}
+
     created_count = 0
     for uni_data in universities_data:
-        # İsme göre kontrol et
-        result = await session.execute(select(University).where(University.name == uni_data['name']))
-        if not result.scalar_one_or_none():
+        if uni_data['name'] not in existing_names:
             new_uni = University(
                 id=str(uuid4()),
                 name=uni_data['name'],
@@ -59,8 +61,6 @@ async def seed_universities(session: AsyncSession) -> None:
             )
             session.add(new_uni)
             created_count += 1
-            if created_count % 50 == 0: # Her 50 tanede bir log bas
-                print(f"   ... {created_count} üniversite eklendi ...")
     
     print(f"   [OK] {created_count} yeni üniversite eklendi.")
 
