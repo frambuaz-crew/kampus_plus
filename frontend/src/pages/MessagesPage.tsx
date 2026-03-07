@@ -154,11 +154,22 @@ export const MessagesPage: React.FC = () => {
                         {/* Avatar */}
                         <div className="relative flex-shrink-0">
                           {conv.other_user.profile_picture_url ? (
-                            <img
-                              src={getImageUrl(conv.other_user.profile_picture_url)}
-                              alt={conv.other_user.username}
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
+                            <>
+                              <img
+                                src={getImageUrl(conv.other_user.profile_picture_url)}
+                                alt={conv.other_user.username}
+                                className="w-12 h-12 rounded-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  if (e.currentTarget.nextElementSibling) {
+                                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                                  }
+                                }}
+                              />
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 items-center justify-center text-white font-semibold text-lg" style={{ display: 'none' }}>
+                                {initials}
+                              </div>
+                            </>
                           ) : (
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
                               {initials}

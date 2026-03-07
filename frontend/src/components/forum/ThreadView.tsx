@@ -22,29 +22,39 @@ const PostCard: React.FC<{ post: ForumTopic | ForumReply; isThread?: boolean }> 
 
   const authorSubtitle = post.author
     ? [
-        post.author.university,
-        typeof post.author.department === 'string'
-          ? post.author.department
-          : post.author.department?.name,
-      ]
-        .filter(Boolean)
-        .join(' | ')
+      post.author.university,
+      typeof post.author.department === 'string'
+        ? post.author.department
+        : post.author.department?.name,
+    ]
+      .filter(Boolean)
+      .join(' | ')
     : null;
 
   return (
     <div
-      className={`mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ${
-        isThread ? 'border-l-4 border-l-indigo-600' : ''
-      }`}
+      className={`mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm ${isThread ? 'border-l-4 border-l-indigo-600' : ''
+        }`}
     >
       <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/80 p-5">
         <div className="flex items-center space-x-4">
           {post.author?.profile_picture_url ? (
-            <img
-              src={getImageUrl(post.author.profile_picture_url)}
-              alt={authorFullName}
-              className="h-12 w-12 rounded-full border border-indigo-100 object-cover shadow-sm"
-            />
+            <>
+              <img
+                src={getImageUrl(post.author.profile_picture_url)}
+                alt={authorFullName}
+                className="h-12 w-12 rounded-full border border-indigo-100 object-cover shadow-sm"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextElementSibling) {
+                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-sm" style={{ display: 'none' }}>
+                <UserIcon size={22} />
+              </div>
+            </>
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded-full border border-indigo-100 bg-indigo-50 text-indigo-600 shadow-sm">
               <UserIcon size={22} />

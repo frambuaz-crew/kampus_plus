@@ -255,7 +255,12 @@ export const ProfilePage: React.FC = () => {
                   className={`w-32 h-32 md:w-36 md:h-36 rounded-[2rem] overflow-hidden bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-4xl font-black shadow-lg shadow-indigo-200/50 relative border-4 border-white ${isOwnProfile && !isEditing ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
                 >
                   {profileData.profile_picture_url ? (
-                    <img src={getImageUrl(profileData.profile_picture_url)} className="w-full h-full object-cover" alt="Profile" />
+                    <img
+                      src={getImageUrl(profileData.profile_picture_url)}
+                      className="w-full h-full object-cover"
+                      alt="Profile"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
                   ) : (
                     <>{profileData.first_name?.[0]}{profileData.last_name?.[0]}</>
                   )}

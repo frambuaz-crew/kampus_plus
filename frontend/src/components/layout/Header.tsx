@@ -143,24 +143,37 @@ export const Header: React.FC = () => {
     return colors[hash % colors.length];
   };
 
-  // Get profile avatar
   const getProfileAvatar = () => {
-    if (user?.profile_picture_url) {
-      return (
-        <img
-          src={getImageUrl(user.profile_picture_url)}
-          alt={`${user.first_name} ${user.last_name}`}
-          className="w-10 h-10 rounded-full object-cover"
-        />
-      );
-    }
-
     const initials = `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`.toUpperCase();
     const bgColor = user?.id ? getUserColor(user.id) : '#4ECDC4';
 
+    if (user?.profile_picture_url) {
+      return (
+        <>
+          <img
+            src={getImageUrl(user.profile_picture_url)}
+            alt={`${user.first_name} ${user.last_name}`}
+            className="w-10 h-10 rounded-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              if (e.currentTarget.nextElementSibling) {
+                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+              }
+            }}
+          />
+          <div
+            className="w-10 h-10 rounded-full items-center justify-center text-white font-semibold flex-shrink-0"
+            style={{ backgroundColor: bgColor, display: 'none' }}
+          >
+            {initials}
+          </div>
+        </>
+      );
+    }
+
     return (
       <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0"
         style={{ backgroundColor: bgColor }}
       >
         {initials}
@@ -401,11 +414,25 @@ export const Header: React.FC = () => {
                           >
                             <div className="flex items-start space-x-3">
                               {otherUser.profile_picture_url ? (
-                                <img
-                                  src={getImageUrl(otherUser.profile_picture_url)}
-                                  alt={`${otherUser.first_name} ${otherUser.last_name}`}
-                                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                />
+                                <>
+                                  <img
+                                    src={getImageUrl(otherUser.profile_picture_url)}
+                                    alt={`${otherUser.first_name} ${otherUser.last_name}`}
+                                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      if (e.currentTarget.nextElementSibling) {
+                                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                                      }
+                                    }}
+                                  />
+                                  <div
+                                    className="w-10 h-10 rounded-full items-center justify-center text-white text-sm font-semibold flex-shrink-0"
+                                    style={{ backgroundColor: avatarBgColor, display: 'none' }}
+                                  >
+                                    {initials}
+                                  </div>
+                                </>
                               ) : (
                                 <div
                                   className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"

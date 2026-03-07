@@ -130,11 +130,24 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
           onClick={(e) => e.stopPropagation()}
         >
           {listing.creator?.profile_picture_url ? (
-            <img
-              src={getImageUrl(listing.creator.profile_picture_url)}
-              alt={listing.creator.first_name || 'Seller'}
-              className="h-7 w-7 rounded-full border border-indigo-200 object-cover"
-            />
+            <>
+              <img
+                src={getImageUrl(listing.creator.profile_picture_url)}
+                alt={listing.creator.first_name || 'Seller'}
+                className="h-7 w-7 rounded-full border border-indigo-200 object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextElementSibling) {
+                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-indigo-200 bg-indigo-100 text-[11px] font-bold uppercase text-indigo-600" style={{ display: 'none' }}>
+                {listing.creator?.first_name
+                  ? listing.creator.first_name[0].toUpperCase()
+                  : 'U'}
+              </div>
+            </>
           ) : (
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-indigo-200 bg-indigo-100 text-[11px] font-bold uppercase text-indigo-600">
               {listing.creator?.first_name
@@ -172,9 +185,9 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
               📅{' '}
               {listing.created_at
                 ? formatDistanceToNow(new Date(listing.created_at), {
-                    addSuffix: true,
-                    locale: tr,
-                  })
+                  addSuffix: true,
+                  locale: tr,
+                })
                 : 'Yeni eklendi'}
             </span>
 

@@ -179,11 +179,23 @@ export const MessagesChatPage: React.FC = () => {
 
             {/* Avatar */}
             {conv?.other_user?.profile_picture_url ? (
-              <img
-                src={getImageUrl(conv.other_user.profile_picture_url)}
-                alt={conv?.other_user?.username || ''}
-                className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm border border-gray-100"
-              />
+              <>
+                <img
+                  src={getImageUrl(conv.other_user.profile_picture_url)}
+                  alt={conv?.other_user?.username || ''}
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm border border-gray-100"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    if (e.currentTarget.nextElementSibling) {
+                      (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                    }
+                  }}
+                />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 items-center justify-center text-white font-bold text-base flex-shrink-0" style={{ display: 'none' }}>
+                  {conv?.other_user?.full_name?.charAt(0).toUpperCase() ||
+                    conv?.other_user?.username?.charAt(0).toUpperCase() || '?'}
+                </div>
+              </>
             ) : (
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
                 {conv?.other_user?.full_name?.charAt(0).toUpperCase() ||
@@ -277,8 +289,8 @@ export const MessagesChatPage: React.FC = () => {
                       >
                         <div
                           className={`relative max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm ${isMe
-                              ? 'bg-indigo-600 text-white rounded-br-sm'
-                              : 'bg-white text-slate-900 border border-slate-100 rounded-bl-sm'
+                            ? 'bg-indigo-600 text-white rounded-br-sm'
+                            : 'bg-white text-slate-900 border border-slate-100 rounded-bl-sm'
                             }`}
                         >
                           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">

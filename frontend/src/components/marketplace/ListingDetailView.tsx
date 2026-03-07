@@ -52,11 +52,10 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
           <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-inner">
             {images.length > 0 ? (
               <img
-                src={`${baseUrl}${
-                  images[activeImageIndex].startsWith('/')
+                src={`${baseUrl}${images[activeImageIndex].startsWith('/')
                     ? images[activeImageIndex]
                     : `/${images[activeImageIndex]}`
-                }`}
+                  }`}
                 className="h-full w-full object-contain"
                 alt={listing.title}
               />
@@ -70,11 +69,10 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
                 <button
                   key={img + index}
                   onClick={() => setActiveImageIndex(index)}
-                  className={`h-16 w-16 overflow-hidden rounded-lg border-2 transition-all ${
-                    activeImageIndex === index
+                  className={`h-16 w-16 overflow-hidden rounded-lg border-2 transition-all ${activeImageIndex === index
                       ? 'border-indigo-600 ring-2 ring-indigo-50'
                       : 'border-transparent opacity-60'
-                  }`}
+                    }`}
                 >
                   <img
                     src={`${baseUrl}${img.startsWith('/') ? img : `/${img}`}`}
@@ -102,9 +100,9 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
               <span className="text-xs text-gray-400">
                 {listing.created_at
                   ? formatDistanceToNow(new Date(listing.created_at), {
-                      addSuffix: true,
-                      locale: tr,
-                    })
+                    addSuffix: true,
+                    locale: tr,
+                  })
                   : ''}
               </span>
             </div>
@@ -146,11 +144,22 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
             >
               <div className="flex items-center gap-4">
                 {listing.creator?.profile_picture_url ? (
-                  <img
-                    src={getImageUrl(listing.creator.profile_picture_url)}
-                    alt={listing.creator.first_name || 'Satıcı'}
-                    className="h-12 w-12 rounded-full border-2 border-indigo-100 object-cover shadow-md transition-transform group-hover:scale-110"
-                  />
+                  <>
+                    <img
+                      src={getImageUrl(listing.creator.profile_picture_url)}
+                      alt={listing.creator.first_name || 'Satıcı'}
+                      className="h-12 w-12 rounded-full border-2 border-indigo-100 object-cover shadow-md transition-transform group-hover:scale-110"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextElementSibling) {
+                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                        }
+                      }}
+                    />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold uppercase text-white shadow-md transition-transform group-hover:scale-110" style={{ display: 'none' }}>
+                      {listing.creator?.first_name ? listing.creator.first_name[0] : 'U'}
+                    </div>
+                  </>
                 ) : (
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold uppercase text-white shadow-md transition-transform group-hover:scale-110">
                     {listing.creator?.first_name ? listing.creator.first_name[0] : 'U'}

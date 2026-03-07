@@ -272,11 +272,22 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
           onClick={(e) => e.stopPropagation()}
         >
           {listing.creator?.profile_picture_url ? (
-            <img
-              src={getImageUrl(listing.creator.profile_picture_url)}
-              alt={listing.creator.username || 'Creator'}
-              className="w-8 h-8 rounded-lg object-cover"
-            />
+            <>
+              <img
+                src={getImageUrl(listing.creator.profile_picture_url)}
+                alt={listing.creator.username || 'Creator'}
+                className="w-8 h-8 rounded-lg object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextElementSibling) {
+                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 items-center justify-center text-white text-xs font-semibold" style={{ display: 'none' }}>
+                {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+              </div>
+            </>
           ) : (
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
               {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
@@ -431,11 +442,22 @@ const ListingDetailView: React.FC<{
             <p className="text-xs text-slate-500 uppercase font-bold mb-3 tracking-wide">İlan Veren</p>
             <Link to={`/dashboard/profile/${listing.creator?.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-fit">
               {listing.creator?.profile_picture_url ? (
-                <img
-                  src={getImageUrl(listing.creator.profile_picture_url)}
-                  alt={listing.creator.username || 'Creator'}
-                  className="w-10 h-10 rounded-lg object-cover"
-                />
+                <>
+                  <img
+                    src={getImageUrl(listing.creator.profile_picture_url)}
+                    alt={listing.creator.username || 'Creator'}
+                    className="w-10 h-10 rounded-lg object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                      }
+                    }}
+                  />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 items-center justify-center text-white font-bold" style={{ display: 'none' }}>
+                    {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                </>
               ) : (
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold">
                   {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
