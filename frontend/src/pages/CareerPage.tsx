@@ -285,12 +285,12 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void }> = (
                 }}
               />
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 items-center justify-center text-white text-xs font-semibold" style={{ display: 'none' }}>
-                {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                {(listing.creator?.full_name || listing.creator?.username)?.charAt(0).toUpperCase() || '?'}
               </div>
             </>
           ) : (
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-              {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+              {(listing.creator?.full_name || listing.creator?.username)?.charAt(0).toUpperCase() || '?'}
             </div>
           )}
           <div className="text-xs">
@@ -455,12 +455,12 @@ const ListingDetailView: React.FC<{
                     }}
                   />
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 items-center justify-center text-white font-bold" style={{ display: 'none' }}>
-                    {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                    {(listing.creator?.full_name || listing.creator?.username)?.charAt(0).toUpperCase() || '?'}
                   </div>
                 </>
               ) : (
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold">
-                  {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                  {(listing.creator?.full_name || listing.creator?.username)?.charAt(0).toUpperCase() || '?'}
                 </div>
               )}
               <div>
@@ -527,7 +527,7 @@ const ListingDetailView: React.FC<{
                       </div>
                       {/* Recipient avatar */}
                       <div className="ml-auto w-9 h-9 rounded-lg bg-white/25 flex items-center justify-center text-white font-bold text-base">
-                        {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                        {(listing.creator?.full_name || listing.creator?.username)?.charAt(0).toUpperCase() || '?'}
                       </div>
                     </div>
                   </div>
