@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Non-root kullanıcı oluştur (güvenlik)
 # NOT: Local storage kullanılır (uploads klasörü), S3/MinIO yok
 RUN useradd -m -u 1000 kampus && \
-    mkdir -p /app/data/vectors /app/uploads && \
+    mkdir -p /app/data/vectors /app/data/raw_docs /app/uploads && \
     chown -R kampus:kampus /app
 
 WORKDIR /app
@@ -41,6 +41,9 @@ COPY --chown=kampus:kampus src ./src
 COPY --chown=kampus:kampus alembic ./alembic
 COPY --chown=kampus:kampus scripts ./scripts
 COPY --chown=kampus:kampus alembic.ini .
+COPY --chown=kampus:kampus entrypoint.sh .
+# CRLF → LF dönüşümü (Windows'ta düzenlenen dosyalar için) + çalıştırma izni
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 # Environment değişkenleri
 ENV PATH=/home/kampus/.local/bin:$PATH \
@@ -53,5 +56,6 @@ USER kampus
 # Port aç
 EXPOSE 8000
 
-# Varsayılan komut (docker-compose'da override edilebilir)
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "warning"]
+# Başlangıç: migration → seed → vektör → ingest → uvicorn
+# docker-compose'da CMD override'ı hâlâ çalışır; ENTRYPOINT yerine kullanılır
+CMD ["./entrypoint.sh"]

@@ -12,8 +12,8 @@ export const getImageUrl = (url: string | null | undefined): string | undefined 
         return url;
     }
 
-    // API_BASE_URL genelde "http://localhost:8000/api/v1" şeklindedir
-    // Sadece "http://localhost:8000" kısmını almak için bir ayıklama (replace) yapalım:
+    // API_BASE_URL genelde "http://localhost:8001/api/v1" gibi bir değerdir.
+    // Sadece origin kısmını almak için /api/v1 sonunu temizliyoruz.
     const backendBase = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
     // URL '/' ile başlamıyorsa ekleyelim

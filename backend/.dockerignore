@@ -1,0 +1,30 @@
+# VCS / editor
+.git
+.gitignore
+.vscode
+.idea
+
+# Python cache / virtual env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.venv
+venv
+
+# Local runtime data (image icine alinmasin)
+uploads
+static/uploads
+data/vectors
+
+# Logs / temp
+*.log
+*.tmp
+*.bak
+
+# Tests and docs (runtime image icin gerekmez)
+tests
+docs
+README.md

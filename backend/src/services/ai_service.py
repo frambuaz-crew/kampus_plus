@@ -241,6 +241,15 @@ Response Rules:
         for doc in documents:
             metadata = doc.metadata or {}
             source_type = metadata.get("source_type", "official")
+<<<<<<< Updated upstream
+=======
+            source_file = (
+                metadata.get("source_file")
+                or metadata.get("file_name")
+                or Path(str(metadata.get("source", ""))).name
+            )
+            source_file = Path(str(source_file).replace("\\", "/")).name
+>>>>>>> Stashed changes
             
             content = doc.page_content or ""
             content_preview = content[:200] + "..." if len(content) > 200 else content

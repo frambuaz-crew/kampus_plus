@@ -13,7 +13,10 @@ interface ListingCardProps {
 
 export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
   const [isFavorite, setIsFavorite] = useState(false);
+<<<<<<< Updated upstream
   const baseUrl = "http://localhost:8000";
+=======
+>>>>>>> Stashed changes
 
   interface FavoriteRecord {
     target_id: string;
@@ -84,11 +87,15 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
 
       if (Array.isArray(images) && images.length > 0) {
         const firstPath = images[0];
+<<<<<<< Updated upstream
         const cleanPath = firstPath.startsWith("/")
           ? firstPath
           : "/" + firstPath;
 
         return baseUrl + cleanPath;
+=======
+        return getImageUrl(firstPath) || null;
+>>>>>>> Stashed changes
       }
 
       return null;

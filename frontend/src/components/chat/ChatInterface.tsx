@@ -15,7 +15,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { apiClient } from '../../api/config';
+import { API_BASE_URL, apiClient } from '../../api/config';
 import type {
   ChatMessage,
   ConversationResponse,
@@ -32,6 +32,61 @@ interface ChatInterfaceProps {
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) => {
+<<<<<<< Updated upstream
+=======
+  const API_ORIGIN = (() => {
+    try {
+      return new URL(API_BASE_URL).origin;
+    } catch {
+      return window.location.origin;
+    }
+  })();
+
+  const normalizeSourceFile = (sourceFile: string): string => {
+    const trimmed = sourceFile.trim().replace(/\\/g, '/');
+    const baseName = trimmed.split('/').pop() || trimmed;
+    return baseName;
+  };
+
+  const buildDocumentUrl = (sourceFile: string): string => {
+    return `${API_ORIGIN}/api/v1/ai/documents/${encodeURIComponent(normalizeSourceFile(sourceFile))}`;
+  };
+
+  const buildReferenceUrl = (reference: Reference & { sourceFileName: string }): string => {
+    if (reference.url?.startsWith('/api/v1/ai/documents/')) {
+      return `${API_ORIGIN}${reference.url}`;
+    }
+    return buildDocumentUrl(reference.sourceFileName);
+  };
+
+  const getUniqueReferences = (references: Reference[]): Array<Reference & { sourceFileName: string }> => {
+    const uniqueMap = new Map<string, Reference & { sourceFileName: string }>();
+
+    references.forEach((ref) => {
+      const sourceFileName = ref.source_file?.trim() || '';
+      const normalizedSourceFile = normalizeSourceFile(sourceFileName);
+      const uniqueKey = normalizedSourceFile.toLowerCase();
+
+      if (!normalizedSourceFile || uniqueMap.has(uniqueKey)) {
+        return;
+      }
+
+      uniqueMap.set(uniqueKey, { ...ref, sourceFileName: normalizedSourceFile });
+    });
+
+    return Array.from(uniqueMap.values());
+  };
+
+  const sanitizeAssistantContent = (content: string): string => {
+    return content
+      .replace(/\s*\(\s*Resmi\s+Dokuman\s*\)\s*/gi, ' ')
+      .replace(/\s*\[\s*Kaynak\s*\d+\s*\]\s*/gi, ' ')
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
+
+>>>>>>> Stashed changes
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
@@ -233,6 +288,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
             {formatTimestamp(message.created_at)}
           </div>
           
+<<<<<<< Updated upstream
           {!isUser && references.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {references.map((ref, index) => (
@@ -244,6 +300,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
                   {ref.label}
                 </a>
               ))}
+=======
+          {!isUser && primaryReference && (
+            <div className="mt-3">
+              <a
+                href={buildReferenceUrl(primaryReference)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+              >
+                Dosyayi Goruntule
+              </a>
+>>>>>>> Stashed changes
             </div>
           )}
         </div>

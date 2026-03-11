@@ -11,7 +11,11 @@ services:
       POSTGRES_PASSWORD: kampus
       POSTGRES_DB: kampus_plus
     ports:
+<<<<<<< Updated upstream
       - "5432:5432"
+=======
+      - "5432:5432"  # 5433:5432 yazan yeri bununla değiştir
+>>>>>>> Stashed changes
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -38,14 +42,27 @@ services:
       - DATABASE_URL=postgresql+asyncpg://kampus:kampus@postgres:5432/kampus_plus
       - ENVIRONMENT=development
       - DEBUG=true
+      - FRONTEND_URL=http://localhost:5173
+      - AI_DOCS_DIR=/app/data/raw_docs
+      - VECTOR_EAGER_INIT=false
+      - RUN_DB_MIGRATIONS=true
+      - RUN_BOOTSTRAP_TASKS=true
+      - RUN_VECTOR_SEED=true
+      - RUN_DOCS_INGEST=true
+      - UVICORN_RELOAD=false
     ports:
       - "8000:8000"
     volumes:
       - ./backend/src:/app/src
       - ./backend/alembic:/app/alembic
       - ./backend/scripts:/app/scripts
-      - ./backend/data:/app/data
-      - ./backend/uploads:/app/uploads
+      - ./backend/alembic.ini:/app/alembic.ini
+      - ./backend/static:/app/static
+      # Veri klasörleri — her biri ayrı ayrı mount
+      - ./backend/data/raw_docs:/app/data/raw_docs          # Ingest edilecek PDF/TXT
+      - ./backend/data/universities.json:/app/data/universities.json  # Seed kaynağı
+      - vectors_data:/app/data/vectors                      # FAISS index (named volume)
+      - ./backend/uploads:/app/uploads                      # Kullanıcı dosyaları (host bind)
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,6 +75,7 @@ services:
     networks:
       - kampus-network
     restart: unless-stopped
+<<<<<<< Updated upstream
     command: >
       sh -c "
         echo '🚀 Starting KAMPÜS+ Backend...' &&
@@ -66,6 +84,22 @@ services:
         echo '✅ Starting FastAPI server...' &&
         uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --log-level warning
       "
+=======
+    cpus: "2.0"
+    mem_limit: 2g
+    mem_reservation: 1g
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 1G
+    # Başlangıç sırası entrypoint.sh tarafından yönetiliyor:
+    # migration → seed → vector_seed → ingest → uvicorn
+    # (Dockerfile CMD'yi override etmek istersen burada command: ekle)
+>>>>>>> Stashed changes
 
   # Frontend (React + Vite)
   frontend:
@@ -79,9 +113,16 @@ services:
       backend:
         condition: service_healthy
     environment:
+<<<<<<< Updated upstream
       # Tarayıcıdan erişim için localhost kullanılır (Docker port mapping sayesinde)
+=======
+>>>>>>> Stashed changes
       - VITE_API_URL=http://localhost:8000/api/v1
       - NODE_ENV=development
+      # Windows Docker HMR: dosya değişikliklerini inode event yerine polling ile algıla
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=1000
+      - WATCHPACK_POLLING=false
     ports:
       - "5173:5173"
     volumes:
@@ -97,15 +138,31 @@ services:
     networks:
       - kampus-network
     restart: unless-stopped
-    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
+    command: sh -c "npm run dev -- --host 0.0.0.0"
+    cpus: "1.0"
+    mem_limit: 1g
+    mem_reservation: 512m
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
 
 # Mailhog - Yerel Email Test Sunucusu
   mailhog:
     image: mailhog/mailhog
     container_name: kampus-mailhog
     ports:
+<<<<<<< Updated upstream
       - "1025:1025" # SMTP Portu
       - "8025:8025" # Web Arayüzü (Emailleri buradan göreceğiz)
+=======
+      - "1025:1025"  # 1026:1025 yazan yeri değiştir
+      - "8025:8025"  # 8026:8025 yazan yeri değiştir
+>>>>>>> Stashed changes
     networks:
       - kampus-network
     restart: unless-stopped
@@ -114,6 +171,8 @@ services:
 volumes:
   postgres_data:
     driver: local
+  vectors_data:
+    driver: local   # FAISS index dosyaları — container silinse de korunur
   frontend_node_modules:
     driver: local
 

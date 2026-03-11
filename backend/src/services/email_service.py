@@ -4,6 +4,7 @@ Spec: specs/002-register-page, specs/003-login-page
 """
 
 import smtplib
+from urllib.parse import quote
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr
@@ -219,10 +220,8 @@ Sorularınız için: {self.support_email}
         Returns:
             Email başarıyla gönderildiyse True
         """
-        if not frontend_url:
-            frontend_url = self.settings.frontend_url or "http://localhost:5173"
-        
-        verification_url = f"{frontend_url}/verify-email?token={verification_token}"
+        base_frontend_url = (frontend_url or self.settings.frontend_url).rstrip("/")
+        verification_url = f"{base_frontend_url}/verify-email?token={quote(verification_token)}"
         
         html_content = self._create_verification_email_html(verification_url, user_name)
         text_content = self._create_verification_email_text(verification_url, user_name)
@@ -252,10 +251,8 @@ Sorularınız için: {self.support_email}
         Returns:
             Email başarıyla gönderildiyse True
         """
-        if not frontend_url:
-            frontend_url = self.settings.frontend_url or "http://localhost:5173"
-        
-        reset_url = f"{frontend_url}/reset-password?token={reset_token}"
+        base_frontend_url = (frontend_url or self.settings.frontend_url).rstrip("/")
+        reset_url = f"{base_frontend_url}/reset-password?token={quote(reset_token)}"
         
         html_content = self._create_password_reset_email_html(reset_url, user_name)
         

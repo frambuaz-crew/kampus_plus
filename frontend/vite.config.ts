@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const usePolling = process.env.CHOKIDAR_USEPOLLING === 'true'
+const pollingInterval = parseInt(process.env.CHOKIDAR_INTERVAL ?? '1000', 10)
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -8,11 +11,12 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     watch: {
-      usePolling: true, // Windows Docker için gerekli
-      interval: 100,    // ms - daha hızlı algılama
+      usePolling,
+      interval: Number.isFinite(pollingInterval) ? pollingInterval : 1000,
+      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/coverage/**'],
     },
     hmr: {
-      overlay: true,    // Hataları overlay olarak göster
+      overlay: true,      // Derleme hatalarını tarayıcıda göster
     },
   },
   // Test configuration removed for MVP (no component tests)

@@ -4,6 +4,7 @@ NOT: Bu proje LOCAL STORAGE kullanır (backend/uploads/).
 S3, MinIO veya cloud storage kullanılmaz.
 """
 from contextlib import asynccontextmanager
+import os
 from pathlib import Path
 import os
 
@@ -34,14 +35,20 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging(level=settings.log_level)
     await init_db()
-    
-    vector_service = get_vector_service()
-    stats = vector_service.get_official_stats()
-    print(f"✅ Vector stores initialized: {stats['total_vectors']} vectors, {stats['metadata_count']} metadata")
+
+    # FAISS index'i startup'ta zorunlu yüklemek yerine opsiyonel tut.
+    # Büyük index'lerde cold start CPU/RAM maliyetini azaltır.
+    eager_vector_init = os.getenv("VECTOR_EAGER_INIT", "false").lower() == "true"
+    vector_service = None
+    if eager_vector_init:
+        vector_service = get_vector_service()
+        stats = vector_service.get_official_stats()
+        print(f"✅ Vector stores initialized: {stats['total_vectors']} vectors, {stats['metadata_count']} metadata")
     
     yield
     
-    vector_service.save_indexes()
+    if vector_service is not None:
+        vector_service.save_indexes()
     await close_db()
 
 
@@ -122,10 +129,36 @@ app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 
 # 2. Marketplace ve Diğer Statik İçerikler İçin /static Dizini
 # Marketplace rotasında "static/uploads/marketplace" kullandığın için burayı mount ediyoruz
-static_path = Path("static")
+static_path = Path("/app/static") if Path("/app").exists() else Path("static")
 static_path.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(static_path.resolve())), name="static")
 
+<<<<<<< Updated upstream
+=======
+# 3. AI kaynak dokumanlari icin /api/v1/ai/documents dizini
+# Docker konteynerinde dokumanlar /app/data/raw_docs altinda tutulur.
+# Local gelistirmede backend/data/raw_docs veya backend icinden data/raw_docs desteklenir.
+raw_docs_dir = Path(os.getenv("AI_DOCS_DIR", "/app/data/raw_docs"))
+if not raw_docs_dir.exists():
+    candidate_dirs = [
+        Path("/app/data/raw_docs"),
+        Path("data/raw_docs"),
+        Path("backend/data/raw_docs"),
+    ]
+    raw_docs_dir = next((p for p in candidate_dirs if p.exists()), raw_docs_dir)
+
+raw_docs_dir.mkdir(parents=True, exist_ok=True)
+
+if not raw_docs_dir.exists() or not raw_docs_dir.is_dir():
+    raise RuntimeError(f"AI document directory is invalid: {raw_docs_dir}")
+
+app.mount(
+    "/api/v1/ai/documents",
+    StaticFiles(directory=str(raw_docs_dir.resolve()), check_dir=True),
+    name="ai-documents",
+)
+
+>>>>>>> Stashed changes
 
 # Router'ları ekle
 app.include_router(health_router)

@@ -10,7 +10,9 @@ Endpoint'ler:
 """
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -95,16 +97,46 @@ def _source_url(source_type: str) -> str:
 	return source_to_url.get(source_type, "/dashboard")
 
 
+def _normalize_source_file(source_file: str) -> str:
+	"""source_file alanini guvenli, dosya-adi seviyesinde normalize et."""
+	cleaned = source_file.strip().replace("\\", "/")
+	if not cleaned:
+		return ""
+	return Path(cleaned).name
+
+
 def _to_references(sources: List[Dict[str, Any]]) -> List[ReferenceResponse]:
 	references: List[ReferenceResponse] = []
 	for source in sources:
 		source_type = source.get("source_type", "official")
 		title = source.get("title") or "Kaynak"
+<<<<<<< Updated upstream
+=======
+		source_file = (
+			source.get("source_file")
+			or (source.get("metadata") or {}).get("source_file")
+		)
+		source_file = _normalize_source_file(str(source_file or ""))
+
+		if not source_file:
+			continue
+
+		if source_type == "official":
+			url = f"/api/v1/ai/documents/{quote(source_file)}"
+		else:
+			url = _source_url(source_type)
+
+>>>>>>> Stashed changes
 		references.append(
 			ReferenceResponse(
 				type=source_type,
 				label=title,
+<<<<<<< Updated upstream
 				url=_source_url(source_type),
+=======
+				url=url,
+				source_file=source_file,
+>>>>>>> Stashed changes
 			)
 		)
 	return references

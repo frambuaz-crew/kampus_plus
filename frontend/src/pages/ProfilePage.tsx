@@ -474,7 +474,7 @@ export const ProfilePage: React.FC = () => {
                           className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:shadow-xl hover:shadow-pink-100/50 hover:border-pink-200 transition-all group flex items-center gap-4 cursor-pointer relative overflow-hidden"
                         >
                           {fav.image ? (
-                            <img src={`http://localhost:8000${fav.image}`} alt="Fav" className="w-20 h-20 rounded-2xl object-cover bg-gray-50" />
+                            <img src={getImageUrl(fav.image)} alt="Fav" className="w-20 h-20 rounded-2xl object-cover bg-gray-50" />
                           ) : (
                             <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl shadow-inner ${fav.target_type === 'marketplace_listing' ? 'bg-teal-50 text-teal-600' :
                               fav.target_type === 'forum_topic' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'

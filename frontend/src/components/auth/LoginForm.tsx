@@ -100,7 +100,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           setErrors({ general: 'Bir hata oluştu. Lütfen tekrar deneyin.' });
         } else if (status === 0 || !status) {
           // Network error (CORS, connection refused, etc.)
-          setErrors({ general: 'Backend\'e bağlanılamıyor. Backend çalışıyor mu? (http://localhost:8000)' });
+          setErrors({ general: 'Backend\'e bağlanılamıyor. Backend servisini ve VITE_API_URL ayarını kontrol edin.' });
         } else {
           setErrors({ general: errorMessage });
         }

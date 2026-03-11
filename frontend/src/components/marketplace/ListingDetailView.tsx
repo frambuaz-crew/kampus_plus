@@ -20,7 +20,10 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
   onDelete,
   currentUserId
 }) => {
+<<<<<<< Updated upstream
   const baseUrl = "http://localhost:8000";
+=======
+>>>>>>> Stashed changes
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // İlan sahibi kontrolü (SARI YENİ - Artık seller_id yerine creator.id de kullanılabilir ama db'den gelen seller_id de duruyor)
@@ -49,8 +52,13 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
           <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-inner flex items-center justify-center border border-gray-200">
             {images.length > 0 ? (
               <img
+<<<<<<< Updated upstream
                 src={`${baseUrl}${images[activeImageIndex].startsWith('/') ? images[activeImageIndex] : '/' + images[activeImageIndex]}`}
                 className="w-full h-full object-contain"
+=======
+                src={getImageUrl(images[activeImageIndex])}
+                className="h-full w-full object-contain"
+>>>>>>> Stashed changes
                 alt={listing.title}
               />
             ) : (
@@ -66,7 +74,14 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
                   className={`w-16 h-16 rounded-lg border-2 overflow-hidden transition-all ${activeImageIndex === index ? 'border-indigo-600 ring-2 ring-indigo-50' : 'border-transparent opacity-60'
                     }`}
                 >
+<<<<<<< Updated upstream
                   <img src={`${baseUrl}${img.startsWith('/') ? img : '/' + img}`} className="w-full h-full object-cover" />
+=======
+                  <img
+                    src={getImageUrl(img)}
+                    className="h-full w-full object-cover"
+                  />
+>>>>>>> Stashed changes
                 </button>
               ))}
             </div>
