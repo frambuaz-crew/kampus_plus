@@ -40,6 +40,13 @@ class ForumCategory(Base):
     topics = relationship("ForumTopic", back_populates="category", cascade="all, delete-orphan")
 
 
+class ForumTopicType(str, enum.Enum):
+    # SARI YENİ: Post tiplerini ayırmak için enum eklendi
+    TEXT = "text"
+    EVENT = "event"
+    PHOTO = "photo"
+    POLL = "poll"
+
 class ForumTopic(Base):
     """Forum konu modeli."""
     
@@ -51,10 +58,10 @@ class ForumTopic(Base):
         default=lambda: str(uuid4()),
     )
     
-    category_id: Mapped[str] = mapped_column(
+    category_id: Mapped[Optional[str]] = mapped_column(
         String(36),
         ForeignKey("forum_categories.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     author_id: Mapped[Optional[str]] = mapped_column(
@@ -66,6 +73,12 @@ class ForumTopic(Base):
     
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    # SARI YENİ EKLENTİLER
+    topic_type: Mapped[str] = mapped_column(String(20), server_default=text("'text'"), nullable=False)
+    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # JSON array tutulacak
+    image_urls: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # JSON array tutulacak
+    event_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
     is_pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
@@ -91,6 +104,33 @@ class ForumTopic(Base):
     category = relationship("ForumCategory", back_populates="topics")
     author = relationship("User", foreign_keys=[author_id])
     replies = relationship("ForumReply", back_populates="topic", cascade="all, delete-orphan")
+    polls = relationship("ForumPollOption", back_populates="topic", cascade="all, delete-orphan")
+
+
+# SARI YENİ: Anket tabloları
+class ForumPollOption(Base):
+    """Anket seçenekleri modeli."""
+    
+    __tablename__ = "forum_poll_options"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    topic_id: Mapped[str] = mapped_column(String(36), ForeignKey("forum_topics.id", ondelete="CASCADE"), nullable=False, index=True)
+    option_text: Mapped[str] = mapped_column(String(255), nullable=False)
+    vote_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    
+    topic = relationship("ForumTopic", back_populates="polls")
+
+
+class ForumPollVote(Base):
+    """Ankete verilen oyların modeli."""
+    
+    __tablename__ = "forum_poll_votes"
+    
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    poll_option_id: Mapped[str] = mapped_column(String(36), ForeignKey("forum_poll_options.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), server_default=text("CURRENT_TIMESTAMP"), nullable=False)
 
 
 class ForumReply(Base):
@@ -117,6 +157,14 @@ class ForumReply(Base):
         index=True,
     )
     
+    # SARI YENİ: Threaded comments için üst yorum referansı
+    parent_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("forum_replies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    
     content: Mapped[str] = mapped_column(Text, nullable=False)
     helpful_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
@@ -135,4 +183,8 @@ class ForumReply(Base):
     
     topic = relationship("ForumTopic", back_populates="replies")
     author = relationship("User", foreign_keys=[author_id])
+    
+    # Kendi kendine ilişki (Self-referential)
+    replies = relationship("ForumReply", back_populates="parent", cascade="all, delete-orphan")
+    parent = relationship("ForumReply", back_populates="replies", remote_side=[id])
 

@@ -9,8 +9,9 @@ from datetime import datetime, timezone
 from typing import Optional, List
 from collections import defaultdict
 from uuid import uuid4
+import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,8 @@ from sqlalchemy.orm import selectinload
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
 from src.models.user import User
-from src.models.forum import ForumCategory, ForumTopic, ForumReply
+from src.models.forum import ForumCategory, ForumTopic, ForumReply, ForumPollOption, ForumPollVote
+from src.models.favorite import UserFavorite
 
 logger = logging.getLogger(__name__)
 
@@ -62,18 +64,31 @@ class TopicAuthorResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PollOptionResponse(BaseModel):
+    id: str
+    option_text: str
+    vote_count: int
+
+    model_config = {"from_attributes": True}
+
 class TopicResponse(BaseModel):
     """Forum konu response."""
     id: str
     title: str
     content: str
+    topic_type: str = "text"
+    tags: Optional[str] = None
+    image_urls: Optional[str] = None
+    event_date: Optional[datetime] = None
+    polls: Optional[List[PollOptionResponse]] = []
     author: Optional[TopicAuthorResponse]
-    category_id: str
+    category_id: Optional[str] = None
     category_name: Optional[str] = None
     reply_count: int
     view_count: int
     helpful_count: int
     is_pinned: bool
+    is_liked_by_me: bool = False
     last_reply_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
@@ -96,6 +111,7 @@ class ReplyResponse(BaseModel):
     """Forum cevap response."""
     id: str
     content: str
+    parent_id: Optional[str] = None
     author: Optional[ReplyAuthorResponse]
     helpful_count: int
     created_at: datetime
@@ -112,15 +128,20 @@ class TopicDetailResponse(BaseModel):
 
 class CreateTopicRequest(BaseModel):
     """Yeni konu oluşturma request."""
-    category_id: str = Field(..., description="Kategori ID")
-    title: str = Field(..., min_length=10, max_length=255, description="Başlık (min 10, max 255 karakter)")
-    content: str = Field(..., min_length=20, description="İçerik (min 20 karakter)")
+    category_id: Optional[str] = Field(None, description="Kategori ID (Artık zorunlu değil)")
+    title: str = Field(..., description="Başlık")
+    content: str = Field(..., description="İçerik")
+    topic_type: str = Field("text", description="Konu tipi (text, event, photo, poll)")
+    tags: Optional[List[str]] = Field(None, description="Etiketler")
+    image_urls: Optional[List[str]] = Field(None, description="Fotoğraf URL'leri")
+    poll_options: Optional[List[str]] = Field(None, description="Anket Şıkları")
+    event_date: Optional[datetime] = Field(None, description="Etkinlik tarihi")
 
 
 class CreateReplyRequest(BaseModel):
     """Yeni cevap oluşturma request."""
-    content: str = Field(..., min_length=10, description="İçerik (min 10 karakter)")
-
+    content: str = Field(..., description="İçerik")
+    parent_id: Optional[str] = Field(None, description="Üst yorum ID'si (Threaded reply)")
 
 # ============================================================================
 # ENDPOINTS
@@ -170,6 +191,7 @@ async def get_categories(
 @router.get("/topics", response_model=dict)
 async def get_topics(
     category_id: Optional[str] = Query(None, description="Kategori ID ile filtrele"),
+    topic_type: Optional[str] = Query(None, description="Konu tipi (text, event)"),
     page: int = Query(1, ge=1, description="Sayfa numarası"),
     limit: int = Query(20, ge=1, le=100, description="Sayfa başına kayıt"),
     sort: str = Query("newest", description="Sıralama: newest, oldest, most_replies, most_views"),
@@ -185,6 +207,10 @@ async def get_topics(
     # Kategori filtresi
     if category_id:
         query = query.where(ForumTopic.category_id == category_id)
+        
+    # Topic Type filtresi
+    if topic_type:
+        query = query.where(ForumTopic.topic_type == topic_type)
     
     # Sıralama
     if sort == "newest":
@@ -208,11 +234,23 @@ async def get_topics(
     offset = (page - 1) * limit
     query = query.offset(offset).limit(limit)
     
-    # Author bilgilerini yükle
-    query = query.options(selectinload(ForumTopic.author))
+    # Author ve Polls bilgilerini yükle
+    query = query.options(selectinload(ForumTopic.author), selectinload(ForumTopic.polls))
     
     result = await session.execute(query)
     topics = result.scalars().all()
+    
+    # Mevcut kullanıcının beğendiği (favorilediği) topic'leri bul
+    liked_topic_ids = set()
+    if topics and current_user:
+        topic_ids = [t.id for t in topics]
+        fav_stmt = select(UserFavorite.target_id).where(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.target_type == "forum_topic",
+            UserFavorite.target_id.in_(topic_ids)
+        )
+        fav_res = await session.execute(fav_stmt)
+        liked_topic_ids = set(fav_res.scalars().all())
     
     topics_list = []
     for topic in topics:
@@ -230,12 +268,17 @@ async def get_topics(
             "id": topic.id,
             "title": topic.title,
             "content": topic.content[:200] + "..." if len(topic.content) > 200 else topic.content,  # Preview
+            "topic_type": topic.topic_type,
+            "tags": topic.tags,
+            "image_urls": topic.image_urls,
+            "polls": [{"id": p.id, "option_text": p.option_text, "vote_count": p.vote_count} for p in topic.polls] if topic.polls else [],
             "author": author_data,
             "category_id": topic.category_id,
             "reply_count": topic.reply_count,
             "view_count": topic.view_count,
             "helpful_count": topic.helpful_count,
             "is_pinned": topic.is_pinned,
+            "is_liked_by_me": topic.id in liked_topic_ids,
             "last_reply_at": topic.last_reply_at.isoformat() if topic.last_reply_at else None,
             "created_at": topic.created_at.isoformat(),
             "updated_at": topic.updated_at.isoformat(),
@@ -295,11 +338,23 @@ async def get_threads(
     offset = (page - 1) * limit
     query = query.offset(offset).limit(limit)
     
-    # Author bilgilerini yükle
-    query = query.options(selectinload(ForumTopic.author))
+    # Author ve Polls bilgilerini yükle
+    query = query.options(selectinload(ForumTopic.author), selectinload(ForumTopic.polls))
     
     result = await session.execute(query)
     topics = result.scalars().all()
+    
+    # Mevcut kullanıcının beğendiği (favorilediği) topic'leri bul
+    liked_topic_ids = set()
+    if topics and current_user:
+        topic_ids = [t.id for t in topics]
+        fav_stmt = select(UserFavorite.target_id).where(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.target_type == "forum_topic",
+            UserFavorite.target_id.in_(topic_ids)
+        )
+        fav_res = await session.execute(fav_stmt)
+        liked_topic_ids = set(fav_res.scalars().all())
     
     items_list = []
     for topic in topics:
@@ -317,12 +372,17 @@ async def get_threads(
             "id": topic.id,
             "title": topic.title,
             "content": topic.content[:200] + "..." if len(topic.content) > 200 else topic.content,  # Preview
+            "topic_type": topic.topic_type,
+            "tags": topic.tags,
+            "image_urls": topic.image_urls,
+            "polls": [{"id": p.id, "option_text": p.option_text, "vote_count": p.vote_count} for p in topic.polls] if topic.polls else [],
             "author": author_data,
             "category_id": topic.category_id,
             "reply_count": topic.reply_count,
             "view_count": topic.view_count,
             "helpful_count": topic.helpful_count,
             "is_pinned": topic.is_pinned,
+            "is_liked_by_me": topic.id in liked_topic_ids,
             "last_reply_at": topic.last_reply_at.isoformat() if topic.last_reply_at else None,
             "created_at": topic.created_at.isoformat(),
             "updated_at": topic.updated_at.isoformat(),
@@ -361,18 +421,23 @@ async def get_topic_detail(
     Spec: GET /api/v1/forum/topics/{topic_id}
     Action: View count artırılır
     """
-    result = await session.execute(
-        select(ForumTopic)
-        .where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
-        .options(selectinload(ForumTopic.author))
-    )
-    topic = result.scalar_one_or_none()
-    
-    if not topic:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "Konu bulunamadı"}}
+    try:
+        result = await session.execute(
+            select(ForumTopic)
+            .where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
+            .options(selectinload(ForumTopic.author), selectinload(ForumTopic.polls))
         )
+        topic = result.scalar_one_or_none()
+        
+        if not topic:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": {"code": "NOT_FOUND", "message": "Konu bulunamadı"}}
+            )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise e
     
     # View count artır
     topic.view_count += 1
@@ -398,44 +463,67 @@ async def get_topic_detail(
             profile_picture_url=topic.author.profile_picture_url,
         )
     
+    # Mevcut kullanıcının beğendiği (favorilediği) topic'i bul
+    is_liked_by_me = False
+    if current_user:
+        fav_stmt = select(UserFavorite).where(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.target_type == "forum_topic",
+            UserFavorite.target_id == topic_id
+        )
+        fav_res = await session.execute(fav_stmt)
+        if fav_res.scalar_one_or_none():
+            is_liked_by_me = True
+    
     topic_response = TopicResponse(
         id=topic.id,
         title=topic.title,
         content=topic.content,
+        topic_type=topic.topic_type,
+        tags=topic.tags,
+        image_urls=topic.image_urls,
+        polls=[PollOptionResponse(id=p.id, option_text=p.option_text, vote_count=p.vote_count) for p in topic.polls] if topic.polls else [],
         author=author_data,
         category_id=topic.category_id,
         reply_count=topic.reply_count,
         view_count=topic.view_count,
         helpful_count=topic.helpful_count,
         is_pinned=topic.is_pinned,
+        is_liked_by_me=is_liked_by_me,
         last_reply_at=topic.last_reply_at,
         created_at=topic.created_at,
         updated_at=topic.updated_at,
     )
     
-    # Replies response
-    replies_list = []
-    for reply in replies:
-        reply_author = None
-        if reply.author:
-            reply_author = ReplyAuthorResponse(
-                id=reply.author.id,
-                username=reply.author.username,
-                first_name=reply.author.first_name,
-                last_name=reply.author.last_name,
-                profile_picture_url=reply.author.profile_picture_url,
-            )
+    try:
+        # Replies response
+        replies_list = []
+        for reply in replies:
+            reply_author = None
+            if reply.author:
+                reply_author = ReplyAuthorResponse(
+                    id=reply.author.id,
+                    username=reply.author.username,
+                    first_name=reply.author.first_name,
+                    last_name=reply.author.last_name,
+                    profile_picture_url=reply.author.profile_picture_url,
+                )
+            
+            replies_list.append(ReplyResponse(
+                id=reply.id,
+                content=reply.content,
+                parent_id=reply.parent_id,
+                author=reply_author,
+                helpful_count=reply.helpful_count,
+                created_at=reply.created_at,
+                updated_at=reply.updated_at,
+            ))
         
-        replies_list.append(ReplyResponse(
-            id=reply.id,
-            content=reply.content,
-            author=reply_author,
-            helpful_count=reply.helpful_count,
-            created_at=reply.created_at,
-            updated_at=reply.updated_at,
-        ))
-    
-    return TopicDetailResponse(topic=topic_response, replies=replies_list)
+        return TopicDetailResponse(topic=topic_response, replies=replies_list)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise e
 
 
 # Alias endpoint for frontend compatibility
@@ -464,7 +552,7 @@ async def create_topic(
     Rate Limit: 10 konu / 1 saat / user
     """
     # Rate limiting
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.utcnow().timestamp()
     user_attempts = topic_creation_attempts[current_user.id]
     user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
     
@@ -480,17 +568,17 @@ async def create_topic(
         )
     
     # Kategori kontrolü
-    category_result = await session.execute(
-        select(ForumCategory).where(ForumCategory.id == request.category_id)
-    )
-    category = category_result.scalar_one_or_none()
-    
-    if not category or not category.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "Kategori bulunamadı"}}
+    if request.category_id:
+        category_result = await session.execute(
+            select(ForumCategory).where(ForumCategory.id == request.category_id)
         )
-    
+        category = category_result.scalar_one_or_none()
+        
+        if not category or not category.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": {"code": "NOT_FOUND", "message": "Kategori bulunamadı"}}
+            )    
     # Konu oluştur
     topic = ForumTopic(
         id=str(uuid4()),
@@ -498,16 +586,30 @@ async def create_topic(
         author_id=current_user.id,
         title=request.title,
         content=request.content,
+        topic_type=request.topic_type,
+        tags=json.dumps(request.tags) if request.tags else None,
+        image_urls=json.dumps(request.image_urls) if request.image_urls else None,
+        event_date=request.event_date.replace(tzinfo=None) if request.event_date else None,
         is_pinned=False,
         is_deleted=False,
         view_count=0,
         reply_count=0,
         helpful_count=0,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
     
     session.add(topic)
+    
+    if request.topic_type == "poll" and request.poll_options:
+        for opt_text in request.poll_options:
+            poll_opt = ForumPollOption(
+                id=str(uuid4()),
+                topic_id=topic.id,
+                option_text=opt_text,
+                vote_count=0
+            )
+            session.add(poll_opt)
     await session.commit()
     await session.refresh(topic)
     
@@ -545,7 +647,7 @@ async def create_reply(
     Rate Limit: 30 cevap / 1 saat / user
     """
     # Rate limiting
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.utcnow().timestamp()
     user_attempts = reply_creation_attempts[current_user.id]
     user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
     
@@ -576,20 +678,21 @@ async def create_reply(
     reply = ForumReply(
         id=str(uuid4()),
         topic_id=topic_id,
+        parent_id=request.parent_id,
         author_id=current_user.id,
         content=request.content,
         helpful_count=0,
         is_deleted=False,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
     
     session.add(reply)
     
     # Topic güncelle: reply_count ve last_reply_at
     topic.reply_count += 1
-    topic.last_reply_at = datetime.now(timezone.utc)
-    topic.updated_at = datetime.now(timezone.utc)
+    topic.last_reply_at = datetime.utcnow()
+    topic.updated_at = datetime.utcnow()
     
     await session.commit()
     await session.refresh(reply)
@@ -604,6 +707,99 @@ async def create_reply(
     return {"success": True, "reply_id": reply.id}
 
 
+@router.post("/topics/{topic_id}/helpful", response_model=dict)
+async def mark_topic_helpful(
+    topic_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    now = datetime.utcnow().timestamp()
+    user_attempts = helpful_attempts[current_user.id]
+    user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
+    
+    if len(user_attempts) >= HELPFUL_RATE_LIMIT:
+        raise HTTPException(status_code=429, detail="Çok fazla beğeni yaptınız.")
+        
+    topic_result = await session.execute(
+        select(ForumTopic).where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
+    )
+    topic = topic_result.scalar_one_or_none()
+    
+    if not topic:
+        raise HTTPException(status_code=404, detail="Konu bulunamadı")
+        
+    # Check if user already liked
+    fav_stmt = select(UserFavorite).where(
+        UserFavorite.user_id == current_user.id,
+        UserFavorite.target_type == "forum_topic",
+        UserFavorite.target_id == topic_id
+    )
+    fav_res = await session.execute(fav_stmt)
+    existing_fav = fav_res.scalar_one_or_none()
+    
+    action = ""
+    if existing_fav:
+        # Unlike
+        await session.delete(existing_fav)
+        topic.helpful_count = max(0, topic.helpful_count - 1)
+        action = "unliked"
+    else:
+        # Like
+        new_fav = UserFavorite(
+            user_id=current_user.id,
+            target_type="forum_topic",
+            target_id=topic_id
+        )
+        session.add(new_fav)
+        topic.helpful_count += 1
+        action = "liked"
+
+    await session.commit()
+    
+    helpful_attempts[current_user.id].append(now)
+    return {"success": True, "action": action, "helpful_count": topic.helpful_count}
+
+@router.get("/topics/{topic_id}/likers", response_model=dict)
+async def get_topic_likers(
+    topic_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> dict:
+    """Konuyu beğenen kullanıcıları listeler."""
+    topic_result = await session.execute(
+        select(ForumTopic).where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
+    )
+    if not topic_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Konu bulunamadı")
+        
+    fav_stmt = select(UserFavorite).where(
+        UserFavorite.target_type == "forum_topic",
+        UserFavorite.target_id == topic_id
+    ).order_by(UserFavorite.created_at.desc())
+    
+    fav_res = await session.execute(fav_stmt)
+    favorites = fav_res.scalars().all()
+    
+    likers = []
+    if favorites:
+        user_ids = [f.user_id for f in favorites]
+        users_stmt = select(User).where(User.id.in_(user_ids))
+        users_res = await session.execute(users_stmt)
+        users = {u.id: u for u in users_res.scalars().all()}
+        
+        for fav in favorites:
+            u = users.get(fav.user_id)
+            if u:
+                likers.append({
+                    "id": u.id,
+                    "username": u.username,
+                    "first_name": u.first_name,
+                    "last_name": u.last_name,
+                    "profile_picture_url": u.profile_picture_url
+                })
+                
+    return {"likers": likers}
+
 @router.post("/replies/{reply_id}/helpful", response_model=dict)
 async def mark_reply_helpful(
     reply_id: str,
@@ -616,7 +812,7 @@ async def mark_reply_helpful(
     Rate Limit: 50 beğeni / 1 saat / user
     """
     # Rate limiting
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.utcnow().timestamp()
     user_attempts = helpful_attempts[current_user.id]
     user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
     
@@ -645,7 +841,7 @@ async def mark_reply_helpful(
     
     # Beğeni sayısını artır
     reply.helpful_count += 1
-    reply.updated_at = datetime.now(timezone.utc)
+    reply.updated_at = datetime.utcnow()
     
     await session.commit()
     await session.refresh(reply)
@@ -654,3 +850,73 @@ async def mark_reply_helpful(
     helpful_attempts[current_user.id].append(now)
     
     return {"success": True, "helpful_count": reply.helpful_count}
+
+@router.post("/polls/{poll_option_id}/vote", response_model=dict)
+async def vote_poll(
+    poll_option_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Ankete oy ver."""
+    
+    opt_res = await session.execute(select(ForumPollOption).where(ForumPollOption.id == poll_option_id))
+    poll_opt = opt_res.scalar_one_or_none()
+    
+    if not poll_opt:
+        raise HTTPException(status_code=404, detail="Anket şıkkı bulunamadı.")
+        
+    # Check if user already voted in THIS topic
+    existing_vote_res = await session.execute(
+        select(ForumPollVote)
+        .join(ForumPollOption, ForumPollVote.poll_option_id == ForumPollOption.id)
+        .where(
+            and_(
+                ForumPollVote.user_id == current_user.id,
+                ForumPollOption.topic_id == poll_opt.topic_id
+            )
+        )
+    )
+    if existing_vote_res.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Bu ankete zaten oy verdiniz.")
+        
+    vote = ForumPollVote(
+        id=str(uuid4()),
+        user_id=current_user.id,
+        poll_option_id=poll_opt.id
+    )
+    session.add(vote)
+    
+    poll_opt.vote_count += 1
+    
+    await session.commit()
+    
+    return {"success": True, "vote_count": poll_opt.vote_count}
+
+# ... existing code ...
+@router.post("/upload-images", response_model=dict)
+async def upload_forum_images(
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Forum gönderileri için fotoğraf yükler."""
+    import os
+    import uuid
+    from src.core.config import get_settings
+    
+    settings = get_settings()
+    upload_dir = settings.get_upload_dir_absolute() / "forum"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    saved_urls = []
+    for file in files:
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = upload_dir / unique_filename
+        
+        content = await file.read()
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+            
+        saved_urls.append(f"/uploads/forum/{unique_filename}")
+        
+    return {"success": True, "urls": saved_urls}

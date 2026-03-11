@@ -8,13 +8,6 @@
  * - POST /api/v1/forum/topics/{topic_id}/replies
  */
 
-export interface ForumCategory {
-  id: string;
-  name: string;
-  description: string | null;
-  icon: string | null;
-  topic_count: number;
-}
 
 export interface ForumAuthor {
   id: string;
@@ -26,17 +19,27 @@ export interface ForumAuthor {
   department?: string | { name?: string } | null;
 }
 
+export interface ForumPollOption {
+  id: string;
+  option_text: string;
+  vote_count: number;
+}
+
 export interface ForumTopic {
   id: string;
   title: string;
   content: string;
+  topic_type: 'text' | 'event' | 'photo' | 'poll';
+  tags?: string | null;  // JSON stringified array of strings
+  image_urls?: string | null; // JSON stringified array of URLs
+  polls?: ForumPollOption[];
   author: ForumAuthor | null;
-  category_id: string;
-  category_name?: string | null;
   reply_count: number;
   view_count: number;
   helpful_count: number;
   is_pinned: boolean;
+  is_liked_by_me?: boolean;
+  event_date?: string | null;
   last_reply_at: string | null;
   created_at: string;
   updated_at: string;
@@ -45,15 +48,13 @@ export interface ForumTopic {
 export interface ForumReply {
   id: string;
   content: string;
+  parent_id?: string | null;
   author: ForumAuthor | null;
   helpful_count: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface ForumCategoriesResponse {
-  categories: ForumCategory[];
-}
 
 export interface ForumTopicsResponse {
   topics: ForumTopic[];
@@ -68,9 +69,13 @@ export interface ForumTopicDetailResponse {
 }
 
 export interface CreateTopicPayload {
-  category_id: string;
   title: string;
   content: string;
+  category_id?: string;
+  topic_type?: 'text' | 'event' | 'photo' | 'poll';
+  tags?: string[];
+  image_urls?: string[];
+  poll_options?: string[];
 }
 
 export interface CreateTopicResponse {
@@ -80,6 +85,7 @@ export interface CreateTopicResponse {
 
 export interface CreateReplyPayload {
   content: string;
+  parent_id?: string | null;
 }
 
 export interface CreateReplyResponse {
@@ -87,7 +93,7 @@ export interface CreateReplyResponse {
   reply_id: string;
 }
 
-export type Category = ForumCategory;
+
 export type ThreadListItem = ForumTopic;
 
 export interface ThreadWithReplies {
