@@ -22,6 +22,7 @@ const ReplyCard: React.FC<{
 }> = ({ reply, onReply, childrenReplies }) => {
   const baseUrl = 'http://localhost:8000';
   const [helpfulCount, setHelpfulCount] = useState(reply.helpful_count);
+  const [isLiked, setIsLiked] = useState(false);
   const [liking, setLiking] = useState(false);
 
   const authorInitials = reply.author?.first_name
@@ -35,7 +36,10 @@ const ReplyCard: React.FC<{
     try {
       setLiking(true);
       const res = await markReplyHelpful(reply.id);
-      if (res.success) setHelpfulCount(res.helpful_count);
+      if (res.success) {
+        setHelpfulCount(res.helpful_count);
+        setIsLiked(res.action === 'liked');
+      }
     } catch {
       // ignore
     } finally {
@@ -44,15 +48,15 @@ const ReplyCard: React.FC<{
   };
 
   return (
-    <div className="mb-4">
-      <div className="flex gap-4 p-4 bg-white border border-gray-100 rounded-3xl shadow-sm transition-all hover:border-indigo-100">
-        <div className="shrink-0 pt-1">
+    <div className="border-b border-gray-100 last:border-b-0 py-4">
+      <div className="flex gap-3">
+        <div className="shrink-0">
           <Link to={`/dashboard/profile/${reply.author?.username || ''}`} className="block group">
             {reply.author?.profile_picture_url ? (
               <img
                 src={reply.author.profile_picture_url.startsWith('http') ? reply.author.profile_picture_url : `${baseUrl}${reply.author.profile_picture_url}`}
                 alt={reply.author.username}
-                className="w-10 h-10 rounded-full object-cover shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
+                className="w-9 h-9 rounded-full object-cover group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -60,33 +64,31 @@ const ReplyCard: React.FC<{
                 }}
               />
             ) : null}
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 text-gray-500 font-bold text-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all ${reply.author?.profile_picture_url ? 'hidden' : ''}`}>
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 text-gray-500 font-bold text-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all ${reply.author?.profile_picture_url ? 'hidden' : ''}`}>
               {authorInitials.toUpperCase()}
             </div>
           </Link>
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <Link to={`/dashboard/profile/${reply.author?.username || ''}`} className="font-bold text-gray-900 text-sm hover:text-indigo-600 transition-colors">
-                {reply.author ? `${reply.author.first_name} ${reply.author.last_name}` : 'İsimsiz'}
-              </Link>
-              <span className="text-xs text-gray-400">• {timeAgo}</span>
-            </div>
+          <div className="flex items-center gap-2 mb-1">
+            <Link to={`/dashboard/profile/${reply.author?.username || ''}`} className="font-bold text-gray-900 text-sm hover:text-indigo-600 transition-colors">
+              {reply.author ? `${reply.author.first_name} ${reply.author.last_name}` : 'İsimsiz'}
+            </Link>
+            <span className="text-xs text-gray-400">• {timeAgo}</span>
           </div>
 
-          <div className="text-gray-700 text-sm mb-3 leading-relaxed whitespace-pre-wrap">
+          <div className="text-gray-700 text-sm mb-2 leading-relaxed whitespace-pre-wrap">
             {reply.content}
           </div>
 
           <div className="flex items-center gap-4 text-xs font-bold text-gray-400">
             <button
-              className="flex items-center gap-1.5 hover:text-rose-500 transition-colors disabled:opacity-50"
+              className={`flex items-center gap-1.5 transition-colors disabled:opacity-50 ${isLiked ? 'text-rose-500' : 'hover:text-rose-500 text-gray-400'}`}
               onClick={handleLike}
               disabled={liking}
             >
-              <Heart size={14} /> Beğen {helpfulCount > 0 && `(${helpfulCount})`}
+              <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /> Beğen {helpfulCount > 0 && `(${helpfulCount})`}
             </button>
             <button
               className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
@@ -99,10 +101,7 @@ const ReplyCard: React.FC<{
       </div>
 
       {childrenReplies && (
-        <div className="mt-4 ml-6 pl-4 border-l-2 border-indigo-50/70 space-y-4">
-          <div className="absolute -left-6 top-6 text-indigo-200">
-            <CornerDownRight size={16} />
-          </div>
+        <div className="mt-3 ml-12 pl-4 border-l-2 border-gray-100">
           {childrenReplies}
         </div>
       )}
@@ -167,9 +166,9 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
         {activeReplyId === reply.id && (
           <div className="mb-6 ml-14 animate-in slide-in-from-top-2 fade-in duration-300">
             <div className="flex items-center justify-between mb-3 text-sm font-bold text-indigo-600">
-              <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2">
                 <CornerDownRight size={16} />
-                @{reply.author?.username || 'Kullanıcı'}'ya yanıt veriyorsun
+                {reply.author ? `${reply.author.first_name} ${reply.author.last_name}` : 'Kullanıcı'}'a yanıt veriyorsun
               </span>
               <button onClick={() => setActiveReplyId(null)} className="text-gray-400 hover:text-gray-900">
                 <Trash2 size={16} />
@@ -197,7 +196,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
       <div className="mb-2 flex items-center justify-between px-2">
         <h3 className="flex items-center text-xl font-black tracking-tight text-gray-900">
           <MessageSquare size={20} className="mr-3 text-indigo-600" />
-          YORUMLAR ({replies.length})
+          YORUMLAR ({replies.filter(r => !r.parent_id).length})
         </h3>
         {activeReplyId !== 'top' && (
           <button

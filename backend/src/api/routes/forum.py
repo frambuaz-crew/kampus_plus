@@ -59,6 +59,7 @@ class TopicAuthorResponse(BaseModel):
     username: str
     first_name: str
     last_name: str
+    university: Optional[str] = None
     profile_picture_url: Optional[str] = None
     
     model_config = {"from_attributes": True}
@@ -261,6 +262,7 @@ async def get_topics(
                 "username": topic.author.username,
                 "first_name": topic.author.first_name,
                 "last_name": topic.author.last_name,
+                "university": topic.author.university,
                 "profile_picture_url": topic.author.profile_picture_url,
             }
         
@@ -689,8 +691,9 @@ async def create_reply(
     
     session.add(reply)
     
-    # Topic güncelle: reply_count ve last_reply_at
-    topic.reply_count += 1
+    # Topic güncelle: reply_count (sadece ana yorumlar) ve last_reply_at
+    if not reply.parent_id:
+        topic.reply_count += 1
     topic.last_reply_at = datetime.utcnow()
     topic.updated_at = datetime.utcnow()
     
@@ -839,17 +842,40 @@ async def mark_reply_helpful(
             detail={"error": {"code": "NOT_FOUND", "message": "Cevap bulunamadı"}}
         )
     
-    # Beğeni sayısını artır
-    reply.helpful_count += 1
+    # Check if already liked
+    fav_stmt = select(UserFavorite).where(
+        UserFavorite.user_id == current_user.id,
+        UserFavorite.target_type == "forum_reply",
+        UserFavorite.target_id == reply_id
+    )
+    fav_res = await session.execute(fav_stmt)
+    existing_fav = fav_res.scalar_one_or_none()
+
+    action = ""
+    if existing_fav:
+        # Unlike
+        await session.delete(existing_fav)
+        reply.helpful_count = max(0, reply.helpful_count - 1)
+        action = "unliked"
+    else:
+        # Like
+        new_fav = UserFavorite(
+            user_id=current_user.id,
+            target_type="forum_reply",
+            target_id=reply_id
+        )
+        session.add(new_fav)
+        reply.helpful_count += 1
+        action = "liked"
+
     reply.updated_at = datetime.utcnow()
-    
     await session.commit()
     await session.refresh(reply)
-    
+
     # Rate limit tracking
     helpful_attempts[current_user.id].append(now)
-    
-    return {"success": True, "helpful_count": reply.helpful_count}
+
+    return {"success": True, "action": action, "helpful_count": reply.helpful_count, "is_liked": action == "liked"}
 
 @router.post("/polls/{poll_option_id}/vote", response_model=dict)
 async def vote_poll(

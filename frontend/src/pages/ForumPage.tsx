@@ -138,7 +138,7 @@ export const ForumPage: React.FC = () => {
     }
   };
 
-  const handleReplySubmit = async (data: { content: string }) => {
+  const handleReplySubmit = async (data: { content: string; parent_id?: string }) => {
     if (!currentThread) {
       return;
     }
@@ -146,7 +146,7 @@ export const ForumPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       setError(null);
-      await createForumReply(currentThread.thread.id, { content: data.content });
+      await createForumReply(currentThread.thread.id, { content: data.content, parent_id: data.parent_id });
       const refreshed = await getForumTopicDetail(currentThread.thread.id);
       setCurrentThread({ thread: refreshed.topic, replies: refreshed.replies });
     } catch {
@@ -268,7 +268,15 @@ export const ForumPage: React.FC = () => {
                     className="mb-8 p-4 bg-white border border-gray-100/80 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-text group"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {user?.profile_picture_url ? (
+                        <img
+                          src={user.profile_picture_url.startsWith('http') ? user.profile_picture_url : `http://localhost:8000${user.profile_picture_url}`}
+                          alt="Profil"
+                          className="w-10 h-10 rounded-full object-cover shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                        />
+                      ) : null}
+                      <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0 ${user?.profile_picture_url ? 'hidden' : ''}`}>
                         {user?.first_name?.[0]?.toUpperCase() || 'U'}
                       </div>
                       <div className="flex-1 text-gray-400 font-medium text-sm group-hover:text-gray-500 transition-colors">

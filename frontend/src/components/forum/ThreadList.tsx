@@ -16,12 +16,14 @@ interface ThreadListProps {
  * Spec: 005-forum-page/spec.md - 2. Kategori İçi (Thread List)
  */
 export const ThreadList: React.FC<ThreadListProps> = ({ threads, onThreadClick, onCommentClick, loading }) => {
-  const [sortBy, setSortBy] = useState<'newest' | 'replies' | 'helpful'>('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'likes'>('newest');
 
   const sortedThreads = [...threads].sort((a, b) => {
     if (a.is_pinned && !b.is_pinned) return -1;
     if (!a.is_pinned && b.is_pinned) return 1;
-    return 0;
+    if (sortBy === 'likes') return (b.helpful_count ?? 0) - (a.helpful_count ?? 0);
+    // newest: sort by created_at desc
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
   return (
@@ -30,11 +32,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({ threads, onThreadClick, 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 px-2">
         <div>
           <h2 className="text-3xl font-black text-gray-900 flex items-center tracking-tight">
-            Kampüs Akışı
+            Forum
           </h2>
-          <p className="text-sm text-gray-500 mt-1 font-medium italic">
-            Kampüsteki en güncel konuşmalar
-          </p>
         </div>
 
         {/* 2.2. Sıralama Seçenekleri - Gri Tonlar */}
@@ -46,10 +45,10 @@ export const ThreadList: React.FC<ThreadListProps> = ({ threads, onThreadClick, 
             En Yeni
           </button>
           <button
-            onClick={() => setSortBy('replies')}
-            className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${sortBy === 'replies' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setSortBy('likes')}
+            className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${sortBy === 'likes' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            En Çok Cevaplanan
+            En Çok Beğenilen
           </button>
         </div>
       </div>
