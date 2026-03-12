@@ -1,0 +1,438 @@
+"""Kimlik doğrulama servisi - Kullanıcı kaydı, giriş ve token yönetimi.
+
+Spec: specs/002-register-page, specs/003-login-page
+"""
+
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Tuple
+from uuid import uuid4
+from sqlalchemy.orm import selectinload
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.models.user import User, RefreshToken, UserRole
+from src.core.config import get_settings
+from src.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    create_email_verification_token,
+    decode_token,
+)
+
+def _utc_naive() -> datetime:
+    """PostgreSQL TIMESTAMP WITHOUT TIME ZONE ile uyumlu naive UTC."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+class AuthService:
+    """Kimlik doğrulama servisi."""
+    
+    def __init__(self):
+        """Kimlik doğrulama servisini başlat."""
+        self.settings = get_settings()
+    
+    async def register_user(
+        self,
+        session: AsyncSession,
+        email: str,
+        password: str,
+        first_name: str,
+        last_name: str,
+        department_id: int, # ✅ department -> department_id olarak güncellendi
+        university: Optional[str] = None,
+        username: Optional[str] = None,
+        terms_accepted_at: Optional[datetime] = None,
+    ) -> User:
+        """Yeni öğrenci kullanıcısı kaydet.
+        
+        Args:
+            session: Veritabanı oturumu
+            email: Kullanıcı email adresi (.edu.tr domain)
+            password: Düz metin şifre
+            first_name: Ad
+            last_name: Soyad
+            department_id: Bölüm ID (GÜNCELLENDİ)
+            university: Üniversite adı
+            username: Kullanıcı adı
+        """
+        # Email kontrolü kısmı aynı kalıyor
+        result = await session.execute(
+            select(User).where(User.email == email)
+        )
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            raise ValueError(f"Bu email adresi zaten kayıtlı: {email}")
+        
+        password_hash = hash_password(password)
+        
+        if not university:
+            from src.services.university_service import get_university_service
+            university_service = get_university_service()
+            university = await university_service.get_university_from_email(email, session)
+        
+        # --- USERNAME BENZERSİZLEŞTİRME MANTIĞI ---
+        base_username = username or email.split("@")[0]
+        final_username = base_username
+        counter = 1
+
+        # Veritabanında bu isim var mı diye kontrol et
+        while True:
+            result = await session.execute(
+                select(User).where(User.username == final_username)
+            )
+            if not result.scalar_one_or_none():
+                break  # İsim boşta, döngüden çık
+            
+            # İsim doluysa sonuna sayı ekle (furkan1, furkan2...)
+            final_username = f"{base_username}{counter}"
+            counter += 1
+        
+        # Kullanıcı nesnesi oluşturma (GÜNCELLENDİ 🚀)
+        user = User(
+            id=str(uuid4()),
+            email=email,
+            password_hash=password_hash,
+            role=UserRole.STUDENT,
+            first_name=first_name,
+            last_name=last_name,
+            username=final_username,
+            department_id=department_id, # ✅ department -> department_id
+            university=university,
+            is_verified=False,
+            is_active=True,
+            terms_accepted_at=terms_accepted_at.replace(tzinfo=None) if terms_accepted_at else _utc_naive(),
+            created_at=_utc_naive(),
+            updated_at=_utc_naive(),
+        )
+        
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        
+        # İlişkiyi (department_rel) yükleyerek döndürmek hata payını sıfırlar
+        from sqlalchemy.orm import selectinload
+        stmt = select(User).where(User.id == user.id).options(selectinload(User.department_rel))
+        res = await session.execute(stmt)
+        return res.scalar_one()
+    
+    async def authenticate_user(
+        self,
+        session: AsyncSession,
+        email: str,
+        password: str,
+        remember_me: bool = False,
+    ) -> Tuple[User, str, str]:
+        """Kullanıcıyı doğrula, last_login tarihini güncelle ve token'ları döndür."""
+        
+        # 1. Kullanıcıyı ve Bölüm bilgisini peşin yüklüyoruz (Eager Loading)
+        stmt = (
+            select(User)
+            .where(User.email == email)
+            .options(selectinload(User.department_rel))
+        )
+        
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        
+        # 2. Temel Güvenlik ve Durum Kontrolleri
+        if not user or not verify_password(password, user.password_hash):
+            raise ValueError("Geçersiz email veya şifre")
+        
+        if not user.is_verified:
+            # Frontend'deki sarı uyarı kutusunu tetiklemek için bu kodu dönüyoruz
+            raise ValueError("EMAIL_NOT_VERIFIED") 
+        
+        if not user.is_active:
+            raise ValueError("ACCOUNT_INACTIVE")
+        
+        # 3. [YENİ] Son Giriş Tarihini Güncelle (Spec 003 gereği)
+        user.last_login = _utc_naive()
+        
+        # 4. Token Üretimi ve Süre Hesaplama
+        access_token = create_access_token(
+            user_id=user.id,
+            role=user.role.value
+        )
+        
+        # "Beni Hatırla" seçeneğine göre süreyi belirliyoruz
+        refresh_expire_days = (
+            self.settings.jwt_refresh_token_expire_days_remember_me
+            if remember_me
+            else self.settings.jwt_refresh_token_expire_days
+        )
+        
+        refresh_token_str = create_refresh_token(
+            user_id=user.id,
+            expires_delta=timedelta(days=refresh_expire_days)
+        )
+        
+        # 5. Yeni Refresh Token'ı veritabanına hazırla
+        new_refresh_token = RefreshToken(
+            id=str(uuid4()),
+            user_id=user.id,
+            token=refresh_token_str,
+            expires_at=_utc_naive() + timedelta(days=refresh_expire_days),
+            created_at=_utc_naive(),
+        )
+        
+        # 6. Tek bir Commit ile hem last_login hem de refresh_token'ı mühürle
+        session.add(new_refresh_token)
+        await session.commit()
+        
+        return user, access_token, refresh_token_str
+    
+    async def refresh_access_token(
+        self,
+        session: AsyncSession,
+        refresh_token_str: str,
+    ) -> Tuple[str, str]:
+        """Refresh token ile yeni access token oluştur."""
+        try:
+            payload = decode_token(refresh_token_str)
+        except Exception as e:
+            raise ValueError(f"Geçersiz refresh token: {e}")
+        
+        if payload.get("type") != "refresh":
+            raise ValueError("Token bir refresh token değil")
+        
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise ValueError("Token'da user_id eksik")
+        
+        # SORGULAMA GÜNCELLENDİ: department_rel ilişkisini peşin yüklüyoruz 🚀
+        stmt = (
+            select(User)
+            .where(User.id == user_id_str)
+            .options(selectinload(User.department_rel))
+        )
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("Kullanıcı bulunamadı")
+        
+        if not user.is_active:
+            raise ValueError("Kullanıcı hesabı devre dışı")
+        
+        # Veritabanında refresh token'ı kontrol et (Bu kısım aynı kalabilir)
+        result = await session.execute(
+            select(RefreshToken).where(
+                RefreshToken.token == refresh_token_str,
+                RefreshToken.user_id == user_id_str
+            )
+        )
+        token_record = result.scalar_one_or_none()
+        
+        if not token_record:
+            raise ValueError("Refresh token bulunamadı")
+        
+        if token_record.expires_at < _utc_naive():
+            raise ValueError("Refresh token süresi dolmuş")
+        
+        # Yeni token'lar oluştur
+        new_access_token = create_access_token(
+            user_id=user.id,
+            role=user.role.value
+        )
+        new_refresh_token_str = create_refresh_token(user_id=user.id)
+        
+        # Eski token'ı sil, yeni token'ı kaydet
+        await session.delete(token_record)
+        
+        new_refresh_token = RefreshToken(
+            id=str(uuid4()),
+            user_id=user.id,
+            token=new_refresh_token_str,
+            expires_at=_utc_naive() + timedelta(days=self.settings.jwt_refresh_token_expire_days),
+            created_at=_utc_naive(),
+        )
+        
+        session.add(new_refresh_token)
+        await session.commit()
+        
+        return new_access_token, new_refresh_token_str
+    
+    def generate_verification_token(self, user_id: str) -> str:
+        """Email doğrulama token'ı oluştur."""
+        return create_email_verification_token(user_id=user_id)
+    
+    async def verify_email(
+        self,
+        session: AsyncSession,
+        verification_token: str,
+    ) -> User:
+        """Email doğrulama token'ı ile kullanıcı email'ini doğrula."""
+        try:
+            payload = decode_token(verification_token)
+        except Exception as e:
+            raise ValueError(f"Geçersiz doğrulama token'ı: {e}")
+        
+        if payload.get("type") != "email_verification":
+            raise ValueError("Token bir email doğrulama token'ı değil")
+        
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise ValueError("Token'da user_id eksik")
+        
+        # SORGULAMA GÜNCELLENDİ: İlişkiyi peşin yüklüyoruz 🚀
+        stmt = (
+            select(User)
+            .where(User.id == user_id_str)
+            .options(selectinload(User.department_rel))
+        )
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("Kullanıcı bulunamadı")
+        
+        if user.is_verified:
+            raise ValueError("Email adresi zaten doğrulanmış")
+        
+        user.is_verified = True
+        user.updated_at = _utc_naive()
+        
+        await session.commit()
+        await session.refresh(user)
+        
+        return user
+    
+    def create_password_reset_token(self, user_id: str) -> str:
+        """Şifre sıfırlama token'ı oluştur (1 saat süre)."""
+        return create_access_token(
+            user_id=user_id,
+            role="password_reset",
+            expires_delta=timedelta(hours=1)
+        )
+    
+    async def verify_password_reset_token(
+        self,
+        session: AsyncSession,
+        token: str,
+    ) -> User:
+        """Şifre sıfırlama token'ını doğrula ve kullanıcıyı döndür."""
+        try:
+            payload = decode_token(token)
+        except Exception as e:
+            raise ValueError(f"Geçersiz şifre sıfırlama token'ı: {e}")
+        
+        if payload.get("role") != "password_reset":
+            raise ValueError("Token bir şifre sıfırlama token'ı değil")
+        
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise ValueError("Token'da user_id eksik")
+        
+        # SORGULAMA GÜNCELLENDİ: İlişkiyi peşin yüklüyoruz 🚀
+        stmt = (
+            select(User)
+            .where(User.id == user_id_str)
+            .options(selectinload(User.department_rel))
+        )
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise ValueError("Kullanıcı bulunamadı")
+        
+        return user
+    
+    async def reset_password(
+        self,
+        session: AsyncSession,
+        token: str,
+        new_password: str,
+    ) -> User:
+        """Token ile kullanıcı şifresini sıfırla."""
+        # verify_password_reset_token zaten selectinload kullanıyor, 
+        # bu yüzden 'user' objesi sağlıklı geliyor.
+        user = await self.verify_password_reset_token(session, token)
+        
+        # Şifre güçlülük kontrolü
+        if len(new_password) < 8:
+            raise ValueError("Şifre en az 8 karakter olmalı")
+        
+        has_letter = any(c.isalpha() for c in new_password)
+        has_digit = any(c.isdigit() for c in new_password)
+        
+        if not has_letter:
+            raise ValueError("Şifre en az bir harf içermeli")
+        
+        if not has_digit:
+            raise ValueError("Şifre en az bir rakam içermeli")
+        
+        user.password_hash = hash_password(new_password)
+        user.updated_at = _utc_naive()
+        
+        # Güvenlik için tüm refresh token'ları sil (Mevcut mantık aynı)
+        result = await session.execute(
+            select(RefreshToken).where(RefreshToken.user_id == user.id)
+        )
+        tokens = result.scalars().all()
+        for token_record in tokens:
+            await session.delete(token_record)
+        
+        await session.commit()
+        # Refresh yaparken ilişkiyi kaybetmemek için tekrar yükleyerek refresh ediyoruz
+        stmt = (
+            select(User)
+            .where(User.id == user.id)
+            .options(selectinload(User.department_rel))
+        )
+        res = await session.execute(stmt)
+        return res.scalar_one()
+    
+    async def revoke_refresh_token(
+        self,
+        session: AsyncSession,
+        refresh_token_str: str,
+    ) -> None:
+        """Refresh token'ı iptal et (logout). Herhangi bir User dönmediği için değişiklik gerekmez."""
+        try:
+            payload = decode_token(refresh_token_str)
+        except Exception as e:
+            raise ValueError(f"Geçersiz refresh token: {e}")
+        
+        user_id_str = payload.get("user_id")
+        if not user_id_str:
+            raise ValueError("Token'da user_id eksik")
+        
+        result = await session.execute(
+            select(RefreshToken).where(
+                RefreshToken.token == refresh_token_str,
+                RefreshToken.user_id == user_id_str
+            )
+        )
+        token = result.scalar_one_or_none()
+        
+        if token:
+            await session.delete(token)
+            await session.commit()
+    
+    async def get_user_by_id(
+        self,
+        session: AsyncSession,
+        user_id: str,
+    ) -> Optional[User]:
+        """ID ile kullanıcı getir (İlişki yüklenmiş şekilde)."""
+        result = await session.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(selectinload(User.department_rel)) # 🚀 GÜNCELLENDİ
+        )
+        return result.scalar_one_or_none()
+    
+    async def get_user_by_email(
+        self,
+        session: AsyncSession,
+        email: str,
+    ) -> Optional[User]:
+        """Email ile kullanıcı getir (İlişki yüklenmiş şekilde)."""
+        result = await session.execute(
+            select(User)
+            .where(User.email == email)
+            .options(selectinload(User.department_rel)) # 🚀 GÜNCELLENDİ
+        )
+        return result.scalar_one_or_none()

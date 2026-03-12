@@ -1,0 +1,35 @@
+# Cursor indexing: bu pattern'lar indexlenmez (arama/context'e dahil edilmez).
+# Cursor yine tum dosyalari acip duzenleyebilir; sadece index boyutu azalir.
+# Git push icin hassas dosyalar .gitignore ile ayarlanir (bu dosya degil).
+
+# Bagimlilik / build (cok buyuk)
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+*.egg-info/
+
+# Sanal ortam
+venv/
+.venv/
+env/
+ENV/
+
+# Test / coverage
+coverage_html/
+.coverage
+
+# Vector store (buyuk binary)
+backend/data/vectors/*.index
+
+# Yuklenen dosyalar (kullanici icerigi)
+backend/uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# Log
+*.log

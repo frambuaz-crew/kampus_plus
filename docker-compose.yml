@@ -1,0 +1,125 @@
+# KAMPÜS+ - Ekip ortamı: Backend + Frontend + PostgreSQL
+# 5 kişi aynı docker-compose ile çalışır; ortak image için TECH_STACK.md'ye bakın.
+
+services:
+  # PostgreSQL - Ekip veritabanı
+  postgres:
+    image: postgres:15-alpine
+    container_name: kampus-postgres
+    environment:
+      POSTGRES_USER: kampus
+      POSTGRES_PASSWORD: kampus
+      POSTGRES_DB: kampus_plus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kampus-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kampus -d kampus_plus || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: kampus_plus-backend:latest
+    container_name: kampus-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # PostgreSQL - postgres servisine bağlan (Docker ağı)
+      - DATABASE_URL=postgresql+asyncpg://kampus:kampus@postgres:5432/kampus_plus
+      - ENVIRONMENT=development
+      - DEBUG=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/alembic:/app/alembic
+      - ./backend/scripts:/app/scripts
+      - ./backend/data:/app/data
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - kampus-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo '🚀 Starting KAMPÜS+ Backend...' &&
+        python -m alembic upgrade head || echo '⚠️  Migration hatası (devam ediliyor)' &&
+        python scripts/seed_data.py || echo '⚠️  Seed hatası (devam ediliyor)' &&
+        python scripts/vector_seed_konya.py || echo '⚠️  Vektör seed hatası (devam ediliyor)' &&
+        python scripts/ingest_docs.py || echo '⚠️  Doküman ingest hatası (devam ediliyor)' &&
+        echo '✅ Starting FastAPI server...' &&
+        uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --log-level warning
+      "
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    image: kampus_plus-frontend:latest
+    container_name: kampus-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Tarayıcıdan erişim için localhost kullanılır (Docker port mapping sayesinde)
+      - VITE_API_URL=http://localhost:8000/api/v1
+      - NODE_ENV=development
+    ports:
+      - "5173:5173"
+    volumes:
+      # Hot reload için source code mount
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+      # node_modules container'da kalır (performans)
+      - frontend_node_modules:/app/node_modules
+    networks:
+      - kampus-network
+    restart: unless-stopped
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
+
+# Mailhog - Yerel Email Test Sunucusu
+  mailhog:
+    image: mailhog/mailhog
+    container_name: kampus-mailhog
+    ports:
+      - "1025:1025" # SMTP Portu
+      - "8025:8025" # Web Arayüzü (Emailleri buradan göreceğiz)
+    networks:
+      - kampus-network
+    restart: unless-stopped
+
+# Volumes (Veri kalıcılığı)
+volumes:
+  postgres_data:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+# Networks
+networks:
+  kampus-network:
+    driver: bridge
