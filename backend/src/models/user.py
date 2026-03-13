@@ -115,20 +115,6 @@ class User(Base):
     # Audit relationships
     audit_logs = relationship("AuditLog", back_populates="user")
 
-    # Friendship relationships
-    sent_friend_requests = relationship(
-        "Friendship",
-        foreign_keys="Friendship.requester_id",
-        back_populates="requester",
-        cascade="all, delete-orphan",
-    )
-    received_friend_requests = relationship(
-        "Friendship",
-        foreign_keys="Friendship.addressee_id",
-        back_populates="addressee",
-        cascade="all, delete-orphan",
-    )
-
 
 class RefreshToken(Base):
     """JWT refresh token saklama modeli."""
