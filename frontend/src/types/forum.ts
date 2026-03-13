@@ -19,20 +19,13 @@ export interface ForumAuthor {
   department?: string | { name?: string } | null;
 }
 
-export interface ForumPollOption {
-  id: string;
-  option_text: string;
-  vote_count: number;
-}
-
 export interface ForumTopic {
   id: string;
   title: string;
   content: string;
-  topic_type: 'text' | 'event' | 'photo' | 'poll';
+  topic_type: 'text' | 'event';
   tags?: string | null;  // JSON stringified array of strings
   image_urls?: string | null; // JSON stringified array of URLs
-  polls?: ForumPollOption[];
   author: ForumAuthor | null;
   reply_count: number;
   view_count: number;
@@ -51,6 +44,7 @@ export interface ForumReply {
   parent_id?: string | null;
   author: ForumAuthor | null;
   helpful_count: number;
+  is_liked_by_me?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -72,10 +66,9 @@ export interface CreateTopicPayload {
   title: string;
   content: string;
   category_id?: string;
-  topic_type?: 'text' | 'event' | 'photo' | 'poll';
+  topic_type?: 'text' | 'event';
   tags?: string[];
   image_urls?: string[];
-  poll_options?: string[];
 }
 
 export interface CreateTopicResponse {

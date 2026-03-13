@@ -37,10 +37,7 @@ export const createForumReply = async (
   return response.data;
 };
 
-export const voteForumPoll = async (pollOptionId: string): Promise<{ success: boolean; vote_count: number }> => {
-  const response = await apiClient.post<{ success: boolean; vote_count: number }>(`/forum/polls/${pollOptionId}/vote`);
-  return response.data;
-};
+
 
 export const uploadForumImages = async (files: File[]): Promise<{ success: boolean; urls: string[] }> => {
   const formData = new FormData();

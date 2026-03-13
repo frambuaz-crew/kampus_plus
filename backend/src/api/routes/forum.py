@@ -20,7 +20,7 @@ from sqlalchemy.orm import selectinload
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
 from src.models.user import User
-from src.models.forum import ForumCategory, ForumTopic, ForumReply, ForumPollOption, ForumPollVote
+from src.models.forum import ForumCategory, ForumTopic, ForumReply
 from src.models.favorite import UserFavorite
 
 logger = logging.getLogger(__name__)
@@ -65,13 +65,6 @@ class TopicAuthorResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class PollOptionResponse(BaseModel):
-    id: str
-    option_text: str
-    vote_count: int
-
-    model_config = {"from_attributes": True}
-
 class TopicResponse(BaseModel):
     """Forum konu response."""
     id: str
@@ -81,7 +74,6 @@ class TopicResponse(BaseModel):
     tags: Optional[str] = None
     image_urls: Optional[str] = None
     event_date: Optional[datetime] = None
-    polls: Optional[List[PollOptionResponse]] = []
     author: Optional[TopicAuthorResponse]
     category_id: Optional[str] = None
     category_name: Optional[str] = None
@@ -115,6 +107,7 @@ class ReplyResponse(BaseModel):
     parent_id: Optional[str] = None
     author: Optional[ReplyAuthorResponse]
     helpful_count: int
+    is_liked_by_me: bool = False
     created_at: datetime
     updated_at: datetime
     
@@ -132,10 +125,9 @@ class CreateTopicRequest(BaseModel):
     category_id: Optional[str] = Field(None, description="Kategori ID (Artık zorunlu değil)")
     title: str = Field(..., description="Başlık")
     content: str = Field(..., description="İçerik")
-    topic_type: str = Field("text", description="Konu tipi (text, event, photo, poll)")
+    topic_type: str = Field("text", description="Konu tipi (text, event)")
     tags: Optional[List[str]] = Field(None, description="Etiketler")
     image_urls: Optional[List[str]] = Field(None, description="Fotoğraf URL'leri")
-    poll_options: Optional[List[str]] = Field(None, description="Anket Şıkları")
     event_date: Optional[datetime] = Field(None, description="Etkinlik tarihi")
 
 
@@ -235,8 +227,8 @@ async def get_topics(
     offset = (page - 1) * limit
     query = query.offset(offset).limit(limit)
     
-    # Author ve Polls bilgilerini yükle
-    query = query.options(selectinload(ForumTopic.author), selectinload(ForumTopic.polls))
+    # Author bilgilerini yükle
+    query = query.options(selectinload(ForumTopic.author))
     
     result = await session.execute(query)
     topics = result.scalars().all()
@@ -273,7 +265,6 @@ async def get_topics(
             "topic_type": topic.topic_type,
             "tags": topic.tags,
             "image_urls": topic.image_urls,
-            "polls": [{"id": p.id, "option_text": p.option_text, "vote_count": p.vote_count} for p in topic.polls] if topic.polls else [],
             "author": author_data,
             "category_id": topic.category_id,
             "reply_count": topic.reply_count,
@@ -340,8 +331,8 @@ async def get_threads(
     offset = (page - 1) * limit
     query = query.offset(offset).limit(limit)
     
-    # Author ve Polls bilgilerini yükle
-    query = query.options(selectinload(ForumTopic.author), selectinload(ForumTopic.polls))
+    # Author bilgilerini yükle
+    query = query.options(selectinload(ForumTopic.author))
     
     result = await session.execute(query)
     topics = result.scalars().all()
@@ -377,7 +368,6 @@ async def get_threads(
             "topic_type": topic.topic_type,
             "tags": topic.tags,
             "image_urls": topic.image_urls,
-            "polls": [{"id": p.id, "option_text": p.option_text, "vote_count": p.vote_count} for p in topic.polls] if topic.polls else [],
             "author": author_data,
             "category_id": topic.category_id,
             "reply_count": topic.reply_count,
@@ -427,7 +417,7 @@ async def get_topic_detail(
         result = await session.execute(
             select(ForumTopic)
             .where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
-            .options(selectinload(ForumTopic.author), selectinload(ForumTopic.polls))
+            .options(selectinload(ForumTopic.author))
         )
         topic = result.scalar_one_or_none()
         
@@ -453,7 +443,16 @@ async def get_topic_detail(
         .options(selectinload(ForumReply.author))
     )
     replies = replies_result.scalars().all()
-    
+    liked_reply_ids = set()
+    if replies and current_user:
+        reply_ids = [r.id for r in replies]
+        fav_reply_stmt = select(UserFavorite.target_id).where(
+            UserFavorite.user_id == current_user.id,
+            UserFavorite.target_type == "forum_reply",
+            UserFavorite.target_id.in_(reply_ids)
+        )
+        fav_reply_res = await session.execute(fav_reply_stmt)
+        liked_reply_ids = set(fav_reply_res.scalars().all())
     # Topic response
     author_data = None
     if topic.author:
@@ -484,7 +483,6 @@ async def get_topic_detail(
         topic_type=topic.topic_type,
         tags=topic.tags,
         image_urls=topic.image_urls,
-        polls=[PollOptionResponse(id=p.id, option_text=p.option_text, vote_count=p.vote_count) for p in topic.polls] if topic.polls else [],
         author=author_data,
         category_id=topic.category_id,
         reply_count=topic.reply_count,
@@ -517,6 +515,7 @@ async def get_topic_detail(
                 parent_id=reply.parent_id,
                 author=reply_author,
                 helpful_count=reply.helpful_count,
+                is_liked_by_me=(reply.id in liked_reply_ids),
                 created_at=reply.created_at,
                 updated_at=reply.updated_at,
             ))
@@ -877,46 +876,6 @@ async def mark_reply_helpful(
 
     return {"success": True, "action": action, "helpful_count": reply.helpful_count, "is_liked": action == "liked"}
 
-@router.post("/polls/{poll_option_id}/vote", response_model=dict)
-async def vote_poll(
-    poll_option_id: str,
-    session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Ankete oy ver."""
-    
-    opt_res = await session.execute(select(ForumPollOption).where(ForumPollOption.id == poll_option_id))
-    poll_opt = opt_res.scalar_one_or_none()
-    
-    if not poll_opt:
-        raise HTTPException(status_code=404, detail="Anket şıkkı bulunamadı.")
-        
-    # Check if user already voted in THIS topic
-    existing_vote_res = await session.execute(
-        select(ForumPollVote)
-        .join(ForumPollOption, ForumPollVote.poll_option_id == ForumPollOption.id)
-        .where(
-            and_(
-                ForumPollVote.user_id == current_user.id,
-                ForumPollOption.topic_id == poll_opt.topic_id
-            )
-        )
-    )
-    if existing_vote_res.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Bu ankete zaten oy verdiniz.")
-        
-    vote = ForumPollVote(
-        id=str(uuid4()),
-        user_id=current_user.id,
-        poll_option_id=poll_opt.id
-    )
-    session.add(vote)
-    
-    poll_opt.vote_count += 1
-    
-    await session.commit()
-    
-    return {"success": True, "vote_count": poll_opt.vote_count}
 
 # ... existing code ...
 @router.post("/upload-images", response_model=dict)

@@ -26,7 +26,7 @@ const CommentItem: React.FC<{
     const [replyText, setReplyText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [helpfulCount, setHelpfulCount] = useState(reply.helpful_count);
-    const [isLiked, setIsLiked] = useState(false);
+    const [isLiked, setIsLiked] = useState(reply.is_liked_by_me || false);
     const [liking, setLiking] = useState(false);
 
     const authorInitials = reply.author?.first_name

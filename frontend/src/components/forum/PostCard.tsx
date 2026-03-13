@@ -4,7 +4,7 @@ import { tr } from 'date-fns/locale';
 import { Heart, MessageSquare, MoreHorizontal, Calendar, X } from 'lucide-react';
 import type { ThreadListItem } from '../../types/forum';
 import { ImageLightbox } from './ImageLightbox';
-import { voteForumPoll, markTopicHelpful, getTopicLikers } from '../../api/forum';
+import { markTopicHelpful, getTopicLikers } from '../../api/forum';
 import { Link } from 'react-router-dom';
 import { InlineComments } from './InlineComments';
 
@@ -17,9 +17,6 @@ interface PostCardProps {
 export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClick }) => {
     const baseUrl = 'http://localhost:8000';
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-    const [localPolls, setLocalPolls] = useState(post.polls || []);
-    const [voting, setVoting] = useState(false);
-
     const [helpfulCount, setHelpfulCount] = useState(post.helpful_count);
     const [isLikedByMe, setIsLikedByMe] = useState(post.is_liked_by_me || false);
     const [liking, setLiking] = useState(false);
@@ -40,23 +37,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
     const tags: string[] = post.tags ? JSON.parse(post.tags) : [];
     const images: string[] = post.image_urls ? JSON.parse(post.image_urls) : [];
 
-    const handleVote = async (e: React.MouseEvent, pollId: string) => {
-        e.stopPropagation();
-        if (voting) return;
-        try {
-            setVoting(true);
-            const res = await voteForumPoll(pollId);
-            if (res.success) {
-                setLocalPolls(prev => prev.map(p =>
-                    p.id === pollId ? { ...p, vote_count: res.vote_count } : p
-                ));
-            }
-        } catch {
-            // maybe show toast
-        } finally {
-            setVoting(false);
-        }
-    };
 
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -176,21 +156,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                 </>
             )}
 
-            {post.topic_type === 'poll' && localPolls.length > 0 && (
-                <div className="mb-4 space-y-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <div className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider">Anket</div>
-                    {localPolls.map((poll) => (
-                        <div
-                            key={poll.id}
-                            className={`relative overflow-hidden bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center transition-all ${voting ? 'opacity-50 cursor-not-allowed' : 'hover:border-indigo-300 hover:bg-indigo-50/30'}`}
-                            onClick={(e) => handleVote(e, poll.id)}
-                        >
-                            <span className="relative z-10 font-medium text-gray-800">{poll.option_text}</span>
-                            <span className="relative z-10 text-xs font-bold text-gray-400">{poll.vote_count} oy</span>
-                        </div>
-                    ))}
-                </div>
-            )}
 
             {post.topic_type === 'event' && (
                 <div className="mb-4 bg-purple-50 p-4 rounded-2xl border border-purple-100 flex items-center gap-4 text-purple-900 cursor-default" onClick={(e) => e.stopPropagation()}>
