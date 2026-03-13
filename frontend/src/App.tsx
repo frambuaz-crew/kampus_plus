@@ -16,6 +16,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { MessagesChatPage } from './pages/MessagesChatPage';
+import { NetworkPage } from './pages/Network/NetworkPage';
 import { MarketplacePage } from './pages/MarketplacePage';
 import { CareerPage } from './pages/CareerPage';
 import { CourseSchedulePage } from './pages/CourseSchedulePage';
@@ -158,6 +159,14 @@ function App() {
             }
           />
 
+          <Route
+            path="/dashboard/network"
+            element={
+              <ProtectedRoute>
+                <NetworkPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard/notifications"
             element={

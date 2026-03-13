@@ -1,29 +1,7 @@
-# KAMPÜS+ - Ekip ortamı: Backend + Frontend + PostgreSQL
-# 5 kişi aynı docker-compose ile çalışır; ortak image için TECH_STACK.md'ye bakın.
+# KAMPÜS+ - Ekip ortamı: Backend + Frontend (Remote DB: 161.97.88.140)
+# Lokal PostgreSQL yok; backend/.env içindeki Almanya DB URL'si kullanılır.
 
 services:
-  # PostgreSQL - Ekip veritabanı
-  postgres:
-    image: postgres:15-alpine
-    container_name: kampus-postgres
-    environment:
-      POSTGRES_USER: kampus
-      POSTGRES_PASSWORD: kampus
-      POSTGRES_DB: kampus_plus
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - kampus-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kampus -d kampus_plus || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    restart: unless-stopped
-
   # Backend API (FastAPI)
   backend:
     build:
@@ -34,21 +12,16 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # PostgreSQL - postgres servisine bağlan (Docker ağı)
-      - DATABASE_URL=postgresql+asyncpg://kampus:kampus@postgres:5432/kampus_plus
       - ENVIRONMENT=development
       - DEBUG=true
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./backend/src:/app/src
       - ./backend/alembic:/app/alembic
       - ./backend/scripts:/app/scripts
       - ./backend/data:/app/data
       - ./backend/uploads:/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -81,11 +54,10 @@ services:
       backend:
         condition: service_healthy
     environment:
-      # Tarayıcıdan erişim için localhost kullanılır (Docker port mapping sayesinde)
-      - VITE_API_URL=http://localhost:8000/api/v1
+      - VITE_API_URL=${VITE_API_URL}
       - NODE_ENV=development
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       # Hot reload için source code mount
       - ./frontend/src:/app/src
@@ -114,8 +86,6 @@ services:
 
 # Volumes (Veri kalıcılığı)
 volumes:
-  postgres_data:
-    driver: local
   frontend_node_modules:
     driver: local
 
