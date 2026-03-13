@@ -35,6 +35,7 @@ export const Sidebar: React.FC = () => {
     { id: 'forum', label: 'Forum', icon: '💬', path: '/dashboard/forum' },
     { id: 'marketplace', label: 'Pazar', icon: '🛒', path: '/dashboard/marketplace' },
     { id: 'career', label: 'Kariyer', icon: '💼', path: '/dashboard/career' },
+    { id: 'network', label: 'Ağım', icon: '👥', path: '/dashboard/network' },
   ];
 
   const academicItems: NavItem[] = [

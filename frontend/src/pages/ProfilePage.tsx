@@ -8,6 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
+import { sendRequest } from '../api/friendship';
 
 // Tab ve Liste Tipleri
 type TabType = 'info' | 'activity' | 'favorites';
@@ -132,6 +133,11 @@ export const ProfilePage: React.FC = () => {
   const isOwnProfile = !username || username === currentUser?.username;
   const targetUsername = isOwnProfile ? currentUser?.username : username;
 
+  // Arkadaşlık isteği state'i
+  const [friendRequestStatus, setFriendRequestStatus] = useState<
+    'idle' | 'sending' | 'sent' | 'error'
+  >('idle');
+
   useEffect(() => {
     const fetchProfileData = async () => {
       if (!targetUsername) return;
@@ -172,6 +178,18 @@ export const ProfilePage: React.FC = () => {
 
     fetchProfileData();
   }, [targetUsername, isOwnProfile]);
+
+  const handleSendFriendRequest = async () => {
+    if (!profileData) return;
+    setFriendRequestStatus('sending');
+    try {
+      await sendRequest(profileData.id);
+      setFriendRequestStatus('sent');
+    } catch {
+      setFriendRequestStatus('error');
+      setTimeout(() => setFriendRequestStatus('idle'), 3000);
+    }
+  };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,11 +303,37 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               {/* Aksiyon Butonları (Sağ) */}
-              <div className="flex gap-3 w-full md:w-auto mt-4 md:mt-0">
+              <div className="flex gap-3 w-full md:w-auto mt-4 md:mt-0 flex-wrap">
                 {!isOwnProfile ? (
-                  <button className="flex-1 md:flex-none px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
-                    Mesaj Gönder
-                  </button>
+                  <>
+                    <button
+                      onClick={() => navigate('/dashboard/messages')}
+                      className="flex-1 md:flex-none px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                    >
+                      💬 Mesaj Gönder
+                    </button>
+                    <button
+                      onClick={handleSendFriendRequest}
+                      disabled={friendRequestStatus === 'sending' || friendRequestStatus === 'sent'}
+                      className={`flex-1 md:flex-none px-6 py-3 font-bold rounded-2xl shadow-lg transition-all active:scale-95 ${
+                        friendRequestStatus === 'sent'
+                          ? 'bg-emerald-500 text-white shadow-emerald-200 cursor-default'
+                          : friendRequestStatus === 'error'
+                          ? 'bg-red-100 text-red-600 shadow-none'
+                          : 'bg-white border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-indigo-100'
+                      }`}
+                    >
+                      {friendRequestStatus === 'sending' && (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                          Gönderiliyor...
+                        </span>
+                      )}
+                      {friendRequestStatus === 'sent' && '✓ İstek Gönderildi'}
+                      {friendRequestStatus === 'error' && '✕ Hata oluştu'}
+                      {(friendRequestStatus === 'idle') && '👤+ Arkadaş Ekle'}
+                    </button>
+                  </>
                 ) : (
                   !isEditing && (
                     <button onClick={() => setIsEditing(true)} className="flex-1 md:flex-none px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95">

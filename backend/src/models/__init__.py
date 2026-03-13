@@ -18,6 +18,7 @@ from .settings import ContactMessage
 from .university import University
 from .sync import AuditLog
 from .favorite import UserFavorite
+from .friendship import Friendship
 
 __all__ = [
     "Base",
@@ -58,4 +59,6 @@ __all__ = [
     "AuditLog",
     # Favorites
     "UserFavorite",
+    # Friendship
+    "Friendship",
 ]
