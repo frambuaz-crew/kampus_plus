@@ -4,18 +4,13 @@ import type {
   CreateReplyResponse,
   CreateTopicPayload,
   CreateTopicResponse,
-  ForumCategoriesResponse,
   ForumTopicDetailResponse,
   ForumTopicsResponse,
 } from '../types/forum';
 
-export const getForumCategories = async (): Promise<ForumCategoriesResponse> => {
-  const response = await apiClient.get<ForumCategoriesResponse>('/forum/categories');
-  return response.data;
-};
-
 export const getForumTopics = async (params?: {
   category_id?: string;
+  topic_type?: string;
   page?: number;
   limit?: number;
   sort?: 'newest' | 'oldest' | 'most_replies' | 'most_views';
@@ -39,5 +34,31 @@ export const createForumReply = async (
   payload: CreateReplyPayload,
 ): Promise<CreateReplyResponse> => {
   const response = await apiClient.post<CreateReplyResponse>(`/forum/topics/${topicId}/replies`, payload);
+  return response.data;
+};
+
+
+
+export const uploadForumImages = async (files: File[]): Promise<{ success: boolean; urls: string[] }> => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+  const response = await apiClient.post<{ success: boolean; urls: string[] }>('/forum/upload-images', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const markTopicHelpful = async (topicId: string): Promise<{ success: boolean; helpful_count: number; action?: string }> => {
+  const response = await apiClient.post<{ success: boolean; helpful_count: number; action?: string }>(`/forum/topics/${topicId}/helpful`);
+  return response.data;
+};
+
+export const getTopicLikers = async (topicId: string) => {
+  const response = await apiClient.get(`/forum/topics/${topicId}/likers`);
+  return response.data;
+};
+
+export const markReplyHelpful = async (replyId: string) => {
+  const response = await apiClient.post(`/forum/replies/${replyId}/helpful`);
   return response.data;
 };
