@@ -15,7 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Requirements kopyala ve Python paketlerini kur
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip uninstall -y langchain langchain-core langchain-community && \
+    pip install --no-cache-dir --user --upgrade --force-reinstall -r requirements.txt
 
 # Stage 2: Runtime (Production image)
 FROM python:3.11-slim

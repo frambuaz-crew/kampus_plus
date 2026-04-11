@@ -113,7 +113,17 @@ class Settings(BaseSettings):
     schedule_csv_url: str = ""
     
     # Güvenlik
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    # Tüm yaygın geliştirme portları hem localhost hem 127.0.0.1 üzerinden dahil edildi.
+    # Docker compose CORS_ORIGINS env var'ı ile üzerine yazılabilir.
+    cors_origins: str = (
+        "http://localhost:3000,"
+        "http://localhost:5173,"
+        "http://localhost:5174,"
+        "http://127.0.0.1:3000,"
+        "http://127.0.0.1:5173,"
+        "http://127.0.0.1:5174,"
+        "http://127.0.0.1:8001"
+    )
     allowed_hosts: str = "localhost,127.0.0.1"
     rate_limit_per_minute: int = 100
     ai_rate_limit_per_minute: int = 10

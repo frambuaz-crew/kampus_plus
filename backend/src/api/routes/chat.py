@@ -355,6 +355,7 @@ async def send_chat_message(
 		user_id=current_user.id,
 		session_id=conversation.id,
 		session_history=history_pairs,
+		db=session,
 	)
 
 	assistant_text = ai_result.get("answer") or "Üzgünüm, şu anda yanıt üretemedim."

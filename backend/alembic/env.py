@@ -52,6 +52,7 @@ def run_migrations_offline() -> None:
         dialect_opts={"paramstyle": "named"},
         compare_type=True,  # Sütun tipi değişikliklerini algıla
         compare_server_default=True,  # Varsayılan değer değişikliklerini algıla
+        render_as_batch=True,  # SQLite için zorunlu: DROP/ADD COLUMN, FK değişikliklerini destekler
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -70,6 +71,7 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             compare_type=True,  # Sütun tipi değişikliklerini algıla
             compare_server_default=True,  # Varsayılan değer değişikliklerini algıla
+            render_as_batch=True,  # SQLite için zorunlu: DROP/ADD COLUMN, FK değişikliklerini destekler
         )
         with context.begin_transaction():
             context.run_migrations()

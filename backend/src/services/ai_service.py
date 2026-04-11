@@ -1,25 +1,31 @@
-"""AI Service - KAMPÜS+ Platform RAG tabanlı konuşma AI'sı.
+"""AI Service - KAMPÜS+ Platform Tool Calling Agent tabanlı konuşma AI'sı.
 
 Spec: specs/009-ai-assistant/spec.md
 AI sadece kampüs bilgileri ve platform navigasyonu konusunda yardımcı olur.
 Akademik ders içerikleri hakkında yardım VERMEZ.
+
+Mimari: LangChain AgentExecutor + Gemini 2.5 Flash Tool Calling
+  - search_official_documents : FAISS vektör araması (kampüs belgeleri)
+  - get_active_marketplace_listings : SQLAlchemy ile aktif pazar ilanları
+  - get_system_stats              : Kayıtlı kullanıcı sayısı
 """
 
 import asyncio
 import logging
 from pathlib import Path
 import re
-from operator import itemgetter
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from langchain_core.retrievers import BaseRetriever
-from langchain_core.runnables import RunnableSerializable
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.tools import StructuredTool
+from langchain.agents import create_tool_calling_agent, AgentExecutor
+from pydantic import BaseModel, Field
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.services.vector_service import VectorStoreService
@@ -29,54 +35,42 @@ logger = logging.getLogger(__name__)
 
 
 class AIService:
-    """RAG tabanlı konuşma AI servisi."""
-    
+    """LangChain Tool Calling Agent tabanlı konuşma AI servisi."""
+
     CONTEXT_WINDOW_SIZE = 5
+
     ACADEMIC_GUARDRAIL_RESPONSE = (
         "Üzgünüm, ben bir kampüs asistanıyım. Sadece üniversite hayatı, kampüs imkanları ve etkinlikler "
         "hakkında bilgi verebilirim. Ders veya ödev konularında yardımcı olamıyorum."
     )
-    
-    TURKISH_SYSTEM_PROMPT = """Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve platform navigasyonu konusunda yardımcı oluyorsun.
 
-ÖNEMLİ: Akademik ders içerikleri hakkında yardım VERME. Sadece kampüs bilgileri (akademik takvim, ders programı, forum, pazar, kariyer) hakkında bilgi ver.
+    AGENT_SYSTEM_PROMPT = """Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve platform navigasyonu konusunda yardımcı oluyorsun.
 
-Bağlam Bilgisi:
-{context}
+ÖNEMLİ KURALLAR:
+- Akademik ders içerikleri hakkında yardım VERME. Sadece kampüs bilgileri (akademik takvim, şenlikler, kampüs kuralları, forum, pazar yeri, kariyer) konularında destek ver.
+- Pazar yeri ilanları veya platform istatistikleri sorulduğunda mutlaka ilgili veritabanı araçlarını kullan.
+- Akademik takvim, şenlik, kampüs kuralı gibi resmi bilgiler için doküman arama aracını kullan.
+- "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
+- Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
+- Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …")."""
 
-Yanıt Kuralları:
-1. Yalnızca yukarıdaki bağlam bilgisini kullan. Bağlamda olmayan hiçbir şeyi uydurma veya tahmin etme. Bilgi yoksa "Bu bilgiye ulaşamıyorum." de.
-2. Kullanıcı "Merhaba", "Naber", "Selam" gibi günlük bir selamlama yazarsa bağlamı görmezden gel ve sadece samimi, kısa bir selamla karşılık ver.
-3. Türkçe ve anlaşılır şekilde yanıt ver.
-4. Kaynakları robotik bir liste olarak değil, yanıtın içine doğal bir dille yedirerek belirt (örn. "… akademik takvim dokümanına göre …")."""
+    # ------------------------------------------------------------------ #
+    #  Zaman aşımı sabitleri
+    # ------------------------------------------------------------------ #
+    LLM_REQUEST_TIMEOUT = 40   # saniye – tek Gemini isteği için hard limit
+    QUERY_TOTAL_TIMEOUT = 60   # saniye – tüm agent döngüsü için hard limit
 
-    ENGLISH_SYSTEM_PROMPT = """You are KAMPÜS+ AI Assistant. You help university students with campus information and platform navigation.
-
-IMPORTANT: Do NOT help with academic course content. Only provide information about campus info (academic calendar, course schedule, forum, marketplace, career).
-
-Context Information:
-{context}
-
-Response Rules:
-1. Use ONLY the provided context above. Never fabricate or guess information not present in it. If the information is absent, say "I don't have access to that information."
-2. If the user sends a casual greeting like "Hi", "Hello", or "Hey", ignore the context and simply reply with a friendly greeting.
-3. Respond clearly and helpfully.
-4. Weave source references naturally into your response rather than listing them robotically at the end (e.g. "… according to the academic calendar document …")."""
-    
     def __init__(self, vector_service: Optional[VectorStoreService] = None):
         """AI servisini başlat."""
         self.vector_service = vector_service or VectorStoreService()
-
         self._active_model = self._normalize_model_name(settings.gemini_model)
         self.llm = self._create_llm(self._active_model)
-        logger.info(f"AIService initialized with Gemini ({self._active_model})")
-        
-        self.embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-001",
-            google_api_key=settings.google_api_key
-        )
-        
         self.current_language = "tr"
+        logger.info("AIService initialized with Gemini (%s) – Agent mode", self._active_model)
+
+    # ------------------------------------------------------------------ #
+    #  Yardımcı: model adı & LLM oluşturma
+    # ------------------------------------------------------------------ #
 
     @staticmethod
     def _normalize_model_name(model_name: str) -> str:
@@ -85,9 +79,6 @@ Response Rules:
         if normalized.startswith("models/"):
             normalized = normalized.split("/", 1)[1]
         return normalized or "gemini-2.5-flash"
-
-    LLM_REQUEST_TIMEOUT = 40  # saniye – Gemini API başına hard limit
-    QUERY_TOTAL_TIMEOUT = 45  # saniye – toplam query() hard limit
 
     def _create_llm(self, model_name: str) -> ChatGoogleGenerativeAI:
         """LangChain Gemini LLM istemcisini oluştur."""
@@ -100,215 +91,281 @@ Response Rules:
             request_timeout=self.LLM_REQUEST_TIMEOUT,
         )
 
+    # ------------------------------------------------------------------ #
+    #  Yardımcı: hata sınıflandırma
+    # ------------------------------------------------------------------ #
+
     def _is_model_not_found_error(self, error: Exception) -> bool:
-        """Hatanın model-adı kaynaklı olup olmadığını tespit et."""
         error_text = str(error).lower()
-        return (
-            "model" in error_text
-            and (
-                "not found" in error_text
-                or "unsupported" in error_text
-                or "isn't supported" in error_text
-                or "404" in error_text
-            )
+        return "model" in error_text and any(
+            kw in error_text for kw in ("not found", "unsupported", "isn't supported", "404")
         )
 
     def _is_api_key_error(self, error: Exception) -> bool:
-        """Hatanın API key/auth kaynaklı olup olmadığını tespit et."""
         error_text = str(error).lower()
-        return (
-            "api_key_invalid" in error_text
-            or "api key not valid" in error_text
-            or "permission denied" in error_text
-            or "unauthenticated" in error_text
+        return any(
+            kw in error_text
+            for kw in ("api_key_invalid", "api key not valid", "permission denied", "unauthenticated")
         )
-    
-    def _get_prompt_template(self) -> ChatPromptTemplate:
-        """Mevcut dil için prompt şablonu al."""
-        system_prompt = (
-            self.TURKISH_SYSTEM_PROMPT 
-            if self.current_language == "tr" 
-            else self.ENGLISH_SYSTEM_PROMPT
-        )
-        
-        return ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{question}")
-        ])
-    
-    def _format_context_from_docs(self, docs: List[Document]) -> str:
-        """Alınan dokümanları bağlam string'ine dönüştür."""
-        if not docs:
-            return "İlgili bilgi bulunamadı."
-        
-        context_parts = []
-        for i, doc in enumerate(docs, 1):
-            title = doc.metadata.get("title", "Başlıksız")
-            source_type = doc.metadata.get("source_type", "bilinmeyen")
-            content = doc.page_content
-            
-            context_parts.append(
-                f"[Kaynak {i} - {source_type}] {title}:\n{content}\n"
-            )
-        
-        return "\n".join(context_parts)
-    
+
+    # ------------------------------------------------------------------ #
+    #  Yardımcı: konuşma geçmişi biçimlendirme
+    # ------------------------------------------------------------------ #
+
     def _format_chat_history(self, history: List[Dict[str, str]]) -> List[BaseMessage]:
         """Konuşma geçmişini LangChain mesaj objelerine dönüştür.
-        
-        Son CONTEXT_WINDOW_SIZE (5) mesaj değişimini tutar.
+
+        Son CONTEXT_WINDOW_SIZE (5) değişim çiftini tutar.
         """
-        messages = []
-        recent_history = history[-self.CONTEXT_WINDOW_SIZE:] if history else []
-        
-        for exchange in recent_history:
+        messages: List[BaseMessage] = []
+        recent = history[-self.CONTEXT_WINDOW_SIZE :] if history else []
+        for exchange in recent:
             if "question" in exchange:
                 messages.append(HumanMessage(content=exchange["question"]))
             if "answer" in exchange:
                 messages.append(AIMessage(content=exchange["answer"]))
-        
         return messages
-    
-    def _create_retriever(self) -> BaseRetriever:
-        """Resmi dokümanlar için retriever oluştur."""
-        class OfficialRetriever(BaseRetriever):
-            """Resmi dokümanlar için retriever."""
-            vector_service: VectorStoreService
-            k: int = 5
-            
-            def __init__(self, vector_service: VectorStoreService, k: int = 5):
-                super().__init__(vector_service=vector_service, k=k)
-            
-            def _get_relevant_documents(self, query: str) -> List[Document]:
-                raise NotImplementedError("Use _aget_relevant_documents instead")
-            
-            async def _aget_relevant_documents(self, query: str) -> List[Document]:
-                """Resmi dokümanlardan ilgili dokümanları al."""
-                official_results = await self.vector_service.search_official(query, k=self.k)
-                
-                documents = []
-                for idx, distance in official_results:
-                    metadata = self.vector_service.official_metadata.get(idx, {})
-                    content = metadata.get("text", "")
-                    if content:
-                        doc = Document(
+
+    # ------------------------------------------------------------------ #
+    #  Araç Çantası (Tools) – closure tabanlı, db'ye erişimli
+    # ------------------------------------------------------------------ #
+
+    def _build_tools(
+        self, db: Optional[AsyncSession]
+    ) -> Tuple[List[StructuredTool], List[Document]]:
+        """Agent araçlarını ve belge takip listesini oluştur.
+
+        Araçlar `query()` içinde closure olarak tanımlanır; bu sayede
+        aktif `db` oturumuna ve `self.vector_service`'e erişebilirler.
+
+        Returns:
+            (tools, retrieved_docs): Araç listesi + bu çağrıda doldurulan belge listesi.
+        """
+        retrieved_docs: List[Document] = []  # agent çalıştıkça doldurulur
+
+        # ---- Pydantic giriş şemaları ---------------------------------- #
+
+        class SearchDocsInput(BaseModel):
+            query: str = Field(description="Aranacak konu veya anahtar kelime")
+
+        class MarketplaceInput(BaseModel):
+            category_keyword: str = Field(
+                default="",
+                description=(
+                    "Kategori veya başlıkta aranacak anahtar kelime. "
+                    "Tüm aktif ilanları görmek için boş bırak."
+                ),
+            )
+
+        class SystemStatsInput(BaseModel):
+            pass  # parametresiz araç
+
+        # ---- Tool 1: Resmi doküman arama (FAISS) ---------------------- #
+
+        async def _search_official_documents(query: str) -> str:
+            """FAISS vektör araması ile kampüs resmi belgelerini sorgular."""
+            results = await self.vector_service.search_official(
+                query, k=settings.vector_search_k
+            )
+            docs: List[Document] = []
+            for idx, distance in results:
+                meta = self.vector_service.official_metadata.get(idx, {})
+                content = meta.get("text", "")
+                if content:
+                    docs.append(
+                        Document(
                             page_content=content,
                             metadata={
                                 "source_type": "official",
-                                "title": metadata.get("title", "Resmi Doküman"),
+                                "title": meta.get("title", "Resmi Doküman"),
                                 "distance": distance,
                                 "index_id": idx,
-                                **{k: v for k, v in metadata.items() if k != "text"}
-                            }
+                                **{k: v for k, v in meta.items() if k != "text"},
+                            },
                         )
-                        documents.append(doc)
-                
-                documents.sort(key=lambda d: d.metadata.get("distance", float("inf")))
-                return documents[:self.k]
-        
-        return OfficialRetriever(
-            vector_service=self.vector_service,
-            k=settings.vector_search_k
+                    )
+
+            docs.sort(key=lambda d: d.metadata.get("distance", float("inf")))
+            top_docs = docs[: settings.vector_search_k]
+            retrieved_docs.extend(top_docs)
+
+            if not top_docs:
+                return "İlgili resmi doküman bulunamadı."
+
+            parts = []
+            for i, doc in enumerate(top_docs, 1):
+                title = doc.metadata.get("title", "Başlıksız")
+                parts.append(f"[Kaynak {i}] {title}:\n{doc.page_content}\n")
+            return "\n".join(parts)
+
+        # ---- Tool 2: Aktif pazar yeri ilanları (SQLAlchemy) ----------- #
+
+        async def _get_active_marketplace_listings(category_keyword: str = "") -> str:
+            """Aktif pazar yeri ilanlarını veritabanından getirir."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            from src.models.marketplace import MarketplaceListing  # yerel import – döngüsel bağımlılığı önler
+
+            stmt = select(MarketplaceListing).where(MarketplaceListing.status == "active")
+            kw = (category_keyword or "").strip()
+            if kw:
+                pattern = f"%{kw}%"
+                stmt = stmt.where(
+                    or_(
+                        MarketplaceListing.category.ilike(pattern),
+                        MarketplaceListing.title.ilike(pattern),
+                    )
+                )
+            stmt = stmt.order_by(MarketplaceListing.created_at.desc()).limit(10)
+
+            result = await db.execute(stmt)
+            listings = result.scalars().all()
+
+            if not listings:
+                suffix = f" '{category_keyword}' kategorisinde" if kw else ""
+                return f"Şu anda{suffix} aktif ilan bulunmuyor."
+
+            rows = [
+                f"- **{lst.title}** | Kategori: {lst.category} | Fiyat: {lst.price} TL | Durum: {lst.condition}"
+                for lst in listings
+            ]
+            return f"Aktif ilanlar ({len(listings)} sonuç):\n" + "\n".join(rows)
+
+        # ---- Tool 3: Sistem istatistikleri (SQLAlchemy) --------------- #
+
+        async def _get_system_stats() -> str:
+            """Platformdaki toplam kayıtlı kullanıcı sayısını döndürür."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            from src.models.user import User  # yerel import
+
+            result = await db.execute(
+                select(func.count(User.id)).where(User.is_deleted == False)  # noqa: E712
+            )
+            total = result.scalar_one()
+            return f"KAMPÜS+ platformunda toplam {total} kayıtlı kullanıcı bulunmaktadır."
+
+        # ---- StructuredTool sarmalayıcıları --------------------------- #
+
+        tools: List[StructuredTool] = [
+            StructuredTool.from_function(
+                coroutine=_search_official_documents,
+                name="search_official_documents",
+                description=(
+                    "Kampüs kuralları, şenlikler, akademik takvim ve diğer resmi kampüs belgelerini arar. "
+                    "Resmi veya kurumsal kampüs bilgisi sorulduğunda bu aracı kullan."
+                ),
+                args_schema=SearchDocsInput,
+            ),
+            StructuredTool.from_function(
+                coroutine=_get_active_marketplace_listings,
+                name="get_active_marketplace_listings",
+                description=(
+                    "Pazar yeri aktif ilanlarını kategori veya anahtar kelimeye göre listeler. "
+                    "Satılık eşya, ilan veya pazar yeri konusu sorulduğunda kullan."
+                ),
+                args_schema=MarketplaceInput,
+            ),
+            StructuredTool.from_function(
+                coroutine=_get_system_stats,
+                name="get_system_stats",
+                description=(
+                    "Platformdaki toplam kayıtlı öğrenci/kullanıcı sayısını verir. "
+                    "Platform istatistikleri veya kaç kişi var sorusu geldiğinde kullan."
+                ),
+                args_schema=SystemStatsInput,
+            ),
+        ]
+        return tools, retrieved_docs
+
+    # ------------------------------------------------------------------ #
+    #  Agent prompt şablonu
+    # ------------------------------------------------------------------ #
+
+    def _build_agent_prompt(self) -> ChatPromptTemplate:
+        """Tool Calling Agent için prompt şablonu oluştur."""
+        return ChatPromptTemplate.from_messages(
+            [
+                ("system", self.AGENT_SYSTEM_PROMPT),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+                MessagesPlaceholder("agent_scratchpad"),
+            ]
         )
-    
-    def _create_rag_chain(self) -> RunnableSerializable:
-        """LCEL kullanarak RAG chain oluştur."""
-        retriever = self._create_retriever()
-        prompt = self._get_prompt_template()
-        
-        chain = (
-            {
-                "context": itemgetter("question") | retriever | self._format_context_from_docs,
-                "question": itemgetter("question"),
-                "chat_history": itemgetter("chat_history")
-            }
-            | prompt
-            | self.llm
-            | StrOutputParser()
-        )
-        
-        return chain
+
+    # ------------------------------------------------------------------ #
+    #  Academic guardrail (pre-flight)
+    # ------------------------------------------------------------------ #
 
     @staticmethod
     def _should_block_academic_request(question: str) -> bool:
-        """Bariz ders/ödev komutlarını pre-flight aşamasında tespit et."""
+        """Bariz ders/ödev komutlarını agent'a göndermeden önce tespit et."""
         normalized = re.sub(r"\s+", " ", (question or "").strip().lower())
         if not normalized:
             return False
 
-        # Bilgi/navigasyon niyetli zaman-konum soruları false-positive vermesin.
         informational_markers = (
-            "ne zaman",
-            "nerede",
-            "hangi gün",
-            "saat kaç",
-            "kaçta",
-            "hangi salonda",
-            "hangi binada",
+            "ne zaman", "nerede", "hangi gün", "saat kaç",
+            "kaçta", "hangi salonda", "hangi binada",
         )
-
         command_markers = (
-            r"\bçöz\b",
-            r"\bhesapla\b",
-            r"\byap\b",
-            r"\byazar mısın\b",
-            r"\byaz\b",
-            r"\bbul\b",
-            r"\bkodunu yaz\b",
+            r"\bçöz\b", r"\bhesapla\b", r"\byap\b",
+            r"\byazar mısın\b", r"\byaz\b", r"\bbul\b", r"\bkodunu yaz\b",
         )
+        has_informational = any(m in normalized for m in informational_markers)
+        has_command = any(re.search(p, normalized) for p in command_markers)
 
-        has_informational_marker = any(marker in normalized for marker in informational_markers)
-        has_command_marker = any(re.search(pattern, normalized) for pattern in command_markers)
-        if has_informational_marker and not has_command_marker:
+        # Bilgi/navigasyon soruları (örn. "saat kaçta") false-positive vermesin.
+        if has_informational and not has_command:
             return False
 
-        direct_block_patterns = (
-            r"\bbunu çöz\b",
-            r"\bşunu çöz\b",
-            r"\bhesapla\b",
-            r"\bödevimi yap\b",
-            r"\bödev(imi|i)?\s+yap\b",
-            r"\bkodunu yaz\b",
-            r"\bbenim için kod yaz\b",
+        direct_block = (
+            r"\bbunu çöz\b", r"\bşunu çöz\b", r"\bhesapla\b",
+            r"\bödevimi yap\b", r"\bödev(imi|i)?\s+yap\b",
+            r"\bkodunu yaz\b", r"\bbenim için kod yaz\b",
         )
-        if any(re.search(pattern, normalized) for pattern in direct_block_patterns):
+        if any(re.search(p, normalized) for p in direct_block):
             return True
 
-        # Konu kelimesi + komut fiili kombinasyonu bariz akademik yardım talebidir.
-        has_topic_marker = bool(re.search(r"\b(integral|türev)\b", normalized))
-        if has_topic_marker and has_command_marker:
+        # Konu + komut fiili kombinasyonu
+        has_topic = bool(re.search(r"\b(integral|türev)\b", normalized))
+        if has_topic and has_command:
             return True
 
         return False
-    
+
+    # ------------------------------------------------------------------ #
+    #  Ana query metodu
+    # ------------------------------------------------------------------ #
+
     async def query(
         self,
         question: str,
         user_id: UUID,
         session_id: Optional[str] = None,
         session_history: Optional[List[Dict[str, str]]] = None,
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
-        """Kullanıcı sorgusunu işle ve AI yanıtı döndür.
-        
+        """Kullanıcı sorgusunu Agent ile işle ve yanıt döndür.
+
         Args:
-            question: Kullanıcının sorusu
-            user_id: Kullanıcı ID'si
-            session_id: Oturum ID'si (opsiyonel)
-            session_history: Önceki konuşma geçmişi
-        
+            question: Kullanıcının sorusu.
+            user_id: Kullanıcı ID'si (loglama için).
+            session_id: Oturum ID'si (opsiyonel).
+            session_history: Önceki konuşma çiftleri [{"question":…,"answer":…}].
+            db: Aktif SQLAlchemy async oturumu (DB araçları için gerekli).
+
         Returns:
-            answer: AI yanıtı
-            sources: Kaynak dokümanlar listesi
-            session_id: Oturum ID'si
+            {"answer": str, "sources": list, "session_id": str}
         """
         try:
+            # ---- 1. Pre-flight: akademik engel ----------------------- #
             if self._should_block_academic_request(question):
                 logger.info(
-                    "Academic pre-flight guardrail triggered. user_id=%s session_id=%s question_len=%s",
-                    user_id,
-                    session_id,
-                    len(question or ""),
+                    "Academic guardrail triggered. user_id=%s session_id=%s question_len=%s",
+                    user_id, session_id, len(question or ""),
                 )
                 return {
                     "answer": self.ACADEMIC_GUARDRAIL_RESPONSE,
@@ -316,121 +373,125 @@ Response Rules:
                     "session_id": session_id,
                 }
 
+            # ---- 2. Agent kurulumu ----------------------------------- #
             chat_history = self._format_chat_history(session_history or [])
-            chain = self._create_rag_chain()
-            
-            retriever = self._create_retriever()
-            source_docs = await retriever._aget_relevant_documents(question)
+            tools, retrieved_docs = self._build_tools(db)
+            prompt = self._build_agent_prompt()
 
+            agent = create_tool_calling_agent(self.llm, tools, prompt)
+            executor = AgentExecutor(
+                agent=agent,
+                tools=tools,
+                verbose=False,
+                max_iterations=5,
+                handle_parsing_errors=True,
+            )
+
+            # ---- 3. Agent çalıştırma (timeout korumalı) -------------- #
             try:
-                answer = await asyncio.wait_for(
-                    chain.ainvoke({
-                        "question": question,
-                        "chat_history": chat_history,
-                    }),
+                result = await asyncio.wait_for(
+                    executor.ainvoke({"input": question, "chat_history": chat_history}),
                     timeout=self.QUERY_TOTAL_TIMEOUT,
                 )
+                answer: str = result.get("output", "")
+
             except asyncio.TimeoutError:
                 logger.error(
-                    "AI chain timed out after %ss. user_id=%s model=%s question_len=%s",
-                    self.QUERY_TOTAL_TIMEOUT,
-                    user_id,
-                    self._active_model,
-                    len(question or ""),
+                    "AI agent timed out after %ss. user_id=%s model=%s question_len=%s",
+                    self.QUERY_TOTAL_TIMEOUT, user_id, self._active_model, len(question or ""),
                 )
                 raise
+
             except Exception as model_error:
-                fallback_model = "gemini-2.5-flash"
-                if self._is_model_not_found_error(model_error) and self._active_model != fallback_model:
+                fallback = "gemini-2.5-flash"
+                if self._is_model_not_found_error(model_error) and self._active_model != fallback:
                     logger.warning(
-                        "Gemini model failed, retrying with fallback model. current_model=%s fallback_model=%s error_type=%s error=%s",
-                        self._active_model,
-                        fallback_model,
-                        type(model_error).__name__,
-                        repr(model_error),
+                        "Model error, falling back. current=%s fallback=%s error=%s",
+                        self._active_model, fallback, repr(model_error),
                     )
-                    self._active_model = fallback_model
+                    self._active_model = fallback
                     self.llm = self._create_llm(self._active_model)
-                    chain = self._create_rag_chain()
-                    answer = await asyncio.wait_for(
-                        chain.ainvoke({
-                            "question": question,
-                            "chat_history": chat_history,
-                        }),
+                    # Yeni LLM ile aynı araçlar ve prompt
+                    fb_agent = create_tool_calling_agent(self.llm, tools, prompt)
+                    fb_executor = AgentExecutor(
+                        agent=fb_agent,
+                        tools=tools,
+                        verbose=False,
+                        max_iterations=5,
+                        handle_parsing_errors=True,
+                    )
+                    result = await asyncio.wait_for(
+                        fb_executor.ainvoke({"input": question, "chat_history": chat_history}),
                         timeout=self.QUERY_TOTAL_TIMEOUT,
                     )
+                    answer = result.get("output", "")
                 else:
                     raise
 
             logger.info(
-                "AI query succeeded. user_id=%s model=%s question_len=%s answer_len=%s",
-                user_id,
-                self._active_model,
-                len(question or ""),
-                len(answer or ""),
+                "AI agent query succeeded. user_id=%s model=%s question_len=%s answer_len=%s",
+                user_id, self._active_model, len(question or ""), len(answer or ""),
             )
-            unique_docs = self._deduplicate_docs(source_docs)
+
+            # ---- 4. Kaynak filtreleme & biçimlendirme ---------------- #
+            unique_docs = self._deduplicate_docs(retrieved_docs)
             relevant_docs = self._filter_sources_by_answer(unique_docs, answer)
             formatted_sources = self._format_sources(relevant_docs)
-            
+
             return {
                 "answer": answer,
                 "sources": formatted_sources,
                 "session_id": session_id,
             }
-            
+
         except Exception as e:
             logger.exception(
-                "AI query failed. user_id=%s session_id=%s model=%s question_len=%s error_type=%s error=%s",
-                user_id,
-                session_id,
-                self._active_model,
-                len(question or ""),
-                type(e).__name__,
-                repr(e),
+                "AI agent query failed. user_id=%s session_id=%s model=%s error_type=%s error=%s",
+                user_id, session_id, self._active_model, type(e).__name__, repr(e),
             )
             if self._is_api_key_error(e):
-                user_message = "AI servisi şu anda yapılandırma hatası nedeniyle kullanılamıyor. Lütfen yöneticiye GOOGLE_API_KEY ayarını kontrol ettirin."
+                msg = (
+                    "AI servisi şu anda yapılandırma hatası nedeniyle kullanılamıyor. "
+                    "Lütfen yöneticiye GOOGLE_API_KEY ayarını kontrol ettirin."
+                )
             elif self._is_model_not_found_error(e):
-                user_message = (
+                msg = (
                     f"AI modeli ({self._active_model}) bu API sürümünde bulunamadı. "
                     "Lütfen yöneticiye GEMINI_MODEL ayarını güncellemesini söyleyin (öneri: gemini-2.5-flash)."
                 )
             elif isinstance(e, asyncio.TimeoutError):
-                user_message = "AI asistanı şu anda yanıt vermiyor (zaman aşımı). Lütfen birkaç saniye bekleyip tekrar deneyin."
+                msg = "AI asistanı şu anda yanıt vermiyor (zaman aşımı). Lütfen birkaç saniye bekleyip tekrar deneyin."
             elif "quota" in str(e).lower() or "resource_exhausted" in str(e).lower() or "429" in str(e):
-                user_message = "AI servisi şu anda yoğun. Lütfen birkaç saniye bekleyip tekrar deneyin."
+                msg = "AI servisi şu anda yoğun. Lütfen birkaç saniye bekleyip tekrar deneyin."
             else:
-                user_message = "Üzgünüm, sorunu işlerken bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+                msg = "Üzgünüm, sorunu işlerken bir hata oluştu. Lütfen daha sonra tekrar deneyin."
 
-            return {
-                "answer": user_message,
-                "sources": [],
-                "session_id": session_id,
-                "error": str(e)
-            }
-    
+            return {"answer": msg, "sources": [], "session_id": session_id, "error": str(e)}
+
+    # ------------------------------------------------------------------ #
+    #  Kaynak yardımcıları – orijinal mantık korundu
+    # ------------------------------------------------------------------ #
+
     @staticmethod
     def _filter_sources_by_answer(documents: List[Document], answer: str) -> List[Document]:
         """LLM cevabında adı geçmeyen kaynak dosyaları filtrele.
 
-        Selamlama veya bağlam dışı kısa yanıtlarda hiçbir kaynak
-        adı geçmeyeceğinden sources listesi boş döner; böylece
-        frontend'de gereksiz 'Dosyayı Görüntüle' butonu çıkmaz.
+        Selamlama veya bağlam dışı kısa yanıtlarda hiçbir kaynak adı
+        geçmeyeceğinden sources listesi boş döner; böylece frontend'de
+        gereksiz 'Dosyayı Görüntüle' butonu çıkmaz.
         """
         if not answer:
             return []
         answer_lower = answer.lower()
         relevant = []
         for doc in documents:
-            metadata = doc.metadata or {}
+            meta = doc.metadata or {}
             source_file = (
-                metadata.get("source_file")
-                or metadata.get("file_name")
-                or Path(str(metadata.get("source", ""))).name
+                meta.get("source_file")
+                or meta.get("file_name")
+                or Path(str(meta.get("source", ""))).name
             )
-            title = metadata.get("title", "")
-            # Dosya adı veya başlığın answer içinde geçip geçmediğini kontrol et
+            title = meta.get("title", "")
             file_stem = Path(source_file).stem if source_file else ""
             if (
                 (file_stem and file_stem.lower() in answer_lower)
@@ -442,71 +503,76 @@ Response Rules:
 
     @staticmethod
     def _deduplicate_docs(documents: List[Document]) -> List[Document]:
-        """Aynı kaynak dosyadan gelen tekrar dokümanları kaldır; ilk karşılaşılanı sakla."""
-        seen_sources: set = set()
+        """Aynı kaynaktan gelen tekrar dokümanları kaldır; ilk karşılaşılanı sakla."""
+        seen: set = set()
         unique: List[Document] = []
         for doc in documents:
-            source_key = doc.metadata.get("source") or doc.metadata.get("source_file") or doc.metadata.get("title")
-            if source_key not in seen_sources:
-                seen_sources.add(source_key)
+            key = (
+                doc.metadata.get("source")
+                or doc.metadata.get("source_file")
+                or doc.metadata.get("title")
+            )
+            if key not in seen:
+                seen.add(key)
                 unique.append(doc)
         return unique
 
     def _format_sources(self, documents: List[Document]) -> List[Dict[str, Any]]:
         """Kaynak dokümanları API yanıtı için formatla."""
         formatted = []
-        
         for doc in documents:
-            metadata = doc.metadata or {}
-            source_type = metadata.get("source_type", "official")
+            meta = doc.metadata or {}
+            source_type = meta.get("source_type", "official")
             source_file = (
-                metadata.get("source_file")
-                or metadata.get("file_name")
-                or Path(str(metadata.get("source", ""))).name
+                meta.get("source_file")
+                or meta.get("file_name")
+                or Path(str(meta.get("source", ""))).name
             )
-            
             content = doc.page_content or ""
-            content_preview = content[:200] + "..." if len(content) > 200 else content
-            
-            source = {
-                "title": metadata.get("title", "Başlıksız Doküman"),
-                "source_type": source_type,
-                "source_file": source_file,
-                "content_preview": content_preview,
-                "metadata": {
-                    "document_id": metadata.get("document_id"),
-                    "upload_date": metadata.get("upload_date"),
+            preview = content[:200] + "..." if len(content) > 200 else content
+            formatted.append(
+                {
+                    "title": meta.get("title", "Başlıksız Doküman"),
+                    "source_type": source_type,
                     "source_file": source_file,
+                    "content_preview": preview,
+                    "metadata": {
+                        "document_id": meta.get("document_id"),
+                        "upload_date": meta.get("upload_date"),
+                        "source_file": source_file,
+                    },
                 }
-            }
-            
-            formatted.append(source)
-        
+            )
         return formatted
-    
+
+    # ------------------------------------------------------------------ #
+    #  Yardımcı public metotlar
+    # ------------------------------------------------------------------ #
+
     def get_supported_languages(self) -> List[str]:
         """Desteklenen dilleri döndür."""
         return ["tr", "en"]
 
-    def reset_conversation(self, user_id: Optional[str] = None, session_id: Optional[str] = None) -> None:
-        """Konuşma sıfırlama çağrılarında servis tarafındaki geçici durumu temizler.
+    def reset_conversation(
+        self, user_id: Optional[str] = None, session_id: Optional[str] = None
+    ) -> None:
+        """Konuşma sıfırlama isteğini logla.
 
-        Not: Servis şu anda kalıcı konuşma geçmişi tutmadığı için metod bilinçli olarak no-op'tur.
-        Route katmanında veritabanı kayıtları silinir; burada gelecekte eklenecek
-        in-memory/session cache yapıları için tek bir genişleme noktası sağlanır.
+        Servis kalıcı in-memory state tutmadığından bu metod bilinçli
+        olarak no-op'tur; gelecekte eklenecek cache yapıları için tek
+        genişleme noktası sağlar.
         """
         logger.info(
             "AI conversation reset requested. user_id=%s session_id=%s",
             user_id,
             session_id,
         )
-    
+
     def switch_language(self, language: str) -> bool:
-        """Prompt şablonu dilini değiştir."""
-        if language in ["tr", "en"]:
+        """Prompt dilini değiştir (şu anda agent tek dil promptu kullanıyor)."""
+        if language in ("tr", "en"):
             self.current_language = language
-            logger.info(f"Switched language to {language}")
+            logger.info("Language switched to %s", language)
             return True
-        else:
-            logger.warning(f"Unsupported language: {language}")
-            return False
+        logger.warning("Unsupported language: %s", language)
+        return False
