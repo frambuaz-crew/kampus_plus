@@ -15,7 +15,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { apiClient } from '../../api/config';
+import { apiClient, API_BASE_URL } from '../../api/config';
 import type {
   ChatMessage,
   ConversationResponse,
@@ -33,7 +33,7 @@ interface ChatInterfaceProps {
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) => {
-  const DOCUMENTS_BASE_URL = 'http://localhost:8000/api/v1/ai/documents';
+  const DOCUMENTS_BASE_URL = `${API_BASE_URL}/ai/documents`;
 
   const normalizeSourceFile = (sourceFile: string): string => {
     const trimmed = sourceFile.trim().replace(/\\/g, '/');

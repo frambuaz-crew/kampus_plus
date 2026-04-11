@@ -45,11 +45,10 @@ Bağlam Bilgisi:
 {context}
 
 Yanıt Kuralları:
-1. SADECE verilen bağlam bilgisini kullan
-2. Eğer cevap bağlamda yoksa, bilmediğini söyle
-3. Türkçe ve anlaşılır şekilde yanıt ver
-4. Kaynak belirt (resmi doküman, forum, pazar, kariyer)
-5. Yanıtın sonunda kullandığın kaynakları listele"""
+1. Yalnızca yukarıdaki bağlam bilgisini kullan. Bağlamda olmayan hiçbir şeyi uydurma veya tahmin etme. Bilgi yoksa "Bu bilgiye ulaşamıyorum." de.
+2. Kullanıcı "Merhaba", "Naber", "Selam" gibi günlük bir selamlama yazarsa bağlamı görmezden gel ve sadece samimi, kısa bir selamla karşılık ver.
+3. Türkçe ve anlaşılır şekilde yanıt ver.
+4. Kaynakları robotik bir liste olarak değil, yanıtın içine doğal bir dille yedirerek belirt (örn. "… akademik takvim dokümanına göre …")."""
 
     ENGLISH_SYSTEM_PROMPT = """You are KAMPÜS+ AI Assistant. You help university students with campus information and platform navigation.
 
@@ -59,11 +58,10 @@ Context Information:
 {context}
 
 Response Rules:
-1. ONLY use the provided context information
-2. If answer is not in context, say you don't know
-3. Respond clearly and helpfully
-4. Indicate source type (official document, forum, marketplace, career)
-5. List sources used at the end of your response"""
+1. Use ONLY the provided context above. Never fabricate or guess information not present in it. If the information is absent, say "I don't have access to that information."
+2. If the user sends a casual greeting like "Hi", "Hello", or "Hey", ignore the context and simply reply with a friendly greeting.
+3. Respond clearly and helpfully.
+4. Weave source references naturally into your response rather than listing them robotically at the end (e.g. "… according to the academic calendar document …")."""
     
     def __init__(self, vector_service: Optional[VectorStoreService] = None):
         """AI servisini başlat."""
@@ -371,7 +369,9 @@ Response Rules:
                 len(question or ""),
                 len(answer or ""),
             )
-            formatted_sources= self._format_sources(source_docs)
+            unique_docs = self._deduplicate_docs(source_docs)
+            relevant_docs = self._filter_sources_by_answer(unique_docs, answer)
+            formatted_sources = self._format_sources(relevant_docs)
             
             return {
                 "answer": answer,
@@ -410,6 +410,48 @@ Response Rules:
                 "error": str(e)
             }
     
+    @staticmethod
+    def _filter_sources_by_answer(documents: List[Document], answer: str) -> List[Document]:
+        """LLM cevabında adı geçmeyen kaynak dosyaları filtrele.
+
+        Selamlama veya bağlam dışı kısa yanıtlarda hiçbir kaynak
+        adı geçmeyeceğinden sources listesi boş döner; böylece
+        frontend'de gereksiz 'Dosyayı Görüntüle' butonu çıkmaz.
+        """
+        if not answer:
+            return []
+        answer_lower = answer.lower()
+        relevant = []
+        for doc in documents:
+            metadata = doc.metadata or {}
+            source_file = (
+                metadata.get("source_file")
+                or metadata.get("file_name")
+                or Path(str(metadata.get("source", ""))).name
+            )
+            title = metadata.get("title", "")
+            # Dosya adı veya başlığın answer içinde geçip geçmediğini kontrol et
+            file_stem = Path(source_file).stem if source_file else ""
+            if (
+                (file_stem and file_stem.lower() in answer_lower)
+                or (source_file and source_file.lower() in answer_lower)
+                or (title and title.lower() in answer_lower)
+            ):
+                relevant.append(doc)
+        return relevant
+
+    @staticmethod
+    def _deduplicate_docs(documents: List[Document]) -> List[Document]:
+        """Aynı kaynak dosyadan gelen tekrar dokümanları kaldır; ilk karşılaşılanı sakla."""
+        seen_sources: set = set()
+        unique: List[Document] = []
+        for doc in documents:
+            source_key = doc.metadata.get("source") or doc.metadata.get("source_file") or doc.metadata.get("title")
+            if source_key not in seen_sources:
+                seen_sources.add(source_key)
+                unique.append(doc)
+        return unique
+
     def _format_sources(self, documents: List[Document]) -> List[Dict[str, Any]]:
         """Kaynak dokümanları API yanıtı için formatla."""
         formatted = []
