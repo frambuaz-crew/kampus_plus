@@ -14,6 +14,7 @@ export interface User {
   department_id: number; // Artik string değil, number (ID)
   department?: string | null;
   is_verified: boolean;
+  grade?: string | null;
   profile_picture_url?: string | null;
   bio?: string | null;
   theme_preference?: string | null;

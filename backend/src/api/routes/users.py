@@ -40,16 +40,23 @@ async def get_user_profile(username: str, session: AsyncSession = Depends(get_db
         "last_name": user.last_name,
         "university": user.university,
         "department": user.department_rel.name if user.department_rel else "Belirtilmemiş",
+        "grade": user.grade,
         "profile_picture_url": user.profile_picture_url,
         "bio": user.bio,
         "created_at": user.created_at
     }
 
 
+VALID_GRADES = {
+    "Hazırlık", "1. Sınıf", "2. Sınıf", "3. Sınıf", "4. Sınıf",
+    "5. Sınıf", "Yüksek Lisans", "Doktora"
+}
+
 class ProfileUpdateRequest(BaseModel):
     bio: Optional[str] = None
     profile_picture_url: Optional[str] = None
     theme_preference: Optional[str] = None
+    grade: Optional[str] = None
 
 @router.put("/profile")
 async def update_profile(
@@ -64,6 +71,10 @@ async def update_profile(
         current_user.profile_picture_url = data.profile_picture_url
     if data.theme_preference is not None:
         current_user.theme_preference = data.theme_preference
+    if data.grade is not None:
+        if data.grade != "" and data.grade not in VALID_GRADES:
+            raise HTTPException(status_code=422, detail="Geçersiz sınıf değeri.")
+        current_user.grade = data.grade if data.grade != "" else None
 
     session.add(current_user)
     await session.commit()

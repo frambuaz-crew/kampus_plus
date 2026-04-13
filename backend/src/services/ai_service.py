@@ -5,13 +5,17 @@ AI sadece kampüs bilgileri ve platform navigasyonu konusunda yardımcı olur.
 Akademik ders içerikleri hakkında yardım VERMEZ.
 
 Mimari: LangChain AgentExecutor + Gemini 2.5 Flash Tool Calling
-  - search_official_documents : FAISS vektör araması (kampüs belgeleri)
+  - search_official_documents  : FAISS vektör araması (kampüs belgeleri)
   - get_active_marketplace_listings : SQLAlchemy ile aktif pazar ilanları
-  - get_system_stats              : Kayıtlı kullanıcı sayısı
+  - get_system_stats           : Kayıtlı kullanıcı sayısı
+  - get_user_schedule          : Kullanıcının ders programı (CourseSchedule tablosu)
 """
 
 import asyncio
+import json
 import logging
+import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -26,12 +30,66 @@ from langchain.agents import create_tool_calling_agent, AgentExecutor
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.core.config import settings
 from src.services.vector_service import VectorStoreService
 
 
 logger = logging.getLogger(__name__)
+
+
+# ------------------------------------------------------------------ #
+#  Kullanıcı bağlamı veri sınıfı
+# ------------------------------------------------------------------ #
+
+@dataclass
+class UserContext:
+    """Aktif kullanıcıya ait profil bilgileri — AI bağlamı için."""
+    user_id: str
+    first_name: str
+    university: str
+    department: str
+    grade: Optional[str]          # "1. Sınıf", "Hazırlık" vb. — None ise belirtilmemiş
+
+    @property
+    def display_name(self) -> str:
+        return self.first_name or "Öğrenci"
+
+    @property
+    def has_grade(self) -> bool:
+        return bool(self.grade)
+
+
+# ------------------------------------------------------------------ #
+#  Gün adı normalizer
+# ------------------------------------------------------------------ #
+
+# Türkçe gün adlarını normalize eder: "salı", "SALI", "Salı" → "Salı"
+_TR_DAY_ALIASES: Dict[str, str] = {
+    "pazartesi": "Pazartesi",
+    "sali": "Salı",
+    "salı": "Salı",
+    "çarşamba": "Çarşamba",
+    "carsamba": "Çarşamba",
+    "perşembe": "Perşembe",
+    "persembe": "Perşembe",
+    "cuma": "Cuma",
+    "cumartesi": "Cumartesi",
+    "pazar": "Pazar",
+}
+
+
+def _normalize_day(day: str) -> str:
+    """Gün adını standart Türkçe biçime çevirir; tanınamazsa orijinalini döner."""
+    raw = day.strip().lower()
+    # ASCII'ye indir (ş→s, ç→c vb.) ve tekrar dene
+    ascii_raw = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode()
+    return (
+        _TR_DAY_ALIASES.get(raw)
+        or _TR_DAY_ALIASES.get(ascii_raw)
+        or day.strip().capitalize()
+    )
 
 
 class AIService:
@@ -44,15 +102,22 @@ class AIService:
         "hakkında bilgi verebilirim. Ders veya ödev konularında yardımcı olamıyorum."
     )
 
-    AGENT_SYSTEM_PROMPT = """Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve platform navigasyonu konusunda yardımcı oluyorsun.
+    # Temel sistem promptu — {user_context_block} alanı query() tarafından doldurulur
+    _AGENT_SYSTEM_PROMPT_TEMPLATE = """{user_context_block}
+
+Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve platform navigasyonu konusunda yardımcı oluyorsun.
 
 ÖNEMLİ KURALLAR:
 - Akademik ders içerikleri hakkında yardım VERME. Sadece kampüs bilgileri (akademik takvim, şenlikler, kampüs kuralları, forum, pazar yeri, kariyer) konularında destek ver.
 - Pazar yeri ilanları veya platform istatistikleri sorulduğunda mutlaka ilgili veritabanı araçlarını kullan.
 - Akademik takvim, şenlik, kampüs kuralı gibi resmi bilgiler için doküman arama aracını kullan.
+- Kullanıcı ders programını sorduğunda (örn. "bugün ne dersim var", "salı günkü derslerim") mutlaka `get_user_schedule` aracını kullan.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
 - Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
 - Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …")."""
+
+    # Kullanıcı bağlamı bilinmiyorken kullanılan blok
+    _DEFAULT_USER_CONTEXT_BLOCK = "Sen KAMPÜS+ asistanısın."
 
     # ------------------------------------------------------------------ #
     #  Zaman aşımı sabitleri
@@ -127,16 +192,84 @@ class AIService:
         return messages
 
     # ------------------------------------------------------------------ #
+    #  Kullanıcı bağlamı çekme
+    # ------------------------------------------------------------------ #
+
+    async def _fetch_user_context(
+        self, user_id: UUID, db: AsyncSession
+    ) -> Optional[UserContext]:
+        """Veritabanından kullanıcının profil bilgilerini çeker.
+
+        Hata durumunda None döner; servis çalışmaya devam eder.
+        """
+        try:
+            from src.models.user import User  # yerel import – döngüsel bağımlılığı önler
+
+            stmt = (
+                select(User)
+                .where(User.id == str(user_id))
+                .options(selectinload(User.department_rel))
+            )
+            result = await db.execute(stmt)
+            user = result.scalar_one_or_none()
+
+            if user is None:
+                logger.warning("_fetch_user_context: user not found. user_id=%s", user_id)
+                return None
+
+            department_name = (
+                user.department_rel.name if user.department_rel else "Belirtilmemiş"
+            )
+            return UserContext(
+                user_id=str(user_id),
+                first_name=user.first_name or "",
+                university=user.university or "Belirtilmemiş",
+                department=department_name,
+                grade=user.grade,
+            )
+        except Exception as exc:
+            logger.warning(
+                "_fetch_user_context failed (non-critical). user_id=%s error=%s",
+                user_id,
+                repr(exc),
+            )
+            return None
+
+    # ------------------------------------------------------------------ #
+    #  Dinamik system prompt oluşturma
+    # ------------------------------------------------------------------ #
+
+    def _build_system_prompt(self, ctx: Optional[UserContext]) -> str:
+        """Kullanıcı bağlamına göre kişiselleştirilmiş system prompt oluşturur."""
+        if ctx is None:
+            return self._AGENT_SYSTEM_PROMPT_TEMPLATE.format(
+                user_context_block=self._DEFAULT_USER_CONTEXT_BLOCK
+            )
+
+        grade_str = ctx.grade if ctx.has_grade else "sınıfı belirtilmemiş"
+        user_context_block = (
+            f"Şu an {ctx.display_name} adlı öğrenciyle konuşuyorsun. "
+            f"Öğrencinin bilgileri: Üniversite: {ctx.university} | "
+            f"Bölüm: {ctx.department} | Sınıf: {grade_str}. "
+            f"Bu bilgileri kullanarak kişiselleştirilmiş yanıtlar ver."
+        )
+        return self._AGENT_SYSTEM_PROMPT_TEMPLATE.format(
+            user_context_block=user_context_block
+        )
+
+    # ------------------------------------------------------------------ #
     #  Araç Çantası (Tools) – closure tabanlı, db'ye erişimli
     # ------------------------------------------------------------------ #
 
     def _build_tools(
-        self, db: Optional[AsyncSession]
+        self,
+        db: Optional[AsyncSession],
+        user_ctx: Optional[UserContext] = None,
     ) -> Tuple[List[StructuredTool], List[Document]]:
         """Agent araçlarını ve belge takip listesini oluştur.
 
         Araçlar `query()` içinde closure olarak tanımlanır; bu sayede
-        aktif `db` oturumuna ve `self.vector_service`'e erişebilirler.
+        aktif `db` oturumuna, `self.vector_service`'e ve `user_ctx`'e erişebilirler.
 
         Returns:
             (tools, retrieved_docs): Araç listesi + bu çağrıda doldurulan belge listesi.
@@ -159,6 +292,15 @@ class AIService:
 
         class SystemStatsInput(BaseModel):
             pass  # parametresiz araç
+
+        class UserScheduleInput(BaseModel):
+            day: str = Field(
+                description=(
+                    "Ders programı istenen günün Türkçe adı. "
+                    "Örnek: 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'. "
+                    "Tüm hafta için 'tümü' veya 'hepsi' gönder."
+                )
+            )
 
         # ---- Tool 1: Resmi doküman arama (FAISS) ---------------------- #
 
@@ -247,6 +389,99 @@ class AIService:
             total = result.scalar_one()
             return f"KAMPÜS+ platformunda toplam {total} kayıtlı kullanıcı bulunmaktadır."
 
+        # ---- Tool 4: Kullanıcının ders programı (CourseSchedule) ------ #
+
+        async def _get_user_schedule(day: str) -> str:
+            """Kullanıcının üniversite/bölüm/sınıf bilgisine göre ders programını döndürür."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            if user_ctx is None:
+                return (
+                    "Ders programını görebilmek için profilinde üniversite, bölüm ve "
+                    "sınıf bilgilerinin dolu olması gerekiyor."
+                )
+
+            if not user_ctx.has_grade:
+                return (
+                    f"{user_ctx.display_name}, profilinde sınıf bilgisi belirtilmemiş. "
+                    "Profil ayarlarından sınıfını seçersen ders programını getirebilirim."
+                )
+
+            from src.models.academic import CourseSchedule  # yerel import
+
+            # Kullanıcının profil bilgilerine uyan en güncel ders programını getir
+            stmt = (
+                select(CourseSchedule)
+                .where(
+                    CourseSchedule.university.ilike(f"%{user_ctx.university}%"),
+                    CourseSchedule.department.ilike(f"%{user_ctx.department}%"),
+                    CourseSchedule.class_year.ilike(f"%{user_ctx.grade}%"),
+                )
+                .order_by(CourseSchedule.created_at.desc())
+                .limit(1)
+            )
+            result = await db.execute(stmt)
+            schedule = result.scalar_one_or_none()
+
+            if schedule is None:
+                return (
+                    f"{user_ctx.university} üniversitesi, {user_ctx.department} bölümü, "
+                    f"{user_ctx.grade} için sisteme henüz ders programı yüklenmemiş. "
+                    "Akademik sayfasından katkıda bulunabilirsin!"
+                )
+
+            # schedule_data JSON'u ayrıştır
+            try:
+                schedule_data: Dict[str, Any] = json.loads(schedule.schedule_data)
+            except (json.JSONDecodeError, TypeError):
+                return "Ders programı verisi okunamadı (bozuk format). Lütfen yöneticiyle iletişime geç."
+
+            # Tüm hafta mı, yoksa belirli bir gün mü?
+            normalized_day = _normalize_day(day)
+            show_all = normalized_day.lower() in ("tümü", "tumü", "hepsi", "tüm hafta", "hafta")
+
+            if show_all:
+                if not schedule_data:
+                    return "Ders programında henüz ders bulunmuyor."
+                lines = [
+                    f"📅 **{user_ctx.display_name}** için haftalık ders programı "
+                    f"({user_ctx.university} / {user_ctx.department} / {user_ctx.grade}):\n"
+                ]
+                for day_name, lessons in schedule_data.items():
+                    lines.append(f"\n**{day_name}**")
+                    if not lessons:
+                        lines.append("  — Ders yok")
+                        continue
+                    for lesson in lessons:
+                        lines.append(AIService._format_lesson(lesson))
+                return "\n".join(lines)
+
+            # Belirli bir gün için — büyük/küçük harf duyarsız eşleşme
+            matched_key = next(
+                (k for k in schedule_data if _normalize_day(k) == normalized_day),
+                None,
+            )
+
+            if matched_key is None:
+                available = ", ".join(schedule_data.keys()) or "—"
+                return (
+                    f"'{normalized_day}' gününe ait ders bulunamadı. "
+                    f"Programda şu günler var: {available}."
+                )
+
+            lessons = schedule_data[matched_key]
+            if not lessons:
+                return f"{normalized_day} günü ders yok. 🎉"
+
+            lines = [
+                f"📅 **{user_ctx.display_name}** — **{normalized_day}** ders programı "
+                f"({user_ctx.department} / {user_ctx.grade}):\n"
+            ]
+            for lesson in lessons:
+                lines.append(AIService._format_lesson(lesson))
+            return "\n".join(lines)
+
         # ---- StructuredTool sarmalayıcıları --------------------------- #
 
         tools: List[StructuredTool] = [
@@ -277,6 +512,17 @@ class AIService:
                 ),
                 args_schema=SystemStatsInput,
             ),
+            StructuredTool.from_function(
+                coroutine=_get_user_schedule,
+                name="get_user_schedule",
+                description=(
+                    "Kullanıcının ders programını getirir. Gün adı (Pazartesi, Salı vb.) veya "
+                    "'tümü' ile tüm hafta gösterilebilir. "
+                    "Kullanıcı 'bugün ne dersim var', 'salı günü derslerim', 'ders programım' "
+                    "gibi bir şey sorduğunda MUTLAKA bu aracı kullan."
+                ),
+                args_schema=UserScheduleInput,
+            ),
         ]
         return tools, retrieved_docs
 
@@ -284,11 +530,11 @@ class AIService:
     #  Agent prompt şablonu
     # ------------------------------------------------------------------ #
 
-    def _build_agent_prompt(self) -> ChatPromptTemplate:
+    def _build_agent_prompt(self, system_prompt: str) -> ChatPromptTemplate:
         """Tool Calling Agent için prompt şablonu oluştur."""
         return ChatPromptTemplate.from_messages(
             [
-                ("system", self.AGENT_SYSTEM_PROMPT),
+                ("system", system_prompt),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}"),
                 MessagesPlaceholder("agent_scratchpad"),
@@ -309,6 +555,7 @@ class AIService:
         informational_markers = (
             "ne zaman", "nerede", "hangi gün", "saat kaç",
             "kaçta", "hangi salonda", "hangi binada",
+            "ne dersim", "ders programı", "derslerim",
         )
         command_markers = (
             r"\bçöz\b", r"\bhesapla\b", r"\byap\b",
@@ -352,7 +599,7 @@ class AIService:
 
         Args:
             question: Kullanıcının sorusu.
-            user_id: Kullanıcı ID'si (loglama için).
+            user_id: Kullanıcı ID'si — profil bilgisi çekmek için kullanılır.
             session_id: Oturum ID'si (opsiyonel).
             session_history: Önceki konuşma çiftleri [{"question":…,"answer":…}].
             db: Aktif SQLAlchemy async oturumu (DB araçları için gerekli).
@@ -373,10 +620,21 @@ class AIService:
                     "session_id": session_id,
                 }
 
-            # ---- 2. Agent kurulumu ----------------------------------- #
+            # ---- 2. Kullanıcı bağlamını çek -------------------------- #
+            user_ctx: Optional[UserContext] = None
+            if db is not None:
+                user_ctx = await self._fetch_user_context(user_id, db)
+                if user_ctx:
+                    logger.debug(
+                        "User context loaded. user_id=%s university=%s department=%s grade=%s",
+                        user_id, user_ctx.university, user_ctx.department, user_ctx.grade,
+                    )
+
+            # ---- 3. Agent kurulumu ----------------------------------- #
             chat_history = self._format_chat_history(session_history or [])
-            tools, retrieved_docs = self._build_tools(db)
-            prompt = self._build_agent_prompt()
+            tools, retrieved_docs = self._build_tools(db, user_ctx)
+            system_prompt = self._build_system_prompt(user_ctx)
+            prompt = self._build_agent_prompt(system_prompt)
 
             agent = create_tool_calling_agent(self.llm, tools, prompt)
             executor = AgentExecutor(
@@ -387,7 +645,7 @@ class AIService:
                 handle_parsing_errors=True,
             )
 
-            # ---- 3. Agent çalıştırma (timeout korumalı) -------------- #
+            # ---- 4. Agent çalıştırma (timeout korumalı) -------------- #
             try:
                 result = await asyncio.wait_for(
                     executor.ainvoke({"input": question, "chat_history": chat_history}),
@@ -433,7 +691,7 @@ class AIService:
                 user_id, self._active_model, len(question or ""), len(answer or ""),
             )
 
-            # ---- 4. Kaynak filtreleme & biçimlendirme ---------------- #
+            # ---- 5. Kaynak filtreleme & biçimlendirme ---------------- #
             unique_docs = self._deduplicate_docs(retrieved_docs)
             relevant_docs = self._filter_sources_by_answer(unique_docs, answer)
             formatted_sources = self._format_sources(relevant_docs)
@@ -467,6 +725,64 @@ class AIService:
                 msg = "Üzgünüm, sorunu işlerken bir hata oluştu. Lütfen daha sonra tekrar deneyin."
 
             return {"answer": msg, "sources": [], "session_id": session_id, "error": str(e)}
+
+    # ------------------------------------------------------------------ #
+    #  Ders formatı yardımcısı
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _format_lesson(lesson: Any) -> str:
+        """Bir ders kaydını okunabilir satıra dönüştürür.
+
+        schedule_data JSON'unda ders nesnesi çeşitli anahtar adları kullanabilir;
+        bu fonksiyon en yaygın varyantları destekler.
+        """
+        if not isinstance(lesson, dict):
+            return f"  • {lesson}"
+
+        # Ders adı — farklı anahtar varyantları
+        course = (
+            lesson.get("ders")
+            or lesson.get("course")
+            or lesson.get("dersAdi")
+            or lesson.get("course_name")
+            or lesson.get("name")
+            or "—"
+        )
+        # Saat
+        time_ = (
+            lesson.get("saat")
+            or lesson.get("time")
+            or lesson.get("saat_araligi")
+            or lesson.get("hours")
+            or ""
+        )
+        # Öğretim görevlisi
+        instructor = (
+            lesson.get("ogretmen")
+            or lesson.get("öğretmen")
+            or lesson.get("instructor")
+            or lesson.get("hoca")
+            or lesson.get("ogretim_uyesi")
+            or ""
+        )
+        # Derslik / sınıf
+        room = (
+            lesson.get("derslik")
+            or lesson.get("room")
+            or lesson.get("sinif")
+            or lesson.get("yer")
+            or ""
+        )
+
+        parts = [f"  • **{course}**"]
+        if time_:
+            parts.append(f"🕐 {time_}")
+        if instructor:
+            parts.append(f"👨‍🏫 {instructor}")
+        if room:
+            parts.append(f"🏛️ {room}")
+        return "  ".join(parts)
 
     # ------------------------------------------------------------------ #
     #  Kaynak yardımcıları – orijinal mantık korundu

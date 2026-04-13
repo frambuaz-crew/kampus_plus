@@ -144,10 +144,11 @@ class UserResponse(BaseModel):
     university: Optional[str]
     department_id: Optional[int] = None # Yeni: Sayısal ID
     department: Optional[str] = None    # Yeni: Bölümün ismi (Metin)
+    grade: Optional[str] = None
     is_verified: bool
     profile_picture_url: Optional[str] = None
     created_at: datetime
-    
+
     model_config = {"from_attributes": True}
 
 
@@ -856,12 +857,13 @@ async def get_current_user_info(
         last_name=user.last_name,
         username=user.username,
         role=user.role.value,
-        university=official_university_name, 
+        university=official_university_name,
         department_id=user.department_id,
         department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
+        grade=user.grade,
         is_verified=user.is_verified,
         profile_picture_url=user.profile_picture_url,
-        created_at=user.created_at
+        created_at=user.created_at,
     )
 
 

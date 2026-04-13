@@ -8,14 +8,16 @@
  * Dönem (semester) mevcut tarihe göre otomatik belirlenir.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useAuth } from '../hooks/useAuth';
 import {
   getCourseSchedule,
   getSemesterInfo,
+  uploadSchedulePDF,
   type CourseItem,
   type CourseSchedule,
+  type ScheduleUploadResult,
   type SemesterInfo,
 } from '../api/academic';
 
@@ -24,11 +26,11 @@ import {
 // ============================================================================
 
 const CLASS_YEARS = [
-  { value: '1', label: '1. Sınıf' },
-  { value: '2', label: '2. Sınıf' },
-  { value: '3', label: '3. Sınıf' },
-  { value: '4', label: '4. Sınıf' },
-  { value: '5', label: '5. Sınıf' },
+  { value: '1. Sınıf', label: '1. Sınıf' },
+  { value: '2. Sınıf', label: '2. Sınıf' },
+  { value: '3. Sınıf', label: '3. Sınıf' },
+  { value: '4. Sınıf', label: '4. Sınıf' },
+  { value: '5. Sınıf', label: '5. Sınıf' },
 ];
 
 const DAYS_TR: Record<string, string> = {
@@ -333,13 +335,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       <p className="text-indigo-800 font-semibold mb-2">💡 Katkıda Bulun!</p>
       <p className="text-indigo-600 text-sm mb-4">
         Ders programını paylaşarak tüm sınıf arkadaşlarına yardımcı ol.
-        Admin onayından sonra yayınlanacak.
+        Yüklediğiniz ders programı anında tüm sınıf arkadaşlarınızla paylaşılır!
       </p>
       <button
         onClick={onContribute}
         className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
       >
-        📤 Manuel Veri Gir
+        📄 PDF'den Ders Programı Yükle
       </button>
     </div>
   </div>
@@ -349,16 +351,272 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 // MAIN PAGE
 // ============================================================================
 
+// ============================================================================
+// PDF UPLOAD MODAL
+// ============================================================================
+
+interface PdfUploadModalProps {
+  defaultUniversity: string;
+  defaultDepartment: string;
+  defaultClassYear: string;
+  defaultSemester: string;
+  defaultAcademicYear: string;
+  onClose: () => void;
+  onSuccess: (result: ScheduleUploadResult) => void;
+}
+
+const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
+  defaultUniversity,
+  defaultDepartment,
+  defaultClassYear,
+  defaultSemester,
+  defaultAcademicYear,
+  onClose,
+  onSuccess,
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [university, setUniversity] = useState(defaultUniversity);
+  const [department, setDepartment] = useState(defaultDepartment);
+  const [classYear, setClassYear] = useState(defaultClassYear);
+  const [semester, setSemester] = useState(defaultSemester);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ScheduleUploadResult | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    if (f && !f.name.toLowerCase().endsWith('.pdf')) {
+      setError('Yalnızca PDF dosyası seçebilirsin.');
+      setFile(null);
+      return;
+    }
+    setError(null);
+    setFile(f);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) { setError('Lütfen bir PDF dosyası seç.'); return; }
+    if (!university.trim() || !department.trim() || !classYear.trim() || !semester.trim()) {
+      setError('Tüm alanları doldurun.');
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    try {
+      const res = await uploadSchedulePDF({
+        file,
+        university: university.trim(),
+        department: department.trim(),
+        class_year: classYear.trim(),
+        semester: semester.trim(),
+        academic_year: defaultAcademicYear,
+      });
+      setResult(res);
+      onSuccess(res);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message ?? 'Yükleme sırasında hata oluştu.';
+      setError(msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in-up">
+
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">📄 PDF'den Ders Programı Yükle</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Gemini AI ile otomatik ayrıştırılır</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none transition-colors">×</button>
+        </div>
+
+        {result ? (
+          /* Başarı durumu */
+          <div className="p-6">
+            <div className="flex flex-col items-center text-center gap-3 py-4">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-3xl">✅</div>
+              <h3 className="text-lg font-bold text-gray-900">Başarıyla Yüklendi!</h3>
+              <p className="text-gray-600 text-sm">{result.message}</p>
+              <div className="flex gap-4 mt-2">
+                <div className="text-center">
+                  <p className="text-2xl font-black text-indigo-600">{result.total_lessons}</p>
+                  <p className="text-xs text-gray-500 font-medium">Ders</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-black text-indigo-600">{result.days_parsed.length}</p>
+                  <p className="text-xs text-gray-500 font-medium">Gün</p>
+                </div>
+              </div>
+              {result.days_parsed.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 justify-center mt-1">
+                  {result.days_parsed.map((d) => (
+                    <span key={d} className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold">
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-gray-400 mt-2">AI asistanına artık ders programını sorabilirsin!</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full mt-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              Kapat
+            </button>
+          </div>
+        ) : (
+          /* Form */
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+            {/* PDF Dosya Seçimi */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">PDF Dosyası *</label>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${
+                  file ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                }`}
+              >
+                <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={handleFileChange} />
+                {file ? (
+                  <div className="flex items-center justify-center gap-2 text-indigo-700">
+                    <span className="text-xl">📄</span>
+                    <span className="text-sm font-semibold truncate max-w-[240px]">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                      className="text-gray-400 hover:text-red-500 transition-colors ml-1"
+                    >×</button>
+                  </div>
+                ) : (
+                  <div className="text-gray-400">
+                    <p className="text-2xl mb-1">⬆️</p>
+                    <p className="text-sm font-medium">PDF seç veya buraya sürükle</p>
+                    <p className="text-xs mt-0.5">Metin içeren PDF, maks. 10 sayfa</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Üniversite + Bölüm */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Üniversite *</label>
+                <input
+                  type="text"
+                  value={university}
+                  onChange={(e) => setUniversity(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors"
+                  placeholder="Selçuk Üniversitesi"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bölüm *</label>
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors"
+                  placeholder="Bilgisayar Mühendisliği"
+                />
+              </div>
+            </div>
+
+            {/* Sınıf + Dönem */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Sınıf *</label>
+                <select
+                  value={classYear}
+                  onChange={(e) => setClassYear(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer"
+                >
+                  <option value="">— Seç —</option>
+                  {CLASS_YEARS.map((cy) => (
+                    <option key={cy.value} value={cy.value}>{cy.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Dönem *</label>
+                <select
+                  value={semester}
+                  onChange={(e) => setSemester(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer"
+                >
+                  <option value="Bahar">Bahar</option>
+                  <option value="Güz">Güz</option>
+                </select>
+              </div>
+            </div>
+
+            {error && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+                <span className="flex-shrink-0">⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2.5 text-gray-600 font-semibold bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                type="submit"
+                disabled={uploading || !file}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                {uploading ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    AI analiz ediyor...
+                  </>
+                ) : (
+                  '📤 Yükle ve Analiz Et'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const CourseSchedulePage: React.FC = () => {
   const { user } = useAuth();
 
-  const [classYear, setClassYear] = useState('1');
+  const [classYear, setClassYear] = useState(
+    user?.grade ?? '1. Sınıf'
+  );
+
+  // Kullanıcı profili async yüklendiğinde dropdown'ı güncelle
+  useEffect(() => {
+    if (user?.grade) {
+      setClassYear(user.grade);
+    }
+  }, [user?.grade]);
   const [viewMode, setViewMode] = useState<'weekly' | 'list'>('weekly');
   const [semesterInfo, setSemesterInfo] = useState<SemesterInfo | null>(null);
   const [schedule, setSchedule] = useState<CourseSchedule | null | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Dönem bilgisini yükle
   useEffect(() => {
@@ -417,16 +675,26 @@ export const CourseSchedulePage: React.FC = () => {
               </p>
             </div>
 
-            {/* Dönem bilgisi */}
-            {semesterInfo && (
-              <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2">
-                <span className="text-indigo-600">🗓️</span>
-                <div className="text-sm">
-                  <p className="font-semibold text-indigo-800">{semesterInfo.semester_label}</p>
-                  <p className="text-indigo-500 text-xs">{semesterInfo.academic_year}</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* PDF Yükle butonu */}
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors"
+              >
+                <span>📄</span> PDF Yükle
+              </button>
+
+              {/* Dönem bilgisi */}
+              {semesterInfo && (
+                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2">
+                  <span className="text-indigo-600">🗓️</span>
+                  <div className="text-sm">
+                    <p className="font-semibold text-indigo-800">{semesterInfo.semester_label}</p>
+                    <p className="text-indigo-500 text-xs">{semesterInfo.academic_year}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Kontroller */}
@@ -502,7 +770,7 @@ export const CourseSchedulePage: React.FC = () => {
                 department={departmentName}
                 classYear={classYear}
                 semesterLabel={semesterInfo.semester_label}
-                onContribute={() => alert('Katkı formu yakında eklenecek!')}
+                onContribute={() => setIsUploadModalOpen(true)}
               />
             )}
 
@@ -534,6 +802,24 @@ export const CourseSchedulePage: React.FC = () => {
       {/* Ders detay modal */}
       {selectedCourse && (
         <CourseDetailModal course={selectedCourse} onClose={() => setSelectedCourse(null)} />
+      )}
+
+      {/* PDF Upload Modal */}
+      {isUploadModalOpen && semesterInfo && (
+        <PdfUploadModal
+          defaultUniversity={universityName}
+          defaultDepartment={departmentName}
+          defaultClassYear={user?.grade ?? classYear}
+          defaultSemester={
+            semesterInfo.semester === 'bahar' ? 'Bahar' : 'Güz'
+          }
+          defaultAcademicYear={semesterInfo.academic_year}
+          onClose={() => setIsUploadModalOpen(false)}
+          onSuccess={() => {
+            setIsUploadModalOpen(false);
+            loadSchedule();
+          }}
+        />
       )}
     </MainLayout>
   );

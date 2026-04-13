@@ -8,17 +8,21 @@ Kişisel akademik bölüm:
 - class_year ders programı sayfasında dropdown ile seçilir
 """
 
+import asyncio
+import io
 import json
 import logging
+import re
 from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.config import settings
 from src.core.database import get_db
 from src.core.dependencies import get_current_user, require_admin
 from src.models.user import User
@@ -182,12 +186,70 @@ class ContributionReviewRequest(BaseModel):
 # YARDIMCI: schedule_data parse
 # ============================================================================
 
+# Türkçe gün adları → İngilizce (frontend DAY_ORDER ile eşleşmeli)
+_DAY_MAP: dict[str, str] = {
+    "pazartesi": "monday",
+    "salı":      "tuesday",
+    "çarşamba":  "wednesday",
+    "perşembe":  "thursday",
+    "cuma":      "friday",
+    "cumartesi": "saturday",
+    "pazar":     "sunday",
+}
+
+
+def _parse_time_range(saat: str) -> tuple[str, str]:
+    """'09:00-10:50' veya '09:00–10:50' formatını ('09:00', '10:50') olarak ayırır."""
+    for sep in ("-", "–", "—"):
+        if sep in saat:
+            parts = saat.split(sep, 1)
+            return parts[0].strip(), parts[1].strip()
+    return saat.strip(), saat.strip()
+
+
 def parse_schedule_courses(schedule: CourseSchedule) -> list[CourseItem]:
-    """schedule_data JSON string'ini CourseItem listesine çevirir."""
+    """schedule_data JSON string'ini CourseItem listesine çevirir.
+
+    İki formatı destekler:
+    - Yeni format: {"courses": [{id, name, code, instructor, room, slots: [{day, start_time, end_time}]}]}
+    - Eski format: {"Pazartesi": [{"ders": "...", "saat": "HH:MM-HH:MM", "ogretmen": "...", "derslik": "..."}]}
+    """
     try:
         data = json.loads(schedule.schedule_data)
-        return [CourseItem(**c) for c in data.get("courses", [])]
+
+        # ── Yeni format ─────────────────────────────────────────────────
+        if "courses" in data and isinstance(data["courses"], list):
+            return [CourseItem(**c) for c in data["courses"]]
+
+        # ── Eski format (Türkçe gün adı keyli dict) ─────────────────────
+        courses_by_name: dict[str, CourseItem] = {}
+        for day_tr, lessons in data.items():
+            if not isinstance(lessons, list):
+                continue
+            day_en = _DAY_MAP.get(day_tr.strip().lower(), day_tr.strip().lower())
+            for lesson in lessons:
+                name = lesson.get("ders", "").strip()
+                if not name:
+                    continue
+                saat = lesson.get("saat", "")
+                start_time, end_time = _parse_time_range(saat)
+                slot = CourseSlot(day=day_en, start_time=start_time, end_time=end_time)
+
+                if name in courses_by_name:
+                    # Aynı ders başka bir günde de varsa slot ekle
+                    courses_by_name[name].slots.append(slot)
+                else:
+                    courses_by_name[name] = CourseItem(
+                        id=str(uuid4()),
+                        name=name,
+                        instructor=lesson.get("ogretmen") or None,
+                        room=lesson.get("derslik") or None,
+                        slots=[slot],
+                    )
+
+        return list(courses_by_name.values())
     except Exception:
+        logger.exception("parse_schedule_courses hatası. schedule_id=%s", schedule.id)
         return []
 
 
@@ -341,10 +403,10 @@ async def get_course_schedule(
 
     stmt = select(CourseSchedule).where(
         and_(
-            CourseSchedule.university == current_user.university,
-            CourseSchedule.department == department_name,
-            CourseSchedule.class_year == class_year,
-            CourseSchedule.semester == target_semester,
+            func.lower(CourseSchedule.university) == func.lower(current_user.university),
+            func.lower(CourseSchedule.department) == func.lower(department_name),
+            CourseSchedule.class_year.ilike(f"{class_year}%"),
+            func.lower(CourseSchedule.semester) == func.lower(target_semester),
             CourseSchedule.academic_year == target_year,
         )
     )
@@ -703,3 +765,364 @@ async def admin_delete_course_schedule(
 
     await session.delete(schedule)
     await session.commit()
+
+
+# ============================================================================
+# PDF DERS PROGRAMI YÜKLEME — /academic/schedule/upload
+# ============================================================================
+
+_PDF_PARSE_PROMPT = """\
+Sen bir üniversite ders programı ayrıştırma asistanısın.
+Aşağıdaki metin bir PDF'den çıkarılmıştır. Bu PDF okulun tüm bölümlerinin \
+ders programlarını içeren devasa bir belge olabilir.
+
+Görevin: Metinde YALNIZCA "{department}" bölümü ve "{class_year}" sınıfına \
+ait ders programını bul ve aşağıdaki JSON formatına dönüştür. \
+Diğer tüm bölümleri, diğer sınıfları ve alakasız satırları kesinlikle yoksay.
+
+YALNIZCA aşağıdaki JSON formatında çıktı üret — başka hiçbir açıklama, yorum veya markdown kodu ekleme:
+
+{{
+  "courses": [
+    {{
+      "id": "uuid-1",
+      "name": "Ders Adı",
+      "code": "CS401",
+      "instructor": "Prof. Dr. Ad Soyad",
+      "room": "B-101",
+      "color": null,
+      "slots": [
+        {{"day": "monday", "start_time": "09:00", "end_time": "10:50"}},
+        {{"day": "wednesday", "start_time": "10:00", "end_time": "11:50"}}
+      ]
+    }}
+  ]
+}}
+
+ÇOK ÖNEMLİ KURAL — TABLO SÜTUN SIRASI:
+PDF'ten gelen metin bir tablodan çıkarıldığı için dersler SÜTUNLAR (KOLONLAR) halinde okunmuştur.
+Genellikle 1. Sütun = Pazartesi, 2. Sütun = Salı, 3. Sütun = Çarşamba, 4. Sütun = Perşembe, 5. Sütun = Cuma'dır.
+Dersleri günlere atarken metin içindeki yatay/dikey SÜTUN HİZALAMALARINA ve GÜN KELİMELERİNE KESİNLİKLE dikkat et.
+Bir dersin hangi güne ait olduğunu ASLA TAHMIN ETME — yalnızca okuduğun sütun sırasına ve metindeki gün başlıklarına göre yerleştir.
+Hangi satırın hangi güne ait olduğundan emin değilsen o dersi listeye EKLEME.
+
+Kurallar:
+- Hedef bölüm: "{department}" — yalnızca bu bölümün derslerini al
+- Hedef sınıf: "{class_year}" — yalnızca bu sınıfın derslerini al
+- Her ders yalnızca bir kez "courses" listesinde yer alır
+- Aynı dersin birden fazla günü varsa hepsini o dersin "slots" dizisine ekle
+- "day" alanı İngilizce küçük harfle olmalı: monday, tuesday, wednesday, thursday, friday, saturday
+- "start_time" ve "end_time" alanları "HH:MM" formatında olmalı (örn: "09:00", "10:50")
+- "id" alanı için rastgele kısa bir string yaz (örn: "c1", "c2", "c3" şeklinde sıralı)
+- "code" bilgisi bulunamazsa null yaz
+- "instructor" bilgisi bulunamazsa null yaz
+- "room" bilgisi bulunamazsa null yaz
+- "color" her zaman null olsun
+- Sadece JSON döndür — kod bloğu, açıklama veya ```json etiketi kullanma
+
+PDF Metni:
+---
+{text}
+---
+"""
+
+_MAX_PDF_PAGES = 10         # Güvenlik limiti — daha büyük PDF'leri reddet
+_MAX_PDF_CHARS = 30_000     # LLM'e gönderilecek maksimum karakter
+
+
+def _extract_pdf_text(file_bytes: bytes) -> str:
+    """pypdf ile PDF'den düz metin çıkarır."""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {"code": "MISSING_DEP", "message": "pypdf kütüphanesi kurulu değil."}},
+        )
+
+    reader = PdfReader(io.BytesIO(file_bytes))
+
+    if len(reader.pages) > _MAX_PDF_PAGES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": {
+                    "code": "PDF_TOO_LARGE",
+                    "message": f"PDF en fazla {_MAX_PDF_PAGES} sayfa olabilir.",
+                }
+            },
+        )
+
+    parts: list[str] = []
+    for page in reader.pages:
+        text = page.extract_text() or ""
+        parts.append(text)
+
+    return "\n".join(parts)
+
+
+_PDF_LLM_MODEL         = "gemini-2.5-flash"  # Ana model
+_PDF_LLM_FALLBACK_MODEL = "gemini-1.5-pro"  # Yedek model — kota sıfırlandığında devreye girer
+_PDF_LLM_TIMEOUT       = 180                  # saniye
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    """Google/LangChain kota veya rate-limit hatasını tanır."""
+    exc_str = str(exc).lower()
+    return any(kw in exc_str for kw in (
+        "resourceexhausted", "429", "quota", "rate limit", "ratelimit", "rateerror",
+    ))
+
+
+def _build_llm(model: str) -> "ChatGoogleGenerativeAI":
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    return ChatGoogleGenerativeAI(
+        model=model,
+        temperature=0.0,
+        google_api_key=settings.google_api_key,
+        convert_system_message_to_human=True,
+        request_timeout=float(_PDF_LLM_TIMEOUT),
+    )
+
+
+async def _invoke_llm(llm: "ChatGoogleGenerativeAI", prompt: str) -> str:
+    """LLM'i çağırır ve ham metin yanıtı döndürür. Timeout hatası olursa yayar."""
+    from langchain_core.messages import HumanMessage
+    response = await asyncio.wait_for(
+        llm.ainvoke([HumanMessage(content=prompt)]),
+        timeout=_PDF_LLM_TIMEOUT,
+    )
+    return response.content if hasattr(response, "content") else str(response)
+
+
+async def _parse_schedule_with_llm(pdf_text: str, department: str, class_year: str) -> dict:
+    """Gemini'yi kullanarak PDF metnini ders programı JSON'una dönüştürür.
+
+    Ana model (gemini-2.5-flash) kota limitine takılırsa otomatik olarak
+    yedek modele (gemini-1.5-flash) geçer. Her iki model de başarısız olursa
+    frontend'e 429 döner.
+
+    Beklenen çıktı şeması (frontend CourseItem tipiyle birebir uyumlu):
+    {
+      "courses": [
+        {
+          "id": "c1",
+          "name": "Ders Adı",
+          "code": "CS401" | null,
+          "instructor": "Prof. Dr. ..." | null,
+          "room": "B-101" | null,
+          "color": null,
+          "slots": [
+            {"day": "monday", "start_time": "09:00", "end_time": "10:50"}
+          ]
+        }
+      ]
+    }
+    """
+    prompt_text = _PDF_PARSE_PROMPT.format(
+        text=pdf_text[:_MAX_PDF_CHARS],
+        department=department,
+        class_year=class_year,
+    )
+
+    # ── 1. Ana model denemesi ────────────────────────────────────────────────
+    try:
+        raw = await _invoke_llm(_build_llm(_PDF_LLM_MODEL), prompt_text)
+        logger.info("PDF ayrıştırma tamamlandı. model=%s", _PDF_LLM_MODEL)
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail={"error": {"code": "LLM_TIMEOUT", "message": "Yapay Zeka yanıt süresi doldu. Lütfen tekrar deneyin."}},
+        ) from exc
+    except Exception as primary_exc:
+        if not _is_quota_error(primary_exc):
+            logger.error("Ana model başarısız (kota dışı hata): %s", primary_exc)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={"error": {"code": "LLM_ERROR", "message": "Yapay Zeka servisi şu an yanıt vermiyor. Lütfen tekrar deneyin."}},
+            ) from primary_exc
+
+        # ── 2. Kota hatası → yedek modele geç ───────────────────────────────
+        logger.warning("Ana model kota limitinde, yedek modele geçiliyor. hata=%s", primary_exc)
+        try:
+            raw = await _invoke_llm(_build_llm(_PDF_LLM_FALLBACK_MODEL), prompt_text)
+            logger.info("PDF ayrıştırma tamamlandı (yedek model). model=%s", _PDF_LLM_FALLBACK_MODEL)
+        except asyncio.TimeoutError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail={"error": {"code": "LLM_TIMEOUT", "message": "Yapay Zeka yanıt süresi doldu. Lütfen tekrar deneyin."}},
+            ) from exc
+        except Exception as fallback_exc:
+            # Her iki model de başarısız → kullanıcıya temiz 429
+            logger.error("Yedek model de başarısız. hata=%s", fallback_exc)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": {
+                        "code": "AI_QUOTA_EXCEEDED",
+                        "message": "Yapay Zeka kota limitine ulaşıldı. Lütfen 1 dakika bekleyip PDF'i tekrar yükleyin.",
+                    }
+                },
+            ) from fallback_exc
+
+    # Markdown kod bloğu varsa soy
+    raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+
+    # JSON parse
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.error("LLM JSON parse hatası. raw=%s error=%s", raw[:500], exc)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": {
+                    "code": "LLM_PARSE_ERROR",
+                    "message": (
+                        "PDF metni ders programına dönüştürülemedi. "
+                        "PDF'nin metin içerdiğinden ve net biçimde biçimlendirildiğinden emin ol."
+                    ),
+                }
+            },
+        ) from exc
+
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "LLM_UNEXPECTED_FORMAT", "message": "LLM beklenmeyen format döndürdü."}},
+        )
+
+    return parsed
+
+
+class ScheduleUploadResponse(BaseModel):
+    success: bool
+    message: str
+    university: str
+    department: str
+    class_year: str
+    semester: str
+    academic_year: str
+    days_parsed: list[str]
+    total_lessons: int
+
+
+@router.post(
+    "/schedule/upload",
+    response_model=ScheduleUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="PDF'den ders programı yükle",
+    description=(
+        "Bir PDF dosyasından ders programı çıkarır, Gemini ile JSON'a dönüştürür "
+        "ve course_schedules tablosuna kaydeder (upsert)."
+    ),
+)
+async def upload_schedule_pdf(
+    file: UploadFile = File(..., description="Ders programı PDF dosyası"),
+    university: str = Form(..., description="Üniversite adı"),
+    department: str = Form(..., description="Bölüm adı"),
+    class_year: str = Form(..., description="Sınıf (örn: '3. Sınıf')"),
+    semester: str = Form(..., description="Dönem (örn: 'Bahar' veya 'Güz')"),
+    academic_year: Optional[str] = Form(None, description="Öğretim yılı (örn: '2024-2025')"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> ScheduleUploadResponse:
+    """PDF ders programını Gemini ile ayrıştırıp veritabanına kaydeder."""
+
+    # ---- Dosya doğrulama ------------------------------------------ #
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "INVALID_FILE_TYPE", "message": "Yalnızca PDF dosyası kabul edilir."}},
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "EMPTY_FILE", "message": "Dosya boş."}},
+        )
+
+    # ---- Akademik yıl varsayılanı ---------------------------------- #
+    target_academic_year = academic_year or get_current_semester_info()["academic_year"]
+
+    # ---- PDF'den metin çıkar -------------------------------------- #
+    logger.info(
+        "PDF schedule upload başladı. user=%s university=%s department=%s class_year=%s",
+        current_user.id, university, department, class_year,
+    )
+    pdf_text = _extract_pdf_text(file_bytes)
+
+    if len(pdf_text.strip()) < 50:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": {
+                    "code": "PDF_NO_TEXT",
+                    "message": (
+                        "PDF'den yeterli metin çıkarılamadı. "
+                        "Taranan (görüntü) PDF'ler desteklenmez — metin içeren PDF kullan."
+                    ),
+                }
+            },
+        )
+
+    # ---- Gemini ile JSON'a dönüştür -------------------------------- #
+    schedule_json = await _parse_schedule_with_llm(pdf_text, department, class_year)
+
+    # ---- Özet istatistik ------------------------------------------ #
+    days_parsed = [day for day, lessons in schedule_json.items() if lessons]
+    total_lessons = sum(len(lessons) for lessons in schedule_json.values() if isinstance(lessons, list))
+
+    # ---- Veritabanına upsert -------------------------------------- #
+    stmt = select(CourseSchedule).where(
+        and_(
+            CourseSchedule.university == university,
+            CourseSchedule.department == department,
+            CourseSchedule.class_year == class_year,
+            CourseSchedule.semester == semester,
+            CourseSchedule.academic_year == target_academic_year,
+        )
+    )
+    result = await session.execute(stmt)
+    existing = result.scalar_one_or_none()
+
+    schedule_data_str = json.dumps(schedule_json, ensure_ascii=False)
+
+    if existing:
+        existing.schedule_data = schedule_data_str
+        existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        action = "güncellendi"
+    else:
+        new_schedule = CourseSchedule(
+            id=str(uuid4()),
+            university=university,
+            department=department,
+            class_year=class_year,
+            semester=semester,
+            academic_year=target_academic_year,
+            schedule_data=schedule_data_str,
+            created_by=current_user.id,
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        session.add(new_schedule)
+        action = "oluşturuldu"
+
+    await session.commit()
+    logger.info(
+        "PDF schedule upload tamamlandı. user=%s action=%s days=%s lessons=%s",
+        current_user.id, action, days_parsed, total_lessons,
+    )
+
+    return ScheduleUploadResponse(
+        success=True,
+        message=f"Ders programı başarıyla {action}. {total_lessons} ders, {len(days_parsed)} gün ayrıştırıldı.",
+        university=university,
+        department=department,
+        class_year=class_year,
+        semester=semester,
+        academic_year=target_academic_year,
+        days_parsed=days_parsed,
+        total_lessons=total_lessons,
+    )

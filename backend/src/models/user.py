@@ -60,6 +60,8 @@ class User(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False, index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
+    grade: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+
     profile_picture_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     theme_preference: Mapped[str] = mapped_column(String(10), server_default=text("'light'"), nullable=False)

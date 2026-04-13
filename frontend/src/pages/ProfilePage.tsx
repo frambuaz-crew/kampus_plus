@@ -40,6 +40,7 @@ interface ProfileData {
   email?: string;
   university?: string;
   department?: string;
+  grade?: string | null;
   profile_picture_url?: string | null;
   bio?: string | null;
   created_at: string;
@@ -71,10 +72,23 @@ export const ProfilePage: React.FC = () => {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 
   // Düzenleme State'leri
+  const GRADE_OPTIONS = [
+    { value: '', label: '— Sınıf Seçin —' },
+    { value: 'Hazırlık', label: 'Hazırlık' },
+    { value: '1. Sınıf', label: '1. Sınıf' },
+    { value: '2. Sınıf', label: '2. Sınıf' },
+    { value: '3. Sınıf', label: '3. Sınıf' },
+    { value: '4. Sınıf', label: '4. Sınıf' },
+    { value: '5. Sınıf', label: '5. Sınıf' },
+    { value: 'Yüksek Lisans', label: 'Yüksek Lisans' },
+    { value: 'Doktora', label: 'Doktora' },
+  ];
+
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     bio: '',
-    profile_picture_url: ''
+    profile_picture_url: '',
+    grade: ''
   });
 
   // Profil Fotoğrafı Kırpma State'leri
@@ -152,7 +166,8 @@ export const ProfilePage: React.FC = () => {
         if (isOwnProfile) {
           setEditForm({
             bio: userRes.data.bio || '',
-            profile_picture_url: userRes.data.profile_picture_url || ''
+            profile_picture_url: userRes.data.profile_picture_url || '',
+            grade: userRes.data.grade || ''
           });
         }
 
@@ -196,9 +211,9 @@ export const ProfilePage: React.FC = () => {
     try {
       await apiClient.put(`/users/profile`, editForm);
       // UI güncelle
-      setProfileData((prev) => (prev ? { ...prev, ...editForm } : prev));
+      setProfileData((prev) => (prev ? { ...prev, ...editForm, grade: editForm.grade || null } : prev));
       // Auth context'i güncelle (navbar'a vb. anında yansıması için)
-      updateUser({ bio: editForm.bio, profile_picture_url: editForm.profile_picture_url });
+      updateUser({ bio: editForm.bio, profile_picture_url: editForm.profile_picture_url, grade: editForm.grade || null });
 
       setIsEditing(false);
       alert("Profil başarıyla güncellendi.");
@@ -296,9 +311,18 @@ export const ProfilePage: React.FC = () => {
                 <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
                   {profileData.first_name} {profileData.last_name}
                 </h1>
-                <div className="flex items-center justify-center md:justify-start gap-4 mt-3 text-sm font-semibold text-gray-500 uppercase tracking-widest">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3 text-sm font-semibold text-gray-500 uppercase tracking-widest">
                   <span className="flex items-center gap-1">🎓 {profileData.university}</span>
+                  <span className="text-gray-300">·</span>
                   <span className="flex items-center gap-1">📚 {profileData.department}</span>
+                  {profileData.grade && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span className="flex items-center gap-1 px-3 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black tracking-wide normal-case">
+                        🎒 {profileData.grade}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -378,6 +402,18 @@ export const ProfilePage: React.FC = () => {
               </div>
               <form onSubmit={handleEditSubmit} className="space-y-6 max-w-2xl mx-auto">
                 <div>
+                  <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">Sınıf</label>
+                  <select
+                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border border-gray-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-gray-700 appearance-none cursor-pointer"
+                    value={editForm.grade}
+                    onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })}
+                  >
+                    {GRADE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">Biyografi (Hakkımda)</label>
                   <textarea
                     className="w-full px-5 py-4 bg-gray-50 rounded-2xl border border-gray-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none text-gray-700"
@@ -444,6 +480,7 @@ export const ProfilePage: React.FC = () => {
                       <InfoCard icon="📅" label="Katılım Tarihi" value={new Date(profileData.created_at).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })} />
                       <InfoCard icon="🏛️" label="Üniversite" value={profileData.university} />
                       <InfoCard icon="📚" label="Bölüm" value={profileData.department} />
+                      <InfoCard icon="🎒" label="Sınıf" value={profileData.grade ?? undefined} />
                     </div>
                   </div>
                 )}

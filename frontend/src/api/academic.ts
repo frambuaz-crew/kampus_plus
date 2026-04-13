@@ -122,3 +122,45 @@ export const getMyContributions = async (): Promise<ContributionItem[]> => {
   const res = await apiClient.get<ContributionItem[]>('/academic/my-contributions');
   return res.data;
 };
+
+// ============================================================================
+// PDF DERS PROGRAMI YÜKLEME
+// ============================================================================
+
+export interface ScheduleUploadResult {
+  success: boolean;
+  message: string;
+  university: string;
+  department: string;
+  class_year: string;
+  semester: string;
+  academic_year: string;
+  days_parsed: string[];
+  total_lessons: number;
+}
+
+export const uploadSchedulePDF = async (params: {
+  file: File;
+  university: string;
+  department: string;
+  class_year: string;
+  semester: string;
+  academic_year?: string;
+}): Promise<ScheduleUploadResult> => {
+  const formData = new FormData();
+  formData.append('file', params.file);
+  formData.append('university', params.university);
+  formData.append('department', params.department);
+  formData.append('class_year', params.class_year);
+  formData.append('semester', params.semester);
+  if (params.academic_year) {
+    formData.append('academic_year', params.academic_year);
+  }
+
+  const res = await apiClient.post<ScheduleUploadResult>(
+    '/academic/schedule/upload',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return res.data;
+};
