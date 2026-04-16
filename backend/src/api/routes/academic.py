@@ -8,7 +8,6 @@ Kişisel akademik bölüm:
 - class_year ders programı sayfasında dropdown ile seçilir
 """
 
-import asyncio
 import io
 import json
 import logging
@@ -771,6 +770,43 @@ async def admin_delete_course_schedule(
 # PDF DERS PROGRAMI YÜKLEME — /academic/schedule/upload
 # ============================================================================
 
+_MAX_PDF_PAGES  = 10       # Güvenlik limiti — daha büyük PDF'leri reddet
+_MAX_PDF_CHARS  = 30_000   # LLM'e gönderilecek maksimum karakter
+_PDF_LLM_MODEL  = settings.gemini_model
+_PDF_LLM_TIMEOUT = 180     # saniye
+
+
+def _extract_pdf_text(file_bytes: bytes) -> str:
+    """pypdf ile PDF'den düz metin çıkarır."""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": {"code": "MISSING_DEP", "message": "pypdf kütüphanesi kurulu değil."}},
+        )
+
+    reader = PdfReader(io.BytesIO(file_bytes))
+
+    if len(reader.pages) > _MAX_PDF_PAGES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": {
+                    "code": "PDF_TOO_LARGE",
+                    "message": f"PDF en fazla {_MAX_PDF_PAGES} sayfa olabilir.",
+                }
+            },
+        )
+
+    parts: list[str] = []
+    for page in reader.pages:
+        text = page.extract_text() or ""
+        parts.append(text)
+
+    return "\n".join(parts)
+
+
 _PDF_PARSE_PROMPT = """\
 Sen bir üniversite ders programı ayrıştırma asistanısın.
 Aşağıdaki metin bir PDF'den çıkarılmıştır. Bu PDF okulun tüm bölümlerinin \
@@ -826,170 +862,57 @@ PDF Metni:
 ---
 """
 
-_MAX_PDF_PAGES = 10         # Güvenlik limiti — daha büyük PDF'leri reddet
-_MAX_PDF_CHARS = 30_000     # LLM'e gönderilecek maksimum karakter
-
-
-def _extract_pdf_text(file_bytes: bytes) -> str:
-    """pypdf ile PDF'den düz metin çıkarır."""
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "MISSING_DEP", "message": "pypdf kütüphanesi kurulu değil."}},
-        )
-
-    reader = PdfReader(io.BytesIO(file_bytes))
-
-    if len(reader.pages) > _MAX_PDF_PAGES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": {
-                    "code": "PDF_TOO_LARGE",
-                    "message": f"PDF en fazla {_MAX_PDF_PAGES} sayfa olabilir.",
-                }
-            },
-        )
-
-    parts: list[str] = []
-    for page in reader.pages:
-        text = page.extract_text() or ""
-        parts.append(text)
-
-    return "\n".join(parts)
-
-
-_PDF_LLM_MODEL         = "gemini-2.5-flash"  # Ana model
-_PDF_LLM_FALLBACK_MODEL = "gemini-1.5-pro"  # Yedek model — kota sıfırlandığında devreye girer
-_PDF_LLM_TIMEOUT       = 180                  # saniye
-
-
-def _is_quota_error(exc: Exception) -> bool:
-    """Google/LangChain kota veya rate-limit hatasını tanır."""
-    exc_str = str(exc).lower()
-    return any(kw in exc_str for kw in (
-        "resourceexhausted", "429", "quota", "rate limit", "ratelimit", "rateerror",
-    ))
-
-
-def _build_llm(model: str) -> "ChatGoogleGenerativeAI":
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    return ChatGoogleGenerativeAI(
-        model=model,
-        temperature=0.0,
-        google_api_key=settings.google_api_key,
-        convert_system_message_to_human=True,
-        request_timeout=float(_PDF_LLM_TIMEOUT),
-    )
-
-
-async def _invoke_llm(llm: "ChatGoogleGenerativeAI", prompt: str) -> str:
-    """LLM'i çağırır ve ham metin yanıtı döndürür. Timeout hatası olursa yayar."""
-    from langchain_core.messages import HumanMessage
-    response = await asyncio.wait_for(
-        llm.ainvoke([HumanMessage(content=prompt)]),
-        timeout=_PDF_LLM_TIMEOUT,
-    )
-    return response.content if hasattr(response, "content") else str(response)
-
 
 async def _parse_schedule_with_llm(pdf_text: str, department: str, class_year: str) -> dict:
-    """Gemini'yi kullanarak PDF metnini ders programı JSON'una dönüştürür.
+    """google-genai SDK ile PDF metnini ders programı JSON'una dönüştürür.
 
-    Ana model (gemini-2.5-flash) kota limitine takılırsa otomatik olarak
-    yedek modele (gemini-1.5-flash) geçer. Her iki model de başarısız olursa
-    frontend'e 429 döner.
-
-    Beklenen çıktı şeması (frontend CourseItem tipiyle birebir uyumlu):
-    {
-      "courses": [
-        {
-          "id": "c1",
-          "name": "Ders Adı",
-          "code": "CS401" | null,
-          "instructor": "Prof. Dr. ..." | null,
-          "room": "B-101" | null,
-          "color": null,
-          "slots": [
-            {"day": "monday", "start_time": "09:00", "end_time": "10:50"}
-          ]
-        }
-      ]
-    }
+    Döndürür:
+        {"courses": [{"id": ..., "name": ..., "code": ..., "instructor": ...,
+                      "room": ..., "color": null, "slots": [...]}]}
     """
-    prompt_text = _PDF_PARSE_PROMPT.format(
+    import asyncio
+    from google import genai
+
+    prompt = _PDF_PARSE_PROMPT.format(
         text=pdf_text[:_MAX_PDF_CHARS],
         department=department,
         class_year=class_year,
     )
 
-    # ── 1. Ana model denemesi ────────────────────────────────────────────────
     try:
-        raw = await _invoke_llm(_build_llm(_PDF_LLM_MODEL), prompt_text)
-        logger.info("PDF ayrıştırma tamamlandı. model=%s", _PDF_LLM_MODEL)
-    except asyncio.TimeoutError as exc:
+        client = genai.Client(api_key=settings.google_api_key)
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model=_PDF_LLM_MODEL,
+                contents=prompt,
+            ),
+            timeout=_PDF_LLM_TIMEOUT,
+        )
+        raw = response.text or ""
+        logger.info("PDF ayrıştırma tamamlandı. model=%s chars=%d", _PDF_LLM_MODEL, len(raw))
+    except Exception as exc:
+        logger.error("LLM ayrıştırma hatası. model=%s hata=%s", _PDF_LLM_MODEL, exc)
         raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail={"error": {"code": "LLM_TIMEOUT", "message": "Yapay Zeka yanıt süresi doldu. Lütfen tekrar deneyin."}},
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"error": {"code": "LLM_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
         ) from exc
-    except Exception as primary_exc:
-        if not _is_quota_error(primary_exc):
-            logger.error("Ana model başarısız (kota dışı hata): %s", primary_exc)
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail={"error": {"code": "LLM_ERROR", "message": "Yapay Zeka servisi şu an yanıt vermiyor. Lütfen tekrar deneyin."}},
-            ) from primary_exc
 
-        # ── 2. Kota hatası → yedek modele geç ───────────────────────────────
-        logger.warning("Ana model kota limitinde, yedek modele geçiliyor. hata=%s", primary_exc)
-        try:
-            raw = await _invoke_llm(_build_llm(_PDF_LLM_FALLBACK_MODEL), prompt_text)
-            logger.info("PDF ayrıştırma tamamlandı (yedek model). model=%s", _PDF_LLM_FALLBACK_MODEL)
-        except asyncio.TimeoutError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail={"error": {"code": "LLM_TIMEOUT", "message": "Yapay Zeka yanıt süresi doldu. Lütfen tekrar deneyin."}},
-            ) from exc
-        except Exception as fallback_exc:
-            # Her iki model de başarısız → kullanıcıya temiz 429
-            logger.error("Yedek model de başarısız. hata=%s", fallback_exc)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "error": {
-                        "code": "AI_QUOTA_EXCEEDED",
-                        "message": "Yapay Zeka kota limitine ulaşıldı. Lütfen 1 dakika bekleyip PDF'i tekrar yükleyin.",
-                    }
-                },
-            ) from fallback_exc
-
-    # Markdown kod bloğu varsa soy
+    # Markdown sarmalayıcı varsa temizle
     raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
 
-    # JSON parse
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
-        logger.error("LLM JSON parse hatası. raw=%s error=%s", raw[:500], exc)
+        logger.error("LLM JSON parse hatası. raw_snippet=%s", raw[:300])
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": {
-                    "code": "LLM_PARSE_ERROR",
-                    "message": (
-                        "PDF metni ders programına dönüştürülemedi. "
-                        "PDF'nin metin içerdiğinden ve net biçimde biçimlendirildiğinden emin ol."
-                    ),
-                }
-            },
+            detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
         ) from exc
 
     if not isinstance(parsed, dict):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": {"code": "LLM_UNEXPECTED_FORMAT", "message": "LLM beklenmeyen format döndürdü."}},
+            detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
         )
 
     return parsed
@@ -1067,7 +990,7 @@ async def upload_schedule_pdf(
             },
         )
 
-    # ---- Gemini ile JSON'a dönüştür -------------------------------- #
+    # ---- LLM ile JSON'a dönüştür ---------------------------------- #
     schedule_json = await _parse_schedule_with_llm(pdf_text, department, class_year)
 
     # ---- Özet istatistik ------------------------------------------ #

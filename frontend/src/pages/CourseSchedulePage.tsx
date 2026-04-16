@@ -397,6 +397,7 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (uploading) return;
     if (!file) { setError('Lütfen bir PDF dosyası seç.'); return; }
     if (!university.trim() || !department.trim() || !classYear.trim() || !semester.trim()) {
       setError('Tüm alanları doldurun.');
@@ -416,11 +417,8 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
       });
       setResult(res);
       onSuccess(res);
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: { message?: string } } } })
-          ?.response?.data?.error?.message ?? 'Yükleme sırasında hata oluştu.';
-      setError(msg);
+    } catch {
+      setError('Yükleme sırasında hata oluştu.');
     } finally {
       setUploading(false);
     }
