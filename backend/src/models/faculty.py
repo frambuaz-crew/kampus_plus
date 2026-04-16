@@ -1,4 +1,4 @@
-"""Bölüm modeli — Faculty → Department hiyerarşisinin son katmanı."""
+"""Fakülte modeli — University → Faculty → Department hiyerarşisinin orta katmanı."""
 
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -10,14 +10,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 
 if TYPE_CHECKING:
-    from .faculty import Faculty
-    from .user import User
+    from .university import University
+    from .department import Department
 
 
-class Department(Base):
-    """Bölüm — Bir fakülteye bağlı akademik birim."""
+class Faculty(Base):
+    """Fakülte — Bir üniversiteye bağlı, bölümleri barındıran birim."""
 
-    __tablename__ = "departments"
+    __tablename__ = "faculties"
 
     id: Mapped[str] = mapped_column(
         String(36),
@@ -27,9 +27,9 @@ class Department(Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 
-    faculty_id: Mapped[str] = mapped_column(
+    university_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("faculties.id", ondelete="CASCADE"),
+        ForeignKey("universities.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -45,12 +45,14 @@ class Department(Base):
     )
 
     # İlişkiler
-    faculty: Mapped["Faculty"] = relationship("Faculty", back_populates="departments")
-    users: Mapped[list["User"]] = relationship("User", back_populates="department_rel")
+    university: Mapped["University"] = relationship("University", back_populates="faculties")
+    departments: Mapped[list["Department"]] = relationship(
+        "Department", back_populates="faculty", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
-        UniqueConstraint("name", "faculty_id", name="uq_department_name_faculty"),
+        UniqueConstraint("name", "university_id", name="uq_faculty_name_university"),
     )
 
     def __repr__(self) -> str:  # pragma: no cover
-        return f"<Department name='{self.name}'>"
+        return f"<Faculty name='{self.name}'>"

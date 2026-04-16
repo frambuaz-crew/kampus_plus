@@ -6,6 +6,7 @@ veritabanı şemasına uygun tüm modelleri içerir.
 
 from .base import Base
 from .user import User, RefreshToken
+from .faculty import Faculty
 from .department import Department
 from .forum import ForumCategory, ForumTopic, ForumReply
 from .marketplace import MarketplaceListing, MarketplaceReport, MarketplaceMessage
@@ -56,6 +57,7 @@ __all__ = [
     "ContactMessage",
     # University
     "University",
+    "Faculty",
     "AuditLog",
     # Favorites
     "UserFavorite",

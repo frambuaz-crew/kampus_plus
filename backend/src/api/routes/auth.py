@@ -71,7 +71,8 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8)
     first_name: str = Field(..., min_length=2, max_length=100)
     last_name: str = Field(..., min_length=2, max_length=100)
-    department_id: int = Field(..., description="Seçilen bölümün ID'si") # GÜNCELLENDİ 🔢
+    university: str = Field(..., min_length=2, max_length=255, description="Seçilen üniversitenin adı")
+    department_id: str = Field(..., min_length=1, description="Seçilen bölümün UUID'si")
     terms_accepted: bool = Field(..., description="Kullanım koşulları kabul edilmeli")
     
     @field_validator('email')
@@ -142,7 +143,7 @@ class UserResponse(BaseModel):
     last_name: str
     role: str
     university: Optional[str]
-    department_id: Optional[int] = None # Yeni: Sayısal ID
+    department_id: Optional[str] = None
     department: Optional[str] = None    # Yeni: Bölümün ismi (Metin)
     grade: Optional[str] = None
     is_verified: bool
@@ -245,6 +246,7 @@ async def register(
             password=request.password,
             first_name=request.first_name,
             last_name=request.last_name,
+            university=request.university,
             department_id=request.department_id,
             terms_accepted_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )

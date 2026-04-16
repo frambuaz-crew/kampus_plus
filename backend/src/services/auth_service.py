@@ -39,7 +39,7 @@ class AuthService:
         password: str,
         first_name: str,
         last_name: str,
-        department_id: int, # ✅ department -> department_id olarak güncellendi
+        department_id: str,
         university: Optional[str] = None,
         username: Optional[str] = None,
         terms_accepted_at: Optional[datetime] = None,
@@ -52,7 +52,7 @@ class AuthService:
             password: Düz metin şifre
             first_name: Ad
             last_name: Soyad
-            department_id: Bölüm ID (GÜNCELLENDİ)
+            department_id: Bölüm UUID
             university: Üniversite adı
             username: Kullanıcı adı
         """
@@ -98,7 +98,7 @@ class AuthService:
             first_name=first_name,
             last_name=last_name,
             username=final_username,
-            department_id=department_id, # ✅ department -> department_id
+            department_id=department_id,
             university=university,
             is_verified=False,
             is_active=True,

@@ -4,13 +4,16 @@ Email domain'lerinden üniversite isimlerini eşleştirmek için kullanılır.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, String, Text, text, Index
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .faculty import Faculty
 
 
 class University(Base):
@@ -54,6 +57,11 @@ class University(Base):
         nullable=False,
     )
     
+    # İlişkiler
+    faculties: Mapped[list["Faculty"]] = relationship(
+        "Faculty", back_populates="university", cascade="all, delete-orphan"
+    )
+
     # Index: name + type için hızlı arama
     __table_args__ = (
         Index('idx_university_name_type', 'name', 'university_type'),

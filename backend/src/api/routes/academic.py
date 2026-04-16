@@ -1049,3 +1049,228 @@ async def upload_schedule_pdf(
         days_parsed=days_parsed,
         total_lessons=total_lessons,
     )
+
+
+# ============================================================================
+# PDF AKADEMİK TAKVİM YÜKLEME — /academic/calendar/upload
+# ============================================================================
+
+_CALENDAR_PARSE_PROMPT = """\
+Sen bir üniversite akademik takvim ayrıştırma asistanısın.
+Aşağıdaki metin bir PDF'den çıkarılmıştır. Bu PDF üniversitenin resmi akademik takvimini içermektedir.
+
+Görevin: Metinde vize, final, ders kayıt/silme, tatil, yarıyıl başlangıç/bitiş, \
+bütünleme ve benzeri tüm önemli akademik tarihleri bul ve aşağıdaki JSON formatına dönüştür.
+
+YALNIZCA aşağıdaki JSON formatında çıktı üret — başka hiçbir açıklama, yorum veya markdown kodu ekleme:
+
+{{
+  "events": [
+    {{
+      "event_name": "Vize Sınavları",
+      "start_date": "YYYY-MM-DD",
+      "end_date": "YYYY-MM-DD",
+      "event_type": "exam"
+    }}
+  ]
+}}
+
+Kurallar:
+- "event_name": Etkinliğin Türkçe adı (kısa ve açıklayıcı)
+- "start_date": Başlangıç tarihi YYYY-MM-DD formatında (örn: "2025-03-10")
+- "end_date": Bitiş tarihi YYYY-MM-DD formatında; tek günlük etkinliklerde start_date ile aynı olsun
+- "event_type": Şu dört değerden biri:
+    * "exam"         → sınav, vize, final, bütünleme
+    * "registration" → kayıt, ders ekleme/silme, harç, başvuru
+    * "holiday"      → tatil, yarıyıl arası, resmi tatil
+    * "other"        → yukarıdakiler dışında kalan tüm akademik etkinlikler
+- Tarihleri metinden olduğu gibi al; tahminde bulunma
+- Tarih bulunamayan etkinlikleri listeye EKLEME
+- Akademik yıl: "{academic_year}" — yalnızca bu yıla ait etkinlikleri al
+- Sadece JSON döndür — kod bloğu, açıklama veya ```json etiketi kullanma
+
+PDF Metni:
+---
+{text}
+---
+"""
+
+
+async def _parse_calendar_with_llm(pdf_text: str, academic_year: str) -> dict:
+    """google-genai SDK ile PDF metnini akademik takvim JSON'una dönüştürür.
+
+    Döndürür:
+        {"events": [{"event_name": ..., "start_date": ..., "end_date": ..., "event_type": ...}]}
+    """
+    import asyncio
+    from google import genai
+
+    prompt = _CALENDAR_PARSE_PROMPT.format(
+        text=pdf_text[:_MAX_PDF_CHARS],
+        academic_year=academic_year,
+    )
+
+    try:
+        client = genai.Client(api_key=settings.google_api_key)
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model=settings.gemini_model,
+                contents=prompt,
+            ),
+            timeout=_PDF_LLM_TIMEOUT,
+        )
+        raw = response.text or ""
+        logger.info("Takvim ayrıştırma tamamlandı. model=%s chars=%d", settings.gemini_model, len(raw))
+    except Exception as exc:
+        logger.error("Takvim LLM hatası. model=%s hata=%s", settings.gemini_model, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"error": {"code": "LLM_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
+        ) from exc
+
+    # Markdown sarmalayıcı varsa temizle
+    raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.error("Takvim LLM JSON parse hatası. raw_snippet=%s", raw[:300])
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
+        ) from exc
+
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
+        )
+
+    return parsed
+
+
+class CalendarUploadResponse(BaseModel):
+    success: bool
+    message: str
+    university: str
+    academic_year: str
+    events_parsed: int
+
+
+@router.post(
+    "/calendar/upload",
+    response_model=CalendarUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="PDF'den akademik takvim yükle",
+    description=(
+        "Bir PDF dosyasından akademik takvim etkinliklerini çıkarır, Gemini ile JSON'a dönüştürür "
+        "ve academic_calendar_events tablosuna kaydeder (upsert değil — her yükleme yeni etkinlikler ekler)."
+    ),
+)
+async def upload_calendar_pdf(
+    file: UploadFile = File(..., description="Akademik takvim PDF dosyası"),
+    university: str = Form(..., description="Üniversite adı"),
+    academic_year: Optional[str] = Form(None, description="Öğretim yılı (örn: '2024-2025')"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> CalendarUploadResponse:
+    """PDF akademik takvimini Gemini ile ayrıştırıp veritabanına kaydeder."""
+
+    # ---- Dosya doğrulama ------------------------------------------ #
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "INVALID_FILE_TYPE", "message": "Yalnızca PDF dosyası kabul edilir."}},
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "EMPTY_FILE", "message": "Dosya boş."}},
+        )
+
+    # ---- Akademik yıl varsayılanı ---------------------------------- #
+    target_academic_year = academic_year or get_current_semester_info()["academic_year"]
+
+    # ---- PDF'den metin çıkar -------------------------------------- #
+    logger.info(
+        "PDF calendar upload başladı. user=%s university=%s academic_year=%s",
+        current_user.id, university, target_academic_year,
+    )
+    pdf_text = _extract_pdf_text(file_bytes)
+
+    if len(pdf_text.strip()) < 50:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": {
+                    "code": "PDF_NO_TEXT",
+                    "message": (
+                        "PDF'den yeterli metin çıkarılamadı. "
+                        "Taranan (görüntü) PDF'ler desteklenmez — metin içeren PDF kullan."
+                    ),
+                }
+            },
+        )
+
+    # ---- LLM ile JSON'a dönüştür ---------------------------------- #
+    calendar_json = await _parse_calendar_with_llm(pdf_text, target_academic_year)
+
+    # ---- Etkinlikleri kaydet -------------------------------------- #
+    events_data: list[dict] = calendar_json.get("events", [])
+    saved_count = 0
+
+    for ev_data in events_data:
+        event_name = ev_data.get("event_name", "").strip()
+        start_date_str = ev_data.get("start_date", "").strip()
+        end_date_str = ev_data.get("end_date", "").strip()
+        event_type = ev_data.get("event_type", EventType.OTHER)
+
+        if not event_name or not start_date_str:
+            continue
+
+        # Geçerli event_type kontrolü
+        valid_types = [e.value for e in EventType]
+        if event_type not in valid_types:
+            event_type = EventType.OTHER
+
+        try:
+            start_date_obj = date.fromisoformat(start_date_str)
+        except ValueError:
+            logger.warning("Geçersiz start_date atlandı: %s", start_date_str)
+            continue
+
+        end_date_obj: Optional[date] = None
+        if end_date_str and end_date_str != start_date_str:
+            try:
+                end_date_obj = date.fromisoformat(end_date_str)
+            except ValueError:
+                end_date_obj = None
+
+        new_event = AcademicCalendarEvent(
+            id=str(uuid4()),
+            university=university,
+            academic_year=target_academic_year,
+            event_type=event_type,
+            title=event_name,
+            start_date=start_date_obj,
+            end_date=end_date_obj,
+            created_by=current_user.id,
+        )
+        session.add(new_event)
+        saved_count += 1
+
+    await session.commit()
+    logger.info(
+        "PDF calendar upload tamamlandı. user=%s events_saved=%d",
+        current_user.id, saved_count,
+    )
+
+    return CalendarUploadResponse(
+        success=True,
+        message=f"Akademik takvim başarıyla yüklendi. {saved_count} etkinlik eklendi.",
+        university=university,
+        academic_year=target_academic_year,
+        events_parsed=saved_count,
+    )

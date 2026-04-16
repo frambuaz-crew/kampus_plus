@@ -20,6 +20,10 @@ import {
   type ScheduleUploadResult,
   type SemesterInfo,
 } from '../api/academic';
+import {
+  CascadingInstitutionSelect,
+  type InstitutionSelection,
+} from '../components/institution/CascadingInstitutionSelect';
 
 // ============================================================================
 // CONSTANTS
@@ -357,7 +361,6 @@ const EmptyState: React.FC<EmptyStateProps> = ({
 
 interface PdfUploadModalProps {
   defaultUniversity: string;
-  defaultDepartment: string;
   defaultClassYear: string;
   defaultSemester: string;
   defaultAcademicYear: string;
@@ -367,7 +370,6 @@ interface PdfUploadModalProps {
 
 const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
   defaultUniversity,
-  defaultDepartment,
   defaultClassYear,
   defaultSemester,
   defaultAcademicYear,
@@ -376,8 +378,9 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [university, setUniversity] = useState(defaultUniversity);
-  const [department, setDepartment] = useState(defaultDepartment);
+  const [institution, setInstitution] = useState<Partial<InstitutionSelection>>({
+    universityName: defaultUniversity,
+  });
   const [classYear, setClassYear] = useState(defaultClassYear);
   const [semester, setSemester] = useState(defaultSemester);
   const [uploading, setUploading] = useState(false);
@@ -399,8 +402,8 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
     e.preventDefault();
     if (uploading) return;
     if (!file) { setError('Lütfen bir PDF dosyası seç.'); return; }
-    if (!university.trim() || !department.trim() || !classYear.trim() || !semester.trim()) {
-      setError('Tüm alanları doldurun.');
+    if (!institution.universityName || !institution.departmentName || !classYear || !semester) {
+      setError('Lütfen üniversite, fakülte, bölüm, sınıf ve dönem seçin.');
       return;
     }
 
@@ -409,10 +412,10 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
     try {
       const res = await uploadSchedulePDF({
         file,
-        university: university.trim(),
-        department: department.trim(),
-        class_year: classYear.trim(),
-        semester: semester.trim(),
+        university: institution.universityName,
+        department: institution.departmentName,
+        class_year: classYear,
+        semester,
         academic_year: defaultAcademicYear,
       });
       setResult(res);
@@ -506,29 +509,12 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
               </div>
             </div>
 
-            {/* Üniversite + Bölüm */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Üniversite *</label>
-                <input
-                  type="text"
-                  value={university}
-                  onChange={(e) => setUniversity(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors"
-                  placeholder="Selçuk Üniversitesi"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bölüm *</label>
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors"
-                  placeholder="Bilgisayar Mühendisliği"
-                />
-              </div>
-            </div>
+            {/* Üniversite → Fakülte → Bölüm */}
+            <CascadingInstitutionSelect
+              showDepartment
+              initialUniversityName={defaultUniversity}
+              onChange={(sel) => setInstitution((prev) => ({ ...prev, ...sel }))}
+            />
 
             {/* Sınıf + Dönem */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -806,7 +792,6 @@ export const CourseSchedulePage: React.FC = () => {
       {isUploadModalOpen && semesterInfo && (
         <PdfUploadModal
           defaultUniversity={universityName}
-          defaultDepartment={departmentName}
           defaultClassYear={user?.grade ?? classYear}
           defaultSemester={
             semesterInfo.semester === 'bahar' ? 'Bahar' : 'Güz'

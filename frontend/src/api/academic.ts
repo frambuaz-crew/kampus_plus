@@ -127,6 +127,34 @@ export const getMyContributions = async (): Promise<ContributionItem[]> => {
 // PDF DERS PROGRAMI YÜKLEME
 // ============================================================================
 
+export interface CalendarUploadResult {
+  success: boolean;
+  message: string;
+  university: string;
+  academic_year: string;
+  events_parsed: number;
+}
+
+export const uploadCalendarPDF = async (params: {
+  file: File;
+  university: string;
+  academic_year?: string;
+}): Promise<CalendarUploadResult> => {
+  const formData = new FormData();
+  formData.append('file', params.file);
+  formData.append('university', params.university);
+  if (params.academic_year) {
+    formData.append('academic_year', params.academic_year);
+  }
+
+  const res = await apiClient.post<CalendarUploadResult>(
+    '/academic/calendar/upload',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return res.data;
+};
+
 export interface ScheduleUploadResult {
   success: boolean;
   message: string;

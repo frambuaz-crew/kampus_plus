@@ -11,14 +11,14 @@
  * - Email doğrulama başarı mesajı
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import type { RegisterData } from '../../types/auth';
+import type { InstitutionSelection } from '../institution/CascadingInstitutionSelect';
+import { CascadingInstitutionSelect } from '../institution/CascadingInstitutionSelect';
 import { RegisterSuccessMessage } from './register';
 import axios from 'axios';
-import { getDepartments } from '../../api/auth'; // Yeni API fonksiyonu
-import type { Department } from '../../types/department'; // Yeni tip tanımı
 
 interface RegisterFormProps {
   onSuccess?: () => void;
@@ -26,13 +26,10 @@ interface RegisterFormProps {
 
 export const RegisterForm: React.FC<RegisterFormProps> = () => {
   const { register } = useAuth();
-  
-  // 1. Yeni State Tanımlamaları
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [isLoadingDepts, setIsLoadingDepts] = useState(true);
 
   const [formData, setFormData] = useState({
     email: '',
+    university: '',
     password: '',
     confirmPassword: '',
     first_name: '',
@@ -40,21 +37,6 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
     department_id: '', // 'department' silindi, 'department_id' eklendi
     terms_accepted: false,
   });
-
-  // 2. Sayfa açıldığında bölümleri çeken efekt
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const data = await getDepartments();
-        setDepartments(data);
-      } catch (error) {
-        console.error('Bölümler yüklenirken hata:', error);
-      } finally {
-        setIsLoadingDepts(false);
-      }
-    };
-    fetchDepartments();
-  }, []);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +99,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
     }
 
     // Department validation (GÜNCELLENDİ 🛠️)
+    if (!formData.university) {
+      newErrors.university = 'Üniversite seçmelisiniz';
+    }
+
     if (!formData.department_id) {
       newErrors.department_id = 'Bölüm seçmelisiniz';
     }
@@ -146,7 +132,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         password: formData.password,
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
-        department_id: Number(formData.department_id), // GÜNCELLENDİ: String ID'yi Number yaptık 🔢
+        university: formData.university,
+        department_id: formData.department_id,
         terms_accepted: formData.terms_accepted,
       };
 
@@ -159,6 +146,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       // Reset form (GÜNCELLENDİ 🧹)
       setFormData({
         email: '',
+        university: '',
         password: '',
         confirmPassword: '',
         first_name: '',
@@ -173,6 +161,31 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleInstitutionChange = (selection: Partial<InstitutionSelection>) => {
+    setFormData((prev) => ({
+      ...prev,
+      university:
+        selection.universityName !== undefined
+          ? selection.universityName
+          : prev.university,
+      department_id:
+        selection.departmentId !== undefined
+          ? selection.departmentId
+          : prev.department_id,
+    }));
+
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (selection.universityName !== undefined) {
+        delete next.university;
+      }
+      if (selection.departmentId !== undefined) {
+        delete next.department_id;
+      }
+      return next;
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -265,30 +278,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         </div>
       </div>
 
-      {/* Bölüm Seçimi (GÜNCELLENDİ 🚀) */}
+      {/* Üniversite / Fakülte / Bölüm Seçimi */}
       <div>
-        <label htmlFor="department_id" className="block text-sm font-semibold text-gray-700 mb-2">
-          Bölüm
-        </label>
-        <select
-          id="department_id"
-          name="department_id" // name="department" yerine "department_id"
-          value={formData.department_id}
-          onChange={handleChange}
-          className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white disabled:opacity-50"
-          disabled={isLoading || isLoadingDepts} // Veri yüklenirken veya form submit edilirken pasif
-        >
-          <option value="">
-            {isLoadingDepts ? 'Bölümler yükleniyor...' : 'Bölümünüzü seçin'}
-          </option>
-          {!isLoadingDepts && departments.map((dept) => (
-            <option key={dept.id} value={dept.id}>
-              {dept.name}
-            </option>
-          ))}
-        </select>
-        {errors.department_id && (
-          <p className="mt-2 text-sm text-red-600 font-medium">{errors.department_id}</p>
+        <CascadingInstitutionSelect
+          showDepartment={true}
+          onChange={handleInstitutionChange}
+        />
+        {(errors.university || errors.department_id) && (
+          <p className="mt-2 text-sm text-red-600 font-medium">
+            {errors.university ?? errors.department_id}
+          </p>
         )}
       </div>
       

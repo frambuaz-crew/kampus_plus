@@ -11,7 +11,7 @@ export interface User {
   username: string;
   role: 'student' | 'instructor' | 'admin';
   university: string;
-  department_id: number; // Artik string değil, number (ID)
+  department_id: string;
   department?: string | null;
   is_verified: boolean;
   grade?: string | null;
@@ -32,7 +32,8 @@ export interface RegisterData {
   password: string;
   first_name: string;
   last_name: string;
-  department_id: number; // Kullanıcı seçim yaptığında ID göndereceğiz
+  university: string;
+  department_id: string;
   terms_accepted: boolean;
 }
 

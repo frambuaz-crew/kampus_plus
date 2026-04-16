@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, text, Integer
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -42,11 +42,11 @@ class User(Base):
     
     university: Mapped[str] = mapped_column(String(255), nullable=False)
     
-    # ⬇️ DEĞİŞİKLİK BURADA: Metin alanını sildik, Foreign Key ekledik
-    department_id: Mapped[int] = mapped_column(
-        Integer, 
-        ForeignKey("departments.id", ondelete="RESTRICT"), 
-        nullable=False
+    department_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("departments.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     
     role: Mapped[UserRole] = mapped_column(

@@ -27,6 +27,7 @@ from src.api.routes.career import router as career_router
 from src.api.routes.academic import router as academic_router
 from src.api.routes import users
 from src.api.routes.friendships import router as friendships_router
+from src.api.routes.institutions import router as institutions_router
 
 
 @asynccontextmanager
@@ -154,6 +155,7 @@ app.include_router(career_router, prefix="/api/v1")
 app.include_router(academic_router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(friendships_router, prefix="/api/v1")
+app.include_router(institutions_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

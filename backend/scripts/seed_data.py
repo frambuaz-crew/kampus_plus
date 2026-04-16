@@ -24,6 +24,7 @@ from src.core.security import hash_password
 from src.models.user import User, UserRole
 from src.models.department import Department
 from src.models.university import University  # ⬅️ Üniversite modelini ekledik
+from src.models.faculty import Faculty
 
 def _utc_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -67,6 +68,42 @@ async def seed_universities(session: AsyncSession) -> None:
 async def seed_departments(session: AsyncSession) -> dict:
     """Bölümleri oluştur ve isim->id haritası döndür."""
     print("\nBolumler olusturuluyor...")
+
+    sample_university_name = "Örnek Üniversite"
+    sample_faculty_name = "Örnek Fakülte"
+
+    uni_result = await session.execute(
+        select(University).where(University.name == sample_university_name)
+    )
+    sample_university = uni_result.scalars().first()
+    if not sample_university:
+        sample_university = University(
+            id=str(uuid4()),
+            name=sample_university_name,
+            university_type="devlet",
+            is_active=True,
+        )
+        session.add(sample_university)
+        await session.flush()
+        print(f"   [OK] Universite eklendi: {sample_university_name}")
+
+    faculty_result = await session.execute(
+        select(Faculty).where(
+            Faculty.name == sample_faculty_name,
+            Faculty.university_id == sample_university.id,
+        )
+    )
+    sample_faculty = faculty_result.scalars().first()
+    if not sample_faculty:
+        sample_faculty = Faculty(
+            id=str(uuid4()),
+            name=sample_faculty_name,
+            university_id=sample_university.id,
+            is_active=True,
+        )
+        session.add(sample_faculty)
+        await session.flush()
+        print(f"   [OK] Fakulte eklendi: {sample_faculty_name}")
     
     dept_names = [
         "Bilgisayar Mühendisliği", 
@@ -80,10 +117,10 @@ async def seed_departments(session: AsyncSession) -> dict:
     dept_map = {}
     for name in dept_names:
         result = await session.execute(select(Department).where(Department.name == name))
-        dept = result.scalar_one_or_none()
+        dept = result.scalars().first()
         
         if not dept:
-            dept = Department(name=name)
+            dept = Department(name=name, faculty_id=sample_faculty.id)
             session.add(dept)
             await session.flush()
             print(f"   [OK] Bolum eklendi: {name}")
