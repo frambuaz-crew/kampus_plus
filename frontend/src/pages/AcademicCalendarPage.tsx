@@ -24,7 +24,27 @@ const FILTERS = [
   { key: 'registration', label: 'Kayıt' },
   { key: 'holiday',      label: 'Tatil' },
   { key: 'other',        label: 'Diğer' },
-];
+] as const;
+
+type FilterKey = (typeof FILTERS)[number]['key'];
+type CanonicalEventType = Exclude<FilterKey, 'all'>;
+
+const EVENT_TYPE_ALIASES: Record<string, CanonicalEventType> = {
+  exam: 'exam',
+  sinav: 'exam',
+  'sınav': 'exam',
+
+  registration: 'registration',
+  kayit: 'registration',
+  'kayıt': 'registration',
+
+  holiday: 'holiday',
+  tatil: 'holiday',
+
+  other: 'other',
+  etkinlik: 'other',
+  ders: 'other',
+};
 
 const TYPE_META: Record<string, { icon: string; leftBar: string; badge: string; label: string }> = {
   exam:         { icon: '📝', leftBar: 'bg-rose-500',   badge: 'bg-rose-50 text-rose-600 ring-rose-200',   label: 'Sınav' },
@@ -32,6 +52,18 @@ const TYPE_META: Record<string, { icon: string; leftBar: string; badge: string; 
   holiday:      { icon: '🎉', leftBar: 'bg-emerald-500',badge: 'bg-emerald-50 text-emerald-600 ring-emerald-200', label: 'Tatil' },
   other:        { icon: '📌', leftBar: 'bg-slate-400',  badge: 'bg-slate-50 text-slate-600 ring-slate-200', label: 'Diğer' },
 };
+
+function normalizeEventType(eventType?: string | null): CanonicalEventType {
+  const key = (eventType ?? '').trim().toLocaleLowerCase('tr-TR');
+  return EVENT_TYPE_ALIASES[key] ?? 'other';
+}
+
+function normalizeCalendarEvents(items: CalendarEvent[]): CalendarEvent[] {
+  return items.map((item) => ({
+    ...item,
+    event_type: normalizeEventType(item.event_type),
+  }));
+}
 
 // ─── Yardımcılar ─────────────────────────────────────────────────────────────
 
@@ -102,7 +134,8 @@ const LoadingSkeleton = () => (
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
 const EventCard: React.FC<{ event: CalendarEvent }> = ({ event }) => {
-  const meta    = TYPE_META[event.event_type] ?? TYPE_META.other;
+  const eventType = normalizeEventType(event.event_type);
+  const meta    = TYPE_META[eventType] ?? TYPE_META.other;
   const urgency = urgencyInfo(event.days_until);
   const isPast  = event.days_until == null;
 
@@ -404,10 +437,10 @@ export const AcademicCalendarPage: React.FC = () => {
   const { user } = useAuth();
 
   const [semesterInfo,       setSemesterInfo]       = useState<SemesterInfo | null>(null);
-  const [events,             setEvents]             = useState<CalendarEvent[]>([]);
+  const [allEvents,          setAllEvents]          = useState<CalendarEvent[]>([]);
   const [loading,            setLoading]            = useState(true);
   const [error,              setError]              = useState<string | null>(null);
-  const [activeFilter,       setActiveFilter]       = useState('all');
+  const [activeFilter,       setActiveFilter]       = useState<FilterKey>('all');
   const [showPast,           setShowPast]           = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
 
@@ -430,27 +463,33 @@ export const AcademicCalendarPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getCalendarEvents({
-        event_type: activeFilter === 'all' ? undefined : activeFilter,
-      });
-      setEvents(data);
+      const data = await getCalendarEvents();
+      setAllEvents(normalizeCalendarEvents(data));
     } catch {
       setError('Etkinlikler yüklenemedi.');
     } finally {
       setLoading(false);
     }
-  }, [activeFilter]);
+  }, []);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
   // Türetilmiş değerler
+  const filteredEvents = activeFilter === 'all'
+    ? allEvents
+    : allEvents.filter((e) => normalizeEventType(e.event_type) === activeFilter);
   const today          = new Date().toISOString().split('T')[0];
-  const upcomingEvents = events.filter(e => e.start_date >= today);
-  const pastEvents     = events.filter(e => e.start_date <  today);
-  const displayEvents  = showPast ? events : upcomingEvents;
+  const upcomingAllEvents = allEvents.filter((e) => e.start_date >= today);
+  const upcomingEvents = filteredEvents.filter(e => e.start_date >= today);
+  const pastEvents     = filteredEvents.filter(e => e.start_date <  today);
+  const displayEvents  = showPast ? filteredEvents : upcomingEvents;
   const grouped        = groupByMonth(displayEvents);
   const urgentCount    = upcomingEvents.filter(e => (e.days_until ?? 99) <= 7).length;
   const university     = user?.university ?? '';
+  const getFilterCount = (filterKey: FilterKey) => {
+    if (filterKey === 'all') return upcomingAllEvents.length;
+    return upcomingAllEvents.filter((e) => normalizeEventType(e.event_type) === filterKey).length;
+  };
 
   return (
     <MainLayout>
@@ -492,7 +531,7 @@ export const AcademicCalendarPage: React.FC = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
             {/* Filtreler — sadece veri varsa göster */}
-            {!loading && events.length > 0 && (
+            {!loading && allEvents.length > 0 && (
               <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-100 flex-wrap">
                 {FILTERS.map(f => (
                   <button
@@ -507,7 +546,7 @@ export const AcademicCalendarPage: React.FC = () => {
                     {f.label}
                     {f.key !== 'all' && (
                       <span className={`ml-1 ${activeFilter === f.key ? 'text-slate-300' : 'text-slate-400'}`}>
-                        {events.filter(e => e.event_type === f.key).length}
+                        {getFilterCount(f.key)}
                       </span>
                     )}
                   </button>
@@ -553,7 +592,7 @@ export const AcademicCalendarPage: React.FC = () => {
               )}
 
               {/* Boş durum */}
-              {!loading && !error && events.length === 0 && (
+              {!loading && !error && allEvents.length === 0 && (
                 <EmptyState
                   university={university}
                   onContribute={() => setIsCalendarModalOpen(true)}
@@ -561,7 +600,7 @@ export const AcademicCalendarPage: React.FC = () => {
               )}
 
               {/* Filtreli boş durum */}
-              {!loading && !error && events.length > 0 && displayEvents.length === 0 && (
+              {!loading && !error && allEvents.length > 0 && displayEvents.length === 0 && (
                 <div className="py-16 text-center">
                   <p className="text-sm text-slate-400">Bu filtrede etkinlik yok.</p>
                 </div>
@@ -605,7 +644,7 @@ export const AcademicCalendarPage: React.FC = () => {
           </div>
 
           {/* ── Alt bilgi ────────────────────────────────── */}
-          {!loading && events.length > 0 && (
+          {!loading && allEvents.length > 0 && (
             <p className="text-center text-xs text-slate-400 mt-4">
               Eksik veya yanlış bilgi mi var?{' '}
               <button
