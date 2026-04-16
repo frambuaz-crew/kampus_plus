@@ -3,7 +3,7 @@
  * Spec: 006-academic-features/spec.md
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -28,6 +28,7 @@ const FILTERS = [
 
 type FilterKey = (typeof FILTERS)[number]['key'];
 type CanonicalEventType = Exclude<FilterKey, 'all'>;
+type CalendarViewMode = 'list' | 'calendar';
 
 const EVENT_TYPE_ALIASES: Record<string, CanonicalEventType> = {
   exam: 'exam',
@@ -103,6 +104,46 @@ function groupByMonth(events: CalendarEvent[]): [string, CalendarEvent[]][] {
     map.get(k)!.push(ev);
   }
   return Array.from(map.entries());
+}
+
+function toDateKey(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function calendarGrid(monthCursor: Date): Date[] {
+  const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+  const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
+
+  const startOffset = (monthStart.getDay() + 6) % 7;
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(monthStart.getDate() - startOffset);
+
+  const endOffset = 6 - ((monthEnd.getDay() + 6) % 7);
+  const gridEnd = new Date(monthEnd);
+  gridEnd.setDate(monthEnd.getDate() + endOffset);
+
+  const dates: Date[] = [];
+  const cursor = new Date(gridStart);
+  while (cursor <= gridEnd) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  while (dates.length < 35) {
+    const next = new Date(dates[dates.length - 1]);
+    next.setDate(next.getDate() + 1);
+    dates.push(next);
+  }
+
+  return dates;
+}
+
+function dayContainsEvent(dayKey: string, event: CalendarEvent): boolean {
+  const endDate = event.end_date ?? event.start_date;
+  return event.start_date <= dayKey && dayKey <= endDate;
 }
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
@@ -442,6 +483,8 @@ export const AcademicCalendarPage: React.FC = () => {
   const [error,              setError]              = useState<string | null>(null);
   const [activeFilter,       setActiveFilter]       = useState<FilterKey>('all');
   const [showPast,           setShowPast]           = useState(false);
+  const [viewMode,           setViewMode]           = useState<CalendarViewMode>('list');
+  const [calendarMonth,      setCalendarMonth]      = useState<Date>(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
 
   // Dönem bilgisi
@@ -484,8 +527,18 @@ export const AcademicCalendarPage: React.FC = () => {
   const pastEvents     = filteredEvents.filter(e => e.start_date <  today);
   const displayEvents  = showPast ? filteredEvents : upcomingEvents;
   const grouped        = groupByMonth(displayEvents);
+  const calendarDays   = useMemo(() => calendarGrid(calendarMonth), [calendarMonth]);
+  const monthEventsMap = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const day of calendarDays) {
+      const dayKey = toDateKey(day);
+      map.set(dayKey, filteredEvents.filter((event) => dayContainsEvent(dayKey, event)));
+    }
+    return map;
+  }, [calendarDays, filteredEvents]);
   const urgentCount    = upcomingEvents.filter(e => (e.days_until ?? 99) <= 7).length;
   const university     = user?.university ?? '';
+  const activeViewHasNoEvents = viewMode === 'list' ? displayEvents.length === 0 : filteredEvents.length === 0;
   const getFilterCount = (filterKey: FilterKey) => {
     if (filterKey === 'all') return upcomingAllEvents.length;
     return upcomingAllEvents.filter((e) => normalizeEventType(e.event_type) === filterKey).length;
@@ -507,12 +560,37 @@ export const AcademicCalendarPage: React.FC = () => {
               )}
             </div>
 
-            {semesterInfo && (
-              <div className="flex-shrink-0 bg-white rounded-xl px-3.5 py-2 shadow-sm border border-slate-200 text-right">
-                <p className="text-xs font-semibold text-slate-700">{semesterInfo.semester_label}</p>
-                <p className="text-[11px] text-slate-400">{semesterInfo.academic_year}</p>
+            <div className="flex items-start gap-2">
+              <div className="flex-shrink-0 bg-white rounded-xl p-1 shadow-sm border border-slate-200 flex gap-1">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Liste
+                </button>
+                <button
+                  onClick={() => setViewMode('calendar')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    viewMode === 'calendar'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Takvim
+                </button>
               </div>
-            )}
+
+              {semesterInfo && (
+                <div className="flex-shrink-0 bg-white rounded-xl px-3.5 py-2 shadow-sm border border-slate-200 text-right">
+                  <p className="text-xs font-semibold text-slate-700">{semesterInfo.semester_label}</p>
+                  <p className="text-[11px] text-slate-400">{semesterInfo.academic_year}</p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* ── Acil uyarı ───────────────────────────────── */}
@@ -552,7 +630,7 @@ export const AcademicCalendarPage: React.FC = () => {
                   </button>
                 ))}
 
-                {pastEvents.length > 0 && (
+                {viewMode === 'list' && pastEvents.length > 0 && (
                   <button
                     onClick={() => setShowPast(p => !p)}
                     className="ml-auto text-xs text-slate-400 hover:text-slate-600 transition-colors"
@@ -600,14 +678,14 @@ export const AcademicCalendarPage: React.FC = () => {
               )}
 
               {/* Filtreli boş durum */}
-              {!loading && !error && allEvents.length > 0 && displayEvents.length === 0 && (
+              {!loading && !error && allEvents.length > 0 && activeViewHasNoEvents && (
                 <div className="py-16 text-center">
                   <p className="text-sm text-slate-400">Bu filtrede etkinlik yok.</p>
                 </div>
               )}
 
               {/* Etkinlik listesi */}
-              {!loading && !error && grouped.length > 0 && (
+              {!loading && !error && viewMode === 'list' && grouped.length > 0 && (
                 <div className="divide-y divide-slate-50">
                   {grouped.map(([month, monthEvents]) => (
                     <div key={month} className="py-2">
@@ -637,6 +715,79 @@ export const AcademicCalendarPage: React.FC = () => {
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Aylık takvim görünümü */}
+              {!loading && !error && viewMode === 'calendar' && filteredEvents.length > 0 && (
+                <div className="px-2 pb-3">
+                  <div className="flex items-center justify-between px-2 py-3">
+                    <button
+                      onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      Önceki
+                    </button>
+                    <p className="text-sm font-bold text-slate-700 capitalize">
+                      {calendarMonth.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}
+                    </p>
+                    <button
+                      onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1 px-1">
+                    {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map((label) => (
+                      <div key={label} className="text-[11px] font-semibold text-slate-400 text-center py-1">
+                        {label}
+                      </div>
+                    ))}
+
+                    {calendarDays.map((day) => {
+                      const dayKey = toDateKey(day);
+                      const dayEvents = monthEventsMap.get(dayKey) ?? [];
+                      const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
+
+                      return (
+                        <div
+                          key={dayKey}
+                          className={`min-h-24 border rounded-lg p-1.5 transition-colors ${
+                            isCurrentMonth
+                              ? 'bg-white border-slate-200 hover:border-slate-300'
+                              : 'bg-slate-50 border-slate-100 text-slate-300'
+                          }`}
+                        >
+                          <p className={`text-[11px] font-semibold mb-1 ${isCurrentMonth ? 'text-slate-700' : 'text-slate-400'}`}>
+                            {day.getDate()}
+                          </p>
+
+                          <div className="space-y-1">
+                            {dayEvents.slice(0, 3).map((event) => {
+                              const eventType = normalizeEventType(event.event_type);
+                              const meta = TYPE_META[eventType] ?? TYPE_META.other;
+                              return (
+                                <div
+                                  key={`${event.id}-${dayKey}`}
+                                  title={event.title}
+                                  className={`w-full px-1 py-0.5 rounded-md text-[10px] font-medium text-white ${meta.leftBar}`}
+                                >
+                                  <span className="block truncate overflow-hidden whitespace-nowrap">
+                                    {event.title}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            {dayEvents.length > 3 && (
+                              <p className="text-[10px] text-slate-400 font-medium">+{dayEvents.length - 3}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

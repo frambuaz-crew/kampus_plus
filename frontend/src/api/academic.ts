@@ -41,6 +41,7 @@ export interface CalendarEvent {
   id: string;
   university: string;
   academic_year: string;
+  is_approved?: boolean;
   event_type: 'exam' | 'registration' | 'holiday' | 'other';
   title: string;
   description?: string | null;
@@ -110,6 +111,31 @@ export const getUpcomingEvents = async (days = 30): Promise<CalendarEvent[]> => 
   const res = await apiClient.get<CalendarEvent[]>('/academic/calendar/upcoming', {
     params: { days },
   });
+  return res.data;
+};
+
+export const getPendingCalendarEvents = async (): Promise<CalendarEvent[]> => {
+  const res = await apiClient.get<CalendarEvent[]>('/academic/admin/calendar/pending');
+  return res.data;
+};
+
+export const approveCalendarEvent = async (eventId: string): Promise<CalendarEvent> => {
+  const res = await apiClient.patch<CalendarEvent>(`/academic/calendar/${eventId}/approve`);
+  return res.data;
+};
+
+export interface UpdateCalendarEventPayload {
+  title?: string;
+  event_type?: CalendarEvent['event_type'];
+  start_date?: string;
+  end_date?: string | null;
+}
+
+export const updateCalendarEvent = async (
+  eventId: string,
+  payload: UpdateCalendarEventPayload
+): Promise<CalendarEvent> => {
+  const res = await apiClient.patch<CalendarEvent>(`/academic/calendar/${eventId}`, payload);
   return res.data;
 };
 

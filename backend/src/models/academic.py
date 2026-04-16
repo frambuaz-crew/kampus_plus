@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -49,6 +49,7 @@ class AcademicCalendarEvent(Base):
     university: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     academic_year: Mapped[str] = mapped_column(String(20), nullable=False)
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    is_approved: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False, index=True)
     
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

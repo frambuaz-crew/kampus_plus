@@ -16,6 +16,7 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 
 interface NavItem {
   id: string;
@@ -27,6 +28,7 @@ interface NavItem {
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   // Navigation items - Spec'e göre (004-dashboard)
   const navItems: NavItem[] = [
@@ -42,6 +44,10 @@ export const Sidebar: React.FC = () => {
     { id: 'course-schedule', label: 'Ders Programım', icon: '📅', path: '/dashboard/course-schedule' },
     { id: 'academic-calendar', label: 'Akademik Takvim', icon: '⏰', path: '/dashboard/academic-calendar' },
   ];
+
+  const adminItems: NavItem[] = user?.role === 'admin'
+    ? [{ id: 'admin-panel', label: 'Admin Paneli', icon: '🛡️', path: '/admin' }]
+    : [];
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -110,6 +116,33 @@ export const Sidebar: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Admin Menü Öğeleri */}
+        {adminItems.length > 0 && (
+          <div className="space-y-1 border-t border-gray-100 pt-4">
+            {adminItems.map((item) => {
+              const active = isActive(item.path);
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavigation(item.path)}
+                  className={`
+                    w-full flex items-center px-3 py-2.5 rounded-lg
+                    text-sm font-medium transition-all duration-200
+                    ${active
+                      ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600 shadow-sm'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 border-l-4 border-transparent'
+                    }
+                  `}
+                >
+                  <span className="text-xl mr-3">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </nav>
     </aside>
   );

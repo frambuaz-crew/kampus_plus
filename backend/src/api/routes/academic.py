@@ -23,8 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.core.database import get_db
-from src.core.dependencies import get_current_user, require_admin
-from src.models.user import User
+from src.core.dependencies import get_current_user, require_admin, require_role
+from src.models.user import User, UserRole
 from src.models.academic import (
     AcademicCalendarEvent,
     AcademicContribution,
@@ -114,6 +114,7 @@ class CalendarEventResponse(BaseModel):
     id: str
     university: str
     academic_year: str
+    is_approved: bool = True
     event_type: str
     title: str
     description: Optional[str]
@@ -175,6 +176,13 @@ class AdminCourseScheduleRequest(BaseModel):
     semester: str
     academic_year: str
     courses: list[CourseItem]
+
+
+class AdminCalendarEventUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    event_type: Optional[str] = Field(default=None, description="exam / registration / holiday / other")
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
 
 class ContributionReviewRequest(BaseModel):
@@ -296,6 +304,7 @@ async def get_calendar_events(
     conditions = [
         AcademicCalendarEvent.university == current_user.university,
         AcademicCalendarEvent.academic_year == target_year,
+        AcademicCalendarEvent.is_approved.is_(True),
     ]
     if event_type:
         conditions.append(AcademicCalendarEvent.event_type == event_type)
@@ -317,6 +326,7 @@ async def get_calendar_events(
                 id=ev.id,
                 university=ev.university,
                 academic_year=ev.academic_year,
+                is_approved=ev.is_approved,
                 event_type=ev.event_type,
                 title=ev.title,
                 description=ev.description,
@@ -345,6 +355,7 @@ async def get_upcoming_events(
         .where(
             and_(
                 AcademicCalendarEvent.university == current_user.university,
+                    AcademicCalendarEvent.is_approved.is_(True),
                 AcademicCalendarEvent.start_date >= today,
                 AcademicCalendarEvent.start_date <= end_date,
             )
@@ -363,6 +374,7 @@ async def get_upcoming_events(
                 id=ev.id,
                 university=ev.university,
                 academic_year=ev.academic_year,
+                is_approved=ev.is_approved,
                 event_type=ev.event_type,
                 title=ev.title,
                 description=ev.description,
@@ -515,6 +527,209 @@ async def admin_list_pending_contributions(
     return result.scalars().all()
 
 
+@router.get("/admin/calendar/pending", response_model=list[CalendarEventResponse])
+async def admin_list_pending_calendar_events(
+    university: Optional[str] = Query(None, description="Üniversiteye göre filtre"),
+    academic_year: Optional[str] = Query(None, description="Öğretim yılına göre filtre"),
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Onay bekleyen akademik takvim etkinliklerini listeler. (Admin)"""
+    conditions = [AcademicCalendarEvent.is_approved.is_(False)]
+    if university:
+        conditions.append(AcademicCalendarEvent.university == university)
+    if academic_year:
+        conditions.append(AcademicCalendarEvent.academic_year == academic_year)
+
+    stmt = (
+        select(AcademicCalendarEvent)
+        .where(and_(*conditions))
+        .order_by(AcademicCalendarEvent.created_at.asc())
+    )
+    result = await session.execute(stmt)
+    events = result.scalars().all()
+
+    today = date.today()
+    return [
+        CalendarEventResponse(
+            id=ev.id,
+            university=ev.university,
+            academic_year=ev.academic_year,
+            is_approved=ev.is_approved,
+            event_type=ev.event_type,
+            title=ev.title,
+            description=ev.description,
+            start_date=ev.start_date,
+            end_date=ev.end_date,
+            days_until=(ev.start_date - today).days if ev.start_date >= today else None,
+            created_at=ev.created_at,
+        )
+        for ev in events
+    ]
+
+
+@router.get("/admin/calendar/approved", response_model=list[CalendarEventResponse])
+async def admin_list_approved_calendar_events(
+    university: Optional[str] = Query(None, description="Üniversiteye göre filtre"),
+    academic_year: Optional[str] = Query(None, description="Öğretim yılına göre filtre"),
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Onaylanmış akademik takvim etkinliklerini listeler. (Admin)"""
+    conditions = [AcademicCalendarEvent.is_approved.is_(True)]
+    if university:
+        conditions.append(AcademicCalendarEvent.university == university)
+    if academic_year:
+        conditions.append(AcademicCalendarEvent.academic_year == academic_year)
+
+    stmt = (
+        select(AcademicCalendarEvent)
+        .where(and_(*conditions))
+        .order_by(AcademicCalendarEvent.start_date.asc())
+    )
+    result = await session.execute(stmt)
+    events = result.scalars().all()
+
+    today = date.today()
+    return [
+        CalendarEventResponse(
+            id=ev.id,
+            university=ev.university,
+            academic_year=ev.academic_year,
+            is_approved=ev.is_approved,
+            event_type=ev.event_type,
+            title=ev.title,
+            description=ev.description,
+            start_date=ev.start_date,
+            end_date=ev.end_date,
+            days_until=(ev.start_date - today).days if ev.start_date >= today else None,
+            created_at=ev.created_at,
+        )
+        for ev in events
+    ]
+
+
+@router.patch("/calendar/{event_id}/approve", response_model=CalendarEventResponse)
+async def approve_calendar_event(
+    event_id: str,
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Bir akademik takvim etkinliğini onaylar. (Sadece Admin)"""
+    stmt = select(AcademicCalendarEvent).where(AcademicCalendarEvent.id == event_id)
+    result = await session.execute(stmt)
+    event = result.scalar_one_or_none()
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Takvim etkinliği bulunamadı"}},
+        )
+
+    event.is_approved = True
+    event.updated_at = datetime.now()
+    await session.commit()
+    await session.refresh(event)
+
+    today = date.today()
+    return CalendarEventResponse(
+        id=event.id,
+        university=event.university,
+        academic_year=event.academic_year,
+        is_approved=event.is_approved,
+        event_type=event.event_type,
+        title=event.title,
+        description=event.description,
+        start_date=event.start_date,
+        end_date=event.end_date,
+        days_until=(event.start_date - today).days if event.start_date >= today else None,
+        created_at=event.created_at,
+    )
+
+
+@router.patch("/calendar/{event_id}", response_model=CalendarEventResponse)
+async def admin_update_calendar_event(
+    event_id: str,
+    data: AdminCalendarEventUpdateRequest,
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Akademik takvim etkinliği günceller. (Sadece Admin)"""
+    stmt = select(AcademicCalendarEvent).where(AcademicCalendarEvent.id == event_id)
+    result = await session.execute(stmt)
+    event = result.scalar_one_or_none()
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Takvim etkinliği bulunamadı"}},
+        )
+
+    if data.event_type is not None and data.event_type not in [e.value for e in EventType]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "INVALID_EVENT_TYPE", "message": "Geçersiz etkinlik tipi"}},
+        )
+
+    next_start_date = data.start_date if data.start_date is not None else event.start_date
+    next_end_date = data.end_date if data.end_date is not None else event.end_date
+
+    if next_end_date is not None and next_end_date < next_start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "INVALID_DATE_RANGE", "message": "Bitiş tarihi başlangıç tarihinden önce olamaz"}},
+        )
+
+    if data.title is not None:
+        event.title = data.title.strip() or event.title
+    if data.event_type is not None:
+        event.event_type = data.event_type
+    if data.start_date is not None:
+        event.start_date = data.start_date
+    if data.end_date is not None:
+        event.end_date = data.end_date
+
+    event.updated_at = datetime.now()
+    await session.commit()
+    await session.refresh(event)
+
+    today = date.today()
+    return CalendarEventResponse(
+        id=event.id,
+        university=event.university,
+        academic_year=event.academic_year,
+        is_approved=event.is_approved,
+        event_type=event.event_type,
+        title=event.title,
+        description=event.description,
+        start_date=event.start_date,
+        end_date=event.end_date,
+        days_until=(event.start_date - today).days if event.start_date >= today else None,
+        created_at=event.created_at,
+    )
+
+
+@router.delete("/calendar/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_delete_calendar_event(
+    event_id: str,
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Akademik takvim etkinliğini siler. (Sadece Admin)"""
+    stmt = select(AcademicCalendarEvent).where(AcademicCalendarEvent.id == event_id)
+    result = await session.execute(stmt)
+    event = result.scalar_one_or_none()
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Takvim etkinliği bulunamadı"}},
+        )
+
+    await session.delete(event)
+    await session.commit()
+
+
 @router.post("/admin/contributions/{contribution_id}/approve", response_model=ContributionResponse)
 async def admin_approve_contribution(
     contribution_id: str,
@@ -582,6 +797,7 @@ async def admin_approve_contribution(
                 university=contribution.university,
                 academic_year=contribution.academic_year or semester_info["academic_year"],
                 event_type=ev_data.get("event_type", EventType.OTHER),
+                is_approved=True,
                 title=ev_data.get("title", "Etkinlik"),
                 description=ev_data.get("description"),
                 start_date=date.fromisoformat(ev_data["start_date"]) if "start_date" in ev_data else date.today(),
@@ -653,6 +869,7 @@ async def admin_create_calendar_event(
         university=data.university,
         academic_year=data.academic_year,
         event_type=data.event_type,
+        is_approved=True,
         title=data.title,
         description=data.description,
         start_date=data.start_date,
@@ -669,6 +886,7 @@ async def admin_create_calendar_event(
         id=event.id,
         university=event.university,
         academic_year=event.academic_year,
+        is_approved=event.is_approved,
         event_type=event.event_type,
         title=event.title,
         description=event.description,
@@ -1253,6 +1471,7 @@ async def upload_calendar_pdf(
             university=university,
             academic_year=target_academic_year,
             event_type=event_type,
+            is_approved=(current_user.role == UserRole.ADMIN),
             title=event_name,
             start_date=start_date_obj,
             end_date=end_date_obj,

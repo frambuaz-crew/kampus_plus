@@ -51,23 +51,57 @@ async def seed_manual(session):
         "data": json.dumps(schedule_data)
     })
 
-    # 2. KGTÜ Akademik Takvim (Bahar Dönemi 2025-2026)
+    # 2. KGTÜ Akademik Takvim (Tum Yil 2025-2026)
     events = [
-        ("Kayıt Yenileme ve Ders Kayıtları", "2026-02-02", "2026-02-06", "kayit"),
-        ("Bahar Yarıyılı Dersleri", "2026-02-09", "2026-05-22", "ders"),
-        ("Ara Sınavlar (Vizeler)", "2026-04-04", "2026-04-12", "sinav"),
-        ("Bahar Şenliği", "2026-05-21", "2026-05-21", "tatil"),
-        ("Yarıyıl Sonu Sınavları (Finaller)", "2026-06-03", "2026-06-14", "sinav"),
-        ("Bütünleme Sınavları", "2026-06-22", "2026-06-27", "sinav"),
-        ("Mezuniyet Töreni", "2026-07-03", "2026-07-03", "etkinlik")
+        # Güz Dönemi (Fall)
+        ("Çift Anadal - Yan Dal Başvuruları (Güz)", "2025-08-11", "2025-08-13", "registration"),
+        ("Çift Anadal - Yan Dal Sonuç İlanı (Güz)", "2025-08-20", "2025-08-20", "other"),
+        ("YKS ile Yerleştirilen Öğrencilerin Elektronik Kayıtları", "2025-09-01", "2025-09-03", "registration"),
+        ("YKS ile Yerleştirilen Öğrencilerin Kayıtları", "2025-09-01", "2025-09-05", "registration"),
+        ("Çift Anadal - Yan Dal Kayıtları (Güz)", "2025-09-08", "2025-09-09", "registration"),
+        ("Kayıt Yenileme ve Ders Kayıtları (Güz)", "2025-09-08", "2025-09-12", "registration"),
+        ("Danışman Onayları (Güz)", "2025-09-08", "2025-09-14", "registration"),
+        ("Yabancı Dil Yeterlik Sınavı I-II", "2025-09-08", "2025-09-10", "exam"),
+        ("Güz Yarıyılı Dersleri", "2025-09-15", "2025-12-26", "other"),
+        ("Ders Ekleme Bırakma (Güz)", "2025-09-29", "2025-10-03", "registration"),
+        ("Mazeretli Geç Kayıtlar İçin Son Başvuru (Güz)", "2025-10-10", "2025-10-10", "registration"),
+        ("Cumhuriyet Bayramı Tatili", "2025-10-28", "2025-10-29", "holiday"),
+        ("Dersten Çekilme İçin Son Gün (Güz)", "2025-10-31", "2025-10-31", "registration"),
+        ("Ara Sınavlar (Vizeler - Güz)", "2025-11-08", "2025-11-16", "exam"),
+        ("Yılbaşı Tatili", "2026-01-01", "2026-01-01", "holiday"),
+        ("Yarıyıl Sonu Sınavları (Finaller - Güz)", "2026-01-05", "2026-01-16", "exam"),
+        ("Bütünleme Sınavları (Güz)", "2026-01-24", "2026-01-30", "exam"),
+
+        # Bahar Dönemi (Spring)
+        ("Çift Anadal - Yan Dal Başvuruları (Bahar)", "2026-01-26", "2026-01-28", "registration"),
+        ("Çift Anadal - Yan Dal Sonuç İlanı (Bahar)", "2026-02-02", "2026-02-02", "other"),
+        ("Kayıt Yenileme ve Ders Kayıtları (Bahar)", "2026-02-02", "2026-02-06", "registration"),
+        ("Danışman Onayları (Bahar)", "2026-02-02", "2026-02-08", "registration"),
+        ("Çift Anadal - Yan Dal Kayıtları (Bahar)", "2026-02-03", "2026-02-04", "registration"),
+        ("Bahar Yarıyılı Dersleri", "2026-02-09", "2026-05-22", "other"),
+        ("Ders Ekleme Bırakma (Bahar)", "2026-02-23", "2026-02-27", "registration"),
+        ("Mazeretli Geç Kayıtlar İçin Son Başvuru (Bahar)", "2026-03-06", "2026-03-06", "registration"),
+        ("Ramazan Bayramı Tatili", "2026-03-19", "2026-03-22", "holiday"),
+        ("Dersten Çekilme İçin Son Gün (Bahar)", "2026-03-27", "2026-03-27", "registration"),
+        ("Ara Sınavlar (Vizeler - Bahar)", "2026-04-04", "2026-04-12", "exam"),
+        ("Ulusal Egemenlik ve Çocuk Bayramı Tatili", "2026-04-23", "2026-04-23", "holiday"),
+        ("Emek ve Dayanışma Günü Tatili", "2026-05-01", "2026-05-01", "holiday"),
+        ("Atatürk'ü Anma, Gençlik ve Spor Bayramı Tatili", "2026-05-19", "2026-05-19", "holiday"),
+        ("Bahar Şenliği", "2026-05-21", "2026-05-21", "holiday"),
+        ("Kurban Bayramı Tatili", "2026-05-26", "2026-05-30", "holiday"),
+        ("Yarıyıl Sonu Sınavları (Finaller - Bahar)", "2026-06-03", "2026-06-14", "exam"),
+        ("Bütünleme Sınavları (Bahar)", "2026-06-22", "2026-06-27", "exam"),
+        ("Mezuniyet Töreni", "2026-07-03", "2026-07-03", "other"),
+        ("Demokrasi Bayramı Tatili", "2026-07-15", "2026-07-15", "holiday"),
+        ("Zafer Bayramı Tatili", "2026-08-30", "2026-08-30", "holiday")
     ]
 
     await session.execute(text("DELETE FROM academic_calendar_events WHERE university = 'Konya Gıda ve Tarım Üniversitesi' AND academic_year = '2025-2026'"))
 
     for title, start_date, end_date, evt_type in events:
         await session.execute(text('''
-            INSERT INTO academic_calendar_events (id, university, academic_year, event_type, title, start_date, end_date)
-            VALUES (:id, :uni, :ay, :evt, :title, :sd, :ed)
+            INSERT INTO academic_calendar_events (id, university, academic_year, event_type, title, start_date, end_date, is_approved)
+            VALUES (:id, :uni, :ay, :evt, :title, :sd, :ed, :approved)
         '''), {
             "id": str(uuid4()),
             "uni": "Konya Gıda ve Tarım Üniversitesi",
@@ -75,7 +109,8 @@ async def seed_manual(session):
             "evt": evt_type,
             "title": title,
             "sd": start_date,
-            "ed": end_date
+            "ed": end_date,
+            "approved": 1
         })
 
     await session.commit()
