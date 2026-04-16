@@ -18,6 +18,7 @@ class ConversationType(str, enum.Enum):
     """Konuşma tipi enum."""
     MARKETPLACE = "marketplace"
     CAREER = "career"
+    DIRECT = "direct"
 
 
 class Conversation(Base):
@@ -32,7 +33,7 @@ class Conversation(Base):
     )
     
     type: Mapped[str] = mapped_column(String(20), nullable=False)
-    reference_id: Mapped[str] = mapped_column(String(36), nullable=False)  # İlan ID'si
+    reference_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)  # İlan ID'si (direct mesajlarda NULL)
     
     user1_id: Mapped[str] = mapped_column(
         String(36),
@@ -68,6 +69,7 @@ class Conversation(Base):
     marketplace_messages = relationship("MarketplaceMessage", back_populates="conversation")
     career_messages = relationship("CareerMessage", back_populates="conversation")
     career_applications = relationship("CareerApplication", back_populates="conversation")
+    direct_messages = relationship("DirectMessage", back_populates="conversation")
     
     __table_args__ = (
         UniqueConstraint('type', 'reference_id', 'user1_id', 'user2_id', name='uq_conversations_unique'),

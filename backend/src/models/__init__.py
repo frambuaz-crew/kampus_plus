@@ -13,6 +13,7 @@ from .marketplace import MarketplaceListing, MarketplaceReport, MarketplaceMessa
 from .career import CareerListing, CareerApplication, CareerReport, CareerMessage
 from .academic import AcademicCalendarEvent, CourseSchedule, AcademicContribution
 from .messages import Conversation
+from .direct import DirectMessage
 from .notifications import Notification
 from .ai import AIConversation, AIMessage, AISystemSettings, AIKnowledgeBase
 from .settings import ContactMessage
@@ -46,6 +47,7 @@ __all__ = [
     "AcademicContribution",
     # Messages
     "Conversation",
+    "DirectMessage",
     # Notifications
     "Notification",
     # AI

@@ -18,6 +18,7 @@ import {
   type UserSummary,
 } from '../../api/friendship';
 import { useAuth } from '../../hooks/useAuth';
+import { startDirectMessage } from '../../services/messages';
 
 // ─── Yardımcı ───────────────────────────────────────────────────────────────
 
@@ -76,6 +77,9 @@ export const NetworkPage: React.FC = () => {
   const [loadingPending, setLoadingPending] = useState(true);
   // friendshipId → 'accepting' | 'rejecting'
   const [responding, setResponding] = useState<Record<string, 'accepting' | 'rejecting'>>({});
+  // userId → mesaj butonu yükleniyor mu
+  const [messagingId, setMessagingId] = useState<string | null>(null);
+  const [messageError, setMessageError] = useState<string | null>(null);
 
   const loadFriends = useCallback(async () => {
     setLoadingFriends(true);
@@ -132,8 +136,17 @@ export const NetworkPage: React.FC = () => {
     }
   };
 
-  const handleMessage = (friendUserId: string) => {
-    navigate('/dashboard/messages', { state: { targetUserId: friendUserId } });
+  const handleMessage = async (friendUserId: string) => {
+    setMessagingId(friendUserId);
+    setMessageError(null);
+    try {
+      const { conversation_id } = await startDirectMessage(friendUserId);
+      navigate(`/dashboard/messages/${conversation_id}`);
+    } catch {
+      setMessageError('Sohbet başlatılamadı. Lütfen tekrar dene.');
+    } finally {
+      setMessagingId(null);
+    }
   };
 
   const handleProfileClick = (username: string) => {
@@ -208,9 +221,14 @@ export const NetworkPage: React.FC = () => {
 
               <button
                 onClick={() => handleMessage(other.id)}
-                className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-sm rounded-xl transition-colors"
+                disabled={messagingId === other.id}
+                className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-60 disabled:cursor-not-allowed text-indigo-700 font-semibold text-sm rounded-xl transition-colors"
               >
-                <span>💬</span>
+                {messagingId === other.id ? (
+                  <span className="inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span>💬</span>
+                )}
                 <span>Mesaj Gönder</span>
               </button>
             </div>
@@ -387,6 +405,20 @@ export const NetworkPage: React.FC = () => {
             )}
           </button>
         </div>
+
+        {/* Hata Bildirimi */}
+        {messageError && (
+          <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-xl">
+            <span>⚠️ {messageError}</span>
+            <button
+              onClick={() => setMessageError(null)}
+              className="text-red-400 hover:text-red-600 font-bold text-lg leading-none"
+              aria-label="Kapat"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Sekme İçeriği */}
         {activeTab === 'friends' ? renderFriends() : renderPending()}
