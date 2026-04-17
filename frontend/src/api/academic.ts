@@ -33,6 +33,7 @@ export interface CourseSchedule {
   class_year: string;
   semester: string;
   academic_year: string;
+  is_approved?: boolean;
   courses: CourseItem[];
   created_at: string;
 }
@@ -216,5 +217,38 @@ export const uploadSchedulePDF = async (params: {
     formData,
     { headers: { 'Content-Type': 'multipart/form-data' } }
   );
+  return res.data;
+};
+
+// ============================================================================
+// ADMİN — DERS PROGRAMI
+// ============================================================================
+
+export const getPendingSchedules = async (): Promise<CourseSchedule[]> => {
+  const res = await apiClient.get<CourseSchedule[]>('/academic/admin/schedules/pending');
+  return res.data;
+};
+
+export const getApprovedSchedules = async (): Promise<CourseSchedule[]> => {
+  const res = await apiClient.get<CourseSchedule[]>('/academic/admin/schedules/approved');
+  return res.data;
+};
+
+export const approveSchedule = async (scheduleId: string): Promise<CourseSchedule> => {
+  const res = await apiClient.patch<CourseSchedule>(`/academic/admin/schedules/${scheduleId}/approve`);
+  return res.data;
+};
+
+export const deleteSchedule = async (scheduleId: string): Promise<void> => {
+  await apiClient.delete(`/academic/admin/schedules/${scheduleId}`);
+};
+
+export const updateSchedule = async (
+  scheduleId: string,
+  courses: CourseItem[]
+): Promise<CourseSchedule> => {
+  const res = await apiClient.patch<CourseSchedule>(`/academic/admin/schedules/${scheduleId}`, {
+    courses,
+  });
   return res.data;
 };

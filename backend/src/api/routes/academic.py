@@ -104,6 +104,7 @@ class CourseScheduleResponse(BaseModel):
     class_year: str
     semester: str
     academic_year: str
+    is_approved: bool = False
     courses: list[CourseItem]
     created_at: datetime
 
@@ -268,6 +269,7 @@ def build_schedule_response(schedule: CourseSchedule) -> CourseScheduleResponse:
         class_year=schedule.class_year,
         semester=schedule.semester,
         academic_year=schedule.academic_year,
+        is_approved=schedule.is_approved,
         courses=parse_schedule_courses(schedule),
         created_at=schedule.created_at,
     )
@@ -419,6 +421,7 @@ async def get_course_schedule(
             CourseSchedule.class_year.ilike(f"{class_year}%"),
             func.lower(CourseSchedule.semester) == func.lower(target_semester),
             CourseSchedule.academic_year == target_year,
+            CourseSchedule.is_approved.is_(True),
         )
     )
     result = await session.execute(stmt)
@@ -1212,8 +1215,17 @@ async def upload_schedule_pdf(
     schedule_json = await _parse_schedule_with_llm(pdf_text, department, class_year)
 
     # ---- Özet istatistik ------------------------------------------ #
-    days_parsed = [day for day, lessons in schedule_json.items() if lessons]
-    total_lessons = sum(len(lessons) for lessons in schedule_json.values() if isinstance(lessons, list))
+    courses_list = schedule_json.get("courses", []) if "courses" in schedule_json else []
+    total_lessons = len(courses_list)
+    all_days: set[str] = set()
+    for c in courses_list:
+        for s in c.get("slots", []):
+            all_days.add(s.get("day", ""))
+    day_order = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    days_parsed = [d for d in day_order if d in all_days]
+
+    # ---- is_approved: admin → True, öğrenci → False -------------- #
+    is_approved_val = current_user.role == UserRole.ADMIN
 
     # ---- Veritabanına upsert -------------------------------------- #
     stmt = select(CourseSchedule).where(
@@ -1232,6 +1244,7 @@ async def upload_schedule_pdf(
 
     if existing:
         existing.schedule_data = schedule_data_str
+        existing.is_approved = is_approved_val
         existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         action = "güncellendi"
     else:
@@ -1243,6 +1256,7 @@ async def upload_schedule_pdf(
             semester=semester,
             academic_year=target_academic_year,
             schedule_data=schedule_data_str,
+            is_approved=is_approved_val,
             created_by=current_user.id,
             created_at=datetime.now(timezone.utc).replace(tzinfo=None),
             updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -1252,8 +1266,8 @@ async def upload_schedule_pdf(
 
     await session.commit()
     logger.info(
-        "PDF schedule upload tamamlandı. user=%s action=%s days=%s lessons=%s",
-        current_user.id, action, days_parsed, total_lessons,
+        "PDF schedule upload tamamlandı. user=%s action=%s is_approved=%s days=%s lessons=%s",
+        current_user.id, action, is_approved_val, days_parsed, total_lessons,
     )
 
     return ScheduleUploadResponse(
@@ -1508,3 +1522,121 @@ async def upload_calendar_pdf(
         academic_year=target_academic_year,
         events_parsed=saved_count,
     )
+
+
+# ============================================================================
+# ADMİN — DERS PROGRAMI ENDPOINT'LERİ
+# ============================================================================
+
+class AdminScheduleUpdateRequest(BaseModel):
+    courses: list[CourseItem]
+
+
+@router.get("/admin/schedules/pending", response_model=list[CourseScheduleResponse])
+async def admin_list_pending_schedules(
+    university: Optional[str] = Query(None),
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Onay bekleyen ders programlarını listeler. (Admin)"""
+    conditions = [CourseSchedule.is_approved.is_(False)]
+    if university:
+        conditions.append(CourseSchedule.university == university)
+    stmt = (
+        select(CourseSchedule)
+        .where(and_(*conditions))
+        .order_by(CourseSchedule.created_at.asc())
+    )
+    result = await session.execute(stmt)
+    return [build_schedule_response(s) for s in result.scalars().all()]
+
+
+@router.get("/admin/schedules/approved", response_model=list[CourseScheduleResponse])
+async def admin_list_approved_schedules(
+    university: Optional[str] = Query(None),
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Onaylı ders programlarını listeler. (Admin)"""
+    conditions = [CourseSchedule.is_approved.is_(True)]
+    if university:
+        conditions.append(CourseSchedule.university == university)
+    stmt = (
+        select(CourseSchedule)
+        .where(and_(*conditions))
+        .order_by(CourseSchedule.university, CourseSchedule.department, CourseSchedule.class_year)
+    )
+    result = await session.execute(stmt)
+    return [build_schedule_response(s) for s in result.scalars().all()]
+
+
+@router.patch("/admin/schedules/{schedule_id}/approve", response_model=CourseScheduleResponse)
+async def admin_approve_schedule(
+    schedule_id: str,
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Ders programını onaylar. (Admin)"""
+    stmt = select(CourseSchedule).where(CourseSchedule.id == schedule_id)
+    result = await session.execute(stmt)
+    schedule = result.scalar_one_or_none()
+
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
+        )
+
+    schedule.is_approved = True
+    schedule.updated_at = datetime.now()
+    await session.commit()
+    await session.refresh(schedule)
+    return build_schedule_response(schedule)
+
+
+@router.patch("/admin/schedules/{schedule_id}", response_model=CourseScheduleResponse)
+async def admin_update_schedule(
+    schedule_id: str,
+    data: AdminScheduleUpdateRequest,
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Ders programı içeriğini günceller. (Admin)"""
+    stmt = select(CourseSchedule).where(CourseSchedule.id == schedule_id)
+    result = await session.execute(stmt)
+    schedule = result.scalar_one_or_none()
+
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
+        )
+
+    schedule.schedule_data = json.dumps(
+        {"courses": [c.model_dump() for c in data.courses]}, ensure_ascii=False
+    )
+    schedule.updated_at = datetime.now()
+    await session.commit()
+    await session.refresh(schedule)
+    return build_schedule_response(schedule)
+
+
+@router.delete("/admin/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_delete_schedule(
+    schedule_id: str,
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+    session: AsyncSession = Depends(get_db),
+):
+    """Ders programını siler. (Admin)"""
+    stmt = select(CourseSchedule).where(CourseSchedule.id == schedule_id)
+    result = await session.execute(stmt)
+    schedule = result.scalar_one_or_none()
+
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
+        )
+
+    await session.delete(schedule)
+    await session.commit()

@@ -95,7 +95,11 @@ class CourseSchedule(Base):
     academic_year: Mapped[str] = mapped_column(String(20), nullable=False)
     
     schedule_data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string
-    
+
+    is_approved: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False, index=True
+    )
+
     created_by: Mapped[Optional[str]] = mapped_column(
         String(36),
         ForeignKey("users.id"),
