@@ -1466,6 +1466,21 @@ async def upload_calendar_pdf(
             except ValueError:
                 end_date_obj = None
 
+        # Duplicate check: aynı üniversite + yıl + başlık + tarih varsa atla
+        dup_check = await session.execute(
+            select(AcademicCalendarEvent).where(
+                and_(
+                    AcademicCalendarEvent.university == university,
+                    AcademicCalendarEvent.academic_year == target_academic_year,
+                    AcademicCalendarEvent.title == event_name,
+                    AcademicCalendarEvent.start_date == start_date_obj,
+                )
+            )
+        )
+        if dup_check.scalar_one_or_none():
+            logger.info("Duplicate etkinlik atlandı: %s / %s", event_name, start_date_str)
+            continue
+
         new_event = AcademicCalendarEvent(
             id=str(uuid4()),
             university=university,

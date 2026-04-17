@@ -150,6 +150,7 @@ export const AdminAcademicPage: React.FC = () => {
     try {
       await deleteCalendarEvent(eventId);
       setApprovedCalendars((prev) => prev.filter((item) => item.id !== eventId));
+      setPendingCalendars((prev) => prev.filter((item) => item.id !== eventId));
       if (editingEvent?.id === eventId) {
         setEditingEvent(null);
       }
@@ -291,6 +292,16 @@ export const AdminAcademicPage: React.FC = () => {
                           >
                             <CheckCircle2 size={12} />
                             {processingId === event.id ? 'Onaylanıyor...' : 'Onayla'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(event.id)}
+                            disabled={processingId === event.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 text-xs font-semibold"
+                          >
+                            <Trash2 size={12} />
+                            {processingId === event.id ? 'Siliniyor...' : 'Reddet'}
                           </button>
                         </div>
                       </td>

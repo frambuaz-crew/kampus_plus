@@ -386,6 +386,7 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ScheduleUploadResult | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -419,7 +420,7 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
         academic_year: defaultAcademicYear,
       });
       setResult(res);
-      onSuccess(res);
+      setIsSuccess(true);
     } catch {
       setError('Yükleme sırasında hata oluştu.');
     } finally {
@@ -440,118 +441,111 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none transition-colors">×</button>
         </div>
 
-        {result ? (
-          /* Başarı durumu */
-          <div className="p-6">
-            <div className="flex flex-col items-center text-center gap-3 py-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-3xl">✅</div>
-              <h3 className="text-lg font-bold text-gray-900">Başarıyla Yüklendi!</h3>
-              <p className="text-gray-600 text-sm">{result.message}</p>
-              <div className="flex gap-4 mt-2">
-                <div className="text-center">
-                  <p className="text-2xl font-black text-indigo-600">{result.total_lessons}</p>
-                  <p className="text-xs text-gray-500 font-medium">Ders</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-black text-indigo-600">{result.days_parsed.length}</p>
-                  <p className="text-xs text-gray-500 font-medium">Gün</p>
-                </div>
-              </div>
-              {result.days_parsed.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 justify-center mt-1">
-                  {result.days_parsed.map((d) => (
-                    <span key={d} className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold">
-                      {d}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-gray-400 mt-2">AI asistanına artık ders programını sorabilirsin!</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="w-full mt-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
-            >
-              Kapat
-            </button>
-          </div>
-        ) : (
-          /* Form */
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
-            {/* PDF Dosya Seçimi */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">PDF Dosyası *</label>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${
-                  file ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
-                }`}
-              >
-                <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={handleFileChange} />
-                {file ? (
-                  <div className="flex items-center justify-center gap-2 text-indigo-700">
-                    <span className="text-xl">📄</span>
-                    <span className="text-sm font-semibold truncate max-w-[240px]">{file.name}</span>
+          {/* PDF Dosya Seçimi */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">PDF Dosyası *</label>
+            <div
+              onClick={() => !isSuccess && fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors ${
+                isSuccess
+                  ? 'border-green-300 bg-green-50 cursor-default'
+                  : file
+                  ? 'border-indigo-400 bg-indigo-50 cursor-pointer'
+                  : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50 cursor-pointer'
+              }`}
+            >
+              <input ref={fileInputRef} type="file" accept=".pdf" className="hidden" onChange={handleFileChange} />
+              {file ? (
+                <div className="flex items-center justify-center gap-2 text-indigo-700">
+                  <span className="text-xl">📄</span>
+                  <span className="text-sm font-semibold truncate max-w-[240px]">{file.name}</span>
+                  {!isSuccess && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                       className="text-gray-400 hover:text-red-500 transition-colors ml-1"
                     >×</button>
-                  </div>
-                ) : (
-                  <div className="text-gray-400">
-                    <p className="text-2xl mb-1">⬆️</p>
-                    <p className="text-sm font-medium">PDF seç veya buraya sürükle</p>
-                    <p className="text-xs mt-0.5">Metin içeren PDF, maks. 10 sayfa</p>
-                  </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-gray-400">
+                  <p className="text-2xl mb-1">⬆️</p>
+                  <p className="text-sm font-medium">PDF seç veya buraya sürükle</p>
+                  <p className="text-xs mt-0.5">Metin içeren PDF, maks. 10 sayfa</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Üniversite → Fakülte → Bölüm */}
+          <CascadingInstitutionSelect
+            showDepartment
+            initialUniversityName={defaultUniversity}
+            onChange={(sel) => setInstitution((prev) => ({ ...prev, ...sel }))}
+          />
+
+          {/* Sınıf + Dönem */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Sınıf *</label>
+              <select
+                value={classYear}
+                onChange={(e) => setClassYear(e.target.value)}
+                disabled={isSuccess}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
+              >
+                <option value="">— Seç —</option>
+                {CLASS_YEARS.map((cy) => (
+                  <option key={cy.value} value={cy.value}>{cy.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Dönem *</label>
+              <select
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
+                disabled={isSuccess}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
+              >
+                <option value="Bahar">Bahar</option>
+                <option value="Güz">Güz</option>
+              </select>
+            </div>
+          </div>
+
+          {error && !isSuccess && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+              <span className="flex-shrink-0">⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {isSuccess && (
+            <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">
+              <span className="flex-shrink-0 text-lg">✅</span>
+              <div>
+                <p className="font-semibold">PDF başarıyla ayrıştırıldı ve sisteme eklendi!</p>
+                {result && (
+                  <p className="text-green-600 text-xs mt-0.5">{result.total_lessons} ders, {result.days_parsed.length} gün eklendi • Sayfa yenileniyor...</p>
                 )}
               </div>
             </div>
+          )}
 
-            {/* Üniversite → Fakülte → Bölüm */}
-            <CascadingInstitutionSelect
-              showDepartment
-              initialUniversityName={defaultUniversity}
-              onChange={(sel) => setInstitution((prev) => ({ ...prev, ...sel }))}
-            />
-
-            {/* Sınıf + Dönem */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Sınıf *</label>
-                <select
-                  value={classYear}
-                  onChange={(e) => setClassYear(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer"
-                >
-                  <option value="">— Seç —</option>
-                  {CLASS_YEARS.map((cy) => (
-                    <option key={cy.value} value={cy.value}>{cy.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Dönem *</label>
-                <select
-                  value={semester}
-                  onChange={(e) => setSemester(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer"
-                >
-                  <option value="Bahar">Bahar</option>
-                  <option value="Güz">Güz</option>
-                </select>
-              </div>
-            </div>
-
-            {error && (
-              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-                <span className="flex-shrink-0">⚠️</span>
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-2">
+            {isSuccess ? (
+              <button
+                type="button"
+                onClick={() => result && onSuccess(result)}
+                className="flex-1 py-2.5 text-white font-semibold bg-green-600 hover:bg-green-700 rounded-xl transition-colors"
+              >
+                Kapat
+              </button>
+            ) : (
               <button
                 type="button"
                 onClick={onClose}
@@ -559,23 +553,29 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
               >
                 İptal
               </button>
-              <button
-                type="submit"
-                disabled={uploading || !file}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                {uploading ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    AI analiz ediyor...
-                  </>
-                ) : (
-                  '📤 Yükle ve Analiz Et'
-                )}
-              </button>
-            </div>
-          </form>
-        )}
+            )}
+            <button
+              type="submit"
+              disabled={uploading || !file || isSuccess}
+              className={`flex-1 py-2.5 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                isSuccess
+                  ? 'bg-green-600 cursor-default'
+                  : 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300'
+              }`}
+            >
+              {isSuccess ? (
+                'Tamamlandı'
+              ) : uploading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  AI analiz ediyor...
+                </>
+              ) : (
+                '📤 Yükle ve Analiz Et'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
