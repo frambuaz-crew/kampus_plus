@@ -112,6 +112,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - Pazar yeri ilanları veya platform istatistikleri sorulduğunda mutlaka ilgili veritabanı araçlarını kullan.
 - Akademik takvim, şenlik, kampüs kuralı gibi resmi bilgiler için doküman arama aracını kullan.
 - Kullanıcı ders programını sorduğunda (örn. "bugün ne dersim var", "salı günkü derslerim") mutlaka `get_user_schedule` aracını kullan.
+- Kullanıcı sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon veya akademik takvim tarihlerini sorduğunda MUTLAKA `get_academic_calendar` aracını kullan.
+- Artık tüm bölümlerin ve sınıfların ders programına, tüm üniversitelerin takvimine erişebilirsin. Kullanıcı başka bir sınıf, bölüm veya üniversite sorarsa ilgili `university`, `department`, `class_year`, `semester` parametrelerini açıkça araçlara geçir.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
 - Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
 - Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …")."""
@@ -301,6 +303,57 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Tüm hafta için 'tümü' veya 'hepsi' gönder."
                 )
             )
+            university: Optional[str] = Field(
+                default=None,
+                description="Üniversite adı. Belirtilmezse kullanıcının kendi üniversitesi kullanılır.",
+            )
+            department: Optional[str] = Field(
+                default=None,
+                description=(
+                    "Bölümün tam ve resmi Türkçe adı. "
+                    "Kullanıcı kısaltma kullansa bile (örn: 'pc', 'bm', 'ee') "
+                    "her zaman tam resmi karşılığını yaz "
+                    "(örn: 'Bilgisayar Mühendisliği', 'Elektrik-Elektronik Mühendisliği'). "
+                    "Belirtilmezse kullanıcının kendi bölümü kullanılır."
+                ),
+            )
+            class_year: Optional[str] = Field(
+                default=None,
+                description=(
+                    "Sınıf bilgisi. Her zaman '<rakam>. Sınıf' formatında gönder: "
+                    "'1. Sınıf', '2. Sınıf', '3. Sınıf', '4. Sınıf', '5. Sınıf'. "
+                    "Asla '3.sınıf', '3sınıf' veya sadece '3' olarak gönderme. "
+                    "Belirtilmezse kullanıcının kendi sınıfı kullanılır."
+                ),
+            )
+            semester: Optional[str] = Field(
+                default=None,
+                description="Dönem: 'guz' veya 'bahar'. Belirtilmezse aktif dönem kullanılır.",
+            )
+            academic_year: Optional[str] = Field(
+                default=None,
+                description=(
+                    "Öğretim yılı, örn: '2024-2025', '2025-2026'. "
+                    "Belirtilmezse '2025-2026' yılı kullanılır."
+                ),
+            )
+
+        class AcademicCalendarInput(BaseModel):
+            event_type_keyword: str = Field(
+                default="",
+                description=(
+                    "Filtrelemek istenen etkinlik türü veya anahtar kelime. "
+                    "Örnekler: 'sınav', 'vize', 'final', 'tatil', 'bayram', 'kayıt', 'oryantasyon'. "
+                    "Tüm etkinlikleri görmek için boş bırak."
+                ),
+            )
+            university: Optional[str] = Field(
+                default=None,
+                description=(
+                    "Takvim verisi istenen üniversite adı. "
+                    "Belirtilmezse kullanıcının kendi üniversitesi kullanılır."
+                ),
+            )
 
         # ---- Tool 1: Resmi doküman arama (FAISS) ---------------------- #
 
@@ -391,96 +444,256 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
         # ---- Tool 4: Kullanıcının ders programı (CourseSchedule) ------ #
 
-        async def _get_user_schedule(day: str) -> str:
-            """Kullanıcının üniversite/bölüm/sınıf bilgisine göre ders programını döndürür."""
+        async def _get_user_schedule(
+            day: str,
+            university: Optional[str] = None,
+            department: Optional[str] = None,
+            class_year: Optional[str] = None,
+            semester: Optional[str] = None,
+            academic_year: Optional[str] = None,
+        ) -> str:
+            """İstenen üniversite/bölüm/sınıf bilgisine göre ders programını döndürür."""
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
 
-            if user_ctx is None:
+            # Parametre önceliği: araçtan gelen > kullanıcı profili
+            eff_university = university or (user_ctx.university if user_ctx else None)
+            eff_department = department or (user_ctx.department if user_ctx else None)
+            eff_grade = class_year or (user_ctx.grade if user_ctx else None)
+            eff_year = academic_year or "2025-2026"
+
+            if not eff_university or not eff_department:
                 return (
-                    "Ders programını görebilmek için profilinde üniversite, bölüm ve "
-                    "sınıf bilgilerinin dolu olması gerekiyor."
+                    "Ders programını görebilmek için üniversite ve bölüm bilgisi gerekiyor. "
+                    "Profilinde bu bilgiler eksikse profil ayarlarından tamamlayabilirsin."
                 )
 
-            if not user_ctx.has_grade:
+            if not eff_grade:
                 return (
-                    f"{user_ctx.display_name}, profilinde sınıf bilgisi belirtilmemiş. "
-                    "Profil ayarlarından sınıfını seçersen ders programını getirebilirim."
+                    "Ders programını görmek için sınıf bilgisi gerekiyor. "
+                    "Hangi sınıfın ders programını görmek istediğini belirt."
                 )
 
             from src.models.academic import CourseSchedule  # yerel import
 
-            # Kullanıcının profil bilgilerine uyan en güncel ders programını getir
+            # Sınıf numarasını normalize et: "3.sınıf" / "3sınıf" / "3" → "3"
+            # DB'de "3. Sınıf" formatı kullanıldığından rakamı çıkarıp ilike ile eşleştir
+            grade_digit_match = re.search(r"\d+", eff_grade or "")
+            grade_pattern = f"{grade_digit_match.group()}.%" if grade_digit_match else f"%{eff_grade}%"
+
+            # Bölüm için her iki taraftaki boşluk ve büyük/küçük harf farklılıklarını tolere et
+            dept_words = [w for w in re.split(r"\s+", eff_department.strip()) if w]
+            # En az ilk anlamlı kelimeyi içeren kayıt eşleşsin (kısa kısaltmalar için tek kelime yeterli)
+            dept_pattern = f"%{dept_words[0]}%" if dept_words else f"%{eff_department}%"
+
+            conditions = [
+                CourseSchedule.university.ilike(f"%{eff_university}%"),
+                CourseSchedule.department.ilike(dept_pattern),
+                CourseSchedule.class_year.ilike(grade_pattern),
+                CourseSchedule.academic_year == eff_year,
+                CourseSchedule.is_approved.is_(True),
+            ]
+            if semester:
+                conditions.append(CourseSchedule.semester.ilike(f"%{semester}%"))
+
             stmt = (
                 select(CourseSchedule)
-                .where(
-                    CourseSchedule.university.ilike(f"%{user_ctx.university}%"),
-                    CourseSchedule.department.ilike(f"%{user_ctx.department}%"),
-                    CourseSchedule.class_year.ilike(f"%{user_ctx.grade}%"),
-                )
+                .where(*conditions)
                 .order_by(CourseSchedule.created_at.desc())
                 .limit(1)
             )
             result = await db.execute(stmt)
             schedule = result.scalar_one_or_none()
 
+            # academic_year eşleşmezse en güncel onaylı kaydı dene
+            if schedule is None:
+                stmt_fb = (
+                    select(CourseSchedule)
+                    .where(
+                        CourseSchedule.university.ilike(f"%{eff_university}%"),
+                        CourseSchedule.department.ilike(dept_pattern),
+                        CourseSchedule.class_year.ilike(grade_pattern),
+                        CourseSchedule.is_approved.is_(True),
+                    )
+                    .order_by(CourseSchedule.academic_year.desc(), CourseSchedule.created_at.desc())
+                    .limit(1)
+                )
+                result = await db.execute(stmt_fb)
+                schedule = result.scalar_one_or_none()
+
             if schedule is None:
                 return (
-                    f"{user_ctx.university} üniversitesi, {user_ctx.department} bölümü, "
-                    f"{user_ctx.grade} için sisteme henüz ders programı yüklenmemiş. "
+                    f"{eff_university} üniversitesi, {eff_department} bölümü, "
+                    f"{eff_grade} için sisteme henüz onaylı ders programı yüklenmemiş. "
                     "Akademik sayfasından katkıda bulunabilirsin!"
                 )
 
-            # schedule_data JSON'u ayrıştır
+            # ---- JSON ayrıştırma ----------------------------------------- #
             try:
-                schedule_data: Dict[str, Any] = json.loads(schedule.schedule_data)
+                raw_data: Dict[str, Any] = json.loads(schedule.schedule_data)
             except (json.JSONDecodeError, TypeError):
                 return "Ders programı verisi okunamadı (bozuk format). Lütfen yöneticiyle iletişime geç."
 
-            # Tüm hafta mı, yoksa belirli bir gün mü?
+            _DAY_EN_TO_TR: Dict[str, str] = {
+                "monday":    "Pazartesi",
+                "tuesday":   "Salı",
+                "wednesday": "Çarşamba",
+                "thursday":  "Perşembe",
+                "friday":    "Cuma",
+                "saturday":  "Cumartesi",
+                "sunday":    "Pazar",
+            }
+            _DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+            # ---- Format tespiti ve Türkçe gün → satır eşlemesi oven ------ #
+            # Yeni format: {"courses": [{"name":..., "slots":[{"day":"monday",...}]}]}
+            # Eski format: {"Pazartesi": [{"ders":..., "saat":...}]}
+            schedule_by_day: Dict[str, List[str]] = {}
+
+            if "courses" in raw_data and isinstance(raw_data["courses"], list):
+                # Yeni format — İngilizce slot gün adları
+                day_buckets: Dict[str, List[str]] = {d: [] for d in _DAY_ORDER}
+                for course in raw_data["courses"]:
+                    name = (course.get("name") or "—").strip()
+                    code = (course.get("code") or "").strip()
+                    instructor = (course.get("instructor") or "").strip()
+                    room = (course.get("room") or "").strip()
+                    for slot in (course.get("slots") or []):
+                        day_en = (slot.get("day") or "").lower().strip()
+                        start = (slot.get("start_time") or "").strip()
+                        end = (slot.get("end_time") or "").strip()
+                        time_str = f"{start}–{end}" if start else ""
+                        parts: List[str] = [f"• **{name}**"]
+                        if code:
+                            parts.append(f"[{code}]")
+                        if time_str:
+                            parts.append(f"🕐 {time_str}")
+                        if instructor:
+                            parts.append(f"👨‍🏫 {instructor}")
+                        if room:
+                            parts.append(f"🏛️ {room}")
+                        if day_en in day_buckets:
+                            day_buckets[day_en].append("  " + "  ".join(parts))
+                schedule_by_day = {
+                    _DAY_EN_TO_TR[d]: lines
+                    for d, lines in day_buckets.items()
+                    if lines
+                }
+            else:
+                # Eski format — Türkçe gün adı keyli dict
+                for day_raw, lessons in raw_data.items():
+                    day_tr = _normalize_day(day_raw)
+                    rows = [AIService._format_lesson(lsn) for lsn in (lessons or []) if lsn]
+                    if rows:
+                        schedule_by_day[day_tr] = rows
+
+            # ---- Çıktı oluşturma ------------------------------------------ #
             normalized_day = _normalize_day(day)
             show_all = normalized_day.lower() in ("tümü", "tumü", "hepsi", "tüm hafta", "hafta")
-
-            if show_all:
-                if not schedule_data:
-                    return "Ders programında henüz ders bulunmuyor."
-                lines = [
-                    f"📅 **{user_ctx.display_name}** için haftalık ders programı "
-                    f"({user_ctx.university} / {user_ctx.department} / {user_ctx.grade}):\n"
-                ]
-                for day_name, lessons in schedule_data.items():
-                    lines.append(f"\n**{day_name}**")
-                    if not lessons:
-                        lines.append("  — Ders yok")
-                        continue
-                    for lesson in lessons:
-                        lines.append(AIService._format_lesson(lesson))
-                return "\n".join(lines)
-
-            # Belirli bir gün için — büyük/küçük harf duyarsız eşleşme
-            matched_key = next(
-                (k for k in schedule_data if _normalize_day(k) == normalized_day),
-                None,
+            display_name = user_ctx.display_name if user_ctx else "Öğrenci"
+            header = (
+                f"{eff_university} — {eff_department} / {eff_grade} "
+                f"({schedule.academic_year}, {schedule.semester})"
             )
 
-            if matched_key is None:
-                available = ", ".join(schedule_data.keys()) or "—"
+            if show_all:
+                if not schedule_by_day:
+                    return f"📭 {header}: Ders programı boş."
+                lines = [f"📅 **{display_name}** haftalık ders programı\n**{header}**\n"]
+                for day_tr in [_DAY_EN_TO_TR[d] for d in _DAY_ORDER if _DAY_EN_TO_TR[d] in schedule_by_day]:
+                    lines.append(f"\n**{day_tr}**")
+                    lines.extend(schedule_by_day[day_tr])
+                return "\n".join(lines)
+
+            # Belirli bir gün
+            matched_day = next(
+                (d for d in schedule_by_day if _normalize_day(d) == normalized_day),
+                None,
+            )
+            if matched_day is None:
+                available = ", ".join(schedule_by_day.keys()) or "—"
                 return (
-                    f"'{normalized_day}' gününe ait ders bulunamadı. "
-                    f"Programda şu günler var: {available}."
+                    f"📭 **{normalized_day}** günü için ders bulunamadı.\n"
+                    f"Programda ders olan günler: {available}."
+                )
+            lines = [
+                f"📅 **{display_name}** — **{matched_day}** ders programı\n**{header}**\n"
+            ]
+            lines.extend(schedule_by_day[matched_day])
+            return "\n".join(lines)
+
+        # ---- Tool 5: Akademik takvim etkinlikleri (AcademicCalendarEvent) #
+
+        async def _get_academic_calendar(
+            event_type_keyword: str = "",
+            university: Optional[str] = None,
+        ) -> str:
+            """İstenen üniversiteye ait onaylı akademik takvim etkinliklerini döndürür."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            from src.models.academic import AcademicCalendarEvent  # yerel import
+
+            university_filter = university or (user_ctx.university if user_ctx else None)
+
+            stmt = select(AcademicCalendarEvent).where(
+                AcademicCalendarEvent.is_approved == True  # noqa: E712
+            )
+            if university_filter:
+                stmt = stmt.where(
+                    AcademicCalendarEvent.university.ilike(f"%{university_filter}%")
                 )
 
-            lessons = schedule_data[matched_key]
-            if not lessons:
-                return f"{normalized_day} günü ders yok. 🎉"
+            kw = (event_type_keyword or "").strip().lower()
+            TYPE_MAP = {
+                "sınav": "exam", "vize": "exam", "final": "exam",
+                "yarıyıl sonu": "exam", "yıl sonu": "exam",
+                "kayıt": "registration", "oryantasyon": "registration",
+                "tatil": "holiday", "bayram": "holiday",
+            }
+            mapped_type = next((v for k, v in TYPE_MAP.items() if k in kw), None)
+            if mapped_type:
+                stmt = stmt.where(AcademicCalendarEvent.event_type == mapped_type)
+            elif kw:
+                pattern = f"%{kw}%"
+                stmt = stmt.where(
+                    or_(
+                        AcademicCalendarEvent.title.ilike(pattern),
+                        AcademicCalendarEvent.description.ilike(pattern),
+                    )
+                )
 
-            lines = [
-                f"📅 **{user_ctx.display_name}** — **{normalized_day}** ders programı "
-                f"({user_ctx.department} / {user_ctx.grade}):\n"
-            ]
-            for lesson in lessons:
-                lines.append(AIService._format_lesson(lesson))
-            return "\n".join(lines)
+            stmt = stmt.order_by(AcademicCalendarEvent.start_date.asc()).limit(30)
+            result = await db.execute(stmt)
+            events = result.scalars().all()
+
+            if not events:
+                suffix = f" '{event_type_keyword}' ile ilgili" if kw else ""
+                uni_info = f" ({university_filter})" if university_filter else ""
+                return f"Akademik takvimde{suffix}{uni_info} onaylı etkinlik bulunamadı."
+
+            type_labels = {
+                "exam": "Sınav/Vize/Final",
+                "registration": "Kayıt/Oryantasyon",
+                "holiday": "Tatil/Bayram",
+                "other": "Diğer",
+            }
+
+            rows = []
+            for ev in events:
+                label = type_labels.get(ev.event_type, ev.event_type)
+                date_str = str(ev.start_date)
+                if ev.end_date and ev.end_date != ev.start_date:
+                    date_str += f" – {ev.end_date}"
+                desc = f" ({ev.description})" if ev.description else ""
+                rows.append(f"- **{ev.title}** [{label}] | 📅 {date_str}{desc}")
+
+            header = f"Akademik Takvim Etkinlikleri"
+            if university_filter:
+                header += f" – {university_filter}"
+            if kw:
+                header += f" (filtre: {event_type_keyword})"
+            return f"**{header}** ({len(rows)} etkinlik):\n" + "\n".join(rows)
 
         # ---- StructuredTool sarmalayıcıları --------------------------- #
 
@@ -522,6 +735,17 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "gibi bir şey sorduğunda MUTLAKA bu aracı kullan."
                 ),
                 args_schema=UserScheduleInput,
+            ),
+            StructuredTool.from_function(
+                coroutine=_get_academic_calendar,
+                name="get_academic_calendar",
+                description=(
+                    "Kullanıcının üniversitesine ait onaylı akademik takvim etkinliklerini getirir. "
+                    "Sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon "
+                    "tarihleri sorulduğunda MUTLAKA bu aracı kullan. "
+                    "İsteğe bağlı olarak 'sınav', 'tatil', 'kayıt' gibi bir anahtar kelimeyle filtrelenebilir."
+                ),
+                args_schema=AcademicCalendarInput,
             ),
         ]
         return tools, retrieved_docs

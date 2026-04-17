@@ -24,6 +24,12 @@ import {
   CascadingInstitutionSelect,
   type InstitutionSelection,
 } from '../components/institution/CascadingInstitutionSelect';
+import {
+  getDepartments,
+  getFaculties,
+  getUniversities,
+  type DepartmentItem,
+} from '../api/institutions';
 
 // ============================================================================
 // CONSTANTS
@@ -75,6 +81,22 @@ function minutesToHeightPercent(start: string, end: string, totalHours = 13): nu
 
 function getCourseColor(course: CourseItem, index: number): string {
   return course.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+}
+
+function getCurrentAcademicTerm(): { semester: 'guz' | 'bahar'; year: string } {
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const year = today.getFullYear();
+  if (month >= 8 || month === 1) {
+    return {
+      semester: 'guz',
+      year: month === 1 ? `${year - 1}-${year}` : `${year}-${year + 1}`,
+    };
+  }
+  return {
+    semester: 'bahar',
+    year: `${year - 1}-${year}`,
+  };
 }
 
 // ============================================================================
@@ -330,10 +352,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     <div className="text-6xl mb-4">📭</div>
     <h2 className="text-xl font-bold text-gray-800 mb-2">Henüz Veri Yok</h2>
     <p className="text-gray-500 mb-1">
-      <span className="font-medium">{university}</span> üniversitesi
+      <span className="font-medium">{university}</span>
     </p>
     <p className="text-gray-500 mb-6">
-      {department} • {classYear}. Sınıf • {semesterLabel}
+      {department} • {classYear} • {semesterLabel}
     </p>
     <div className="max-w-sm mx-auto bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
       <p className="text-indigo-800 font-semibold mb-2">💡 Katkıda Bulun!</p>
@@ -581,19 +603,28 @@ const PdfUploadModal: React.FC<PdfUploadModalProps> = ({
   );
 };
 
+const SEMESTERS = [
+  { value: 'guz',   label: 'Güz' },
+  { value: 'bahar', label: 'Bahar' },
+];
+
+function buildAcademicYears(): string[] {
+  const base = getCurrentAcademicTerm().year;
+  const [startStr] = base.split('-');
+  const start = parseInt(startStr, 10);
+  return [
+    `${start - 1}-${start}`,
+    `${start}-${start + 1}`,
+    `${start + 1}-${start + 2}`,
+  ];
+}
+
+const ACADEMIC_YEARS = buildAcademicYears();
+
 export const CourseSchedulePage: React.FC = () => {
   const { user } = useAuth();
+  const currentTerm = getCurrentAcademicTerm();
 
-  const [classYear, setClassYear] = useState(
-    user?.grade ?? '1. Sınıf'
-  );
-
-  // Kullanıcı profili async yüklendiğinde dropdown'ı güncelle
-  useEffect(() => {
-    if (user?.grade) {
-      setClassYear(user.grade);
-    }
-  }, [user?.grade]);
   const [viewMode, setViewMode] = useState<'weekly' | 'list'>('weekly');
   const [semesterInfo, setSemesterInfo] = useState<SemesterInfo | null>(null);
   const [schedule, setSchedule] = useState<CourseSchedule | null | undefined>(undefined);
@@ -601,6 +632,93 @@ export const CourseSchedulePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+  const [filterUniversity, setFilterUniversity] = useState(user?.university ?? '');
+  const [filterDepartment,  setFilterDepartment]  = useState(user?.department ?? '');
+  const [selectedUniversityId, setSelectedUniversityId] = useState('');
+  const [selectedFacultyId, setSelectedFacultyId] = useState('');
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(user?.department_id ?? '');
+  const [classYear,         setClassYear]         = useState(user?.grade || '');
+  const [filterSemester,    setFilterSemester]    = useState(currentTerm.semester);
+  const [academicYear,      setAcademicYear]      = useState(currentTerm.year);
+
+  // Kullanıcı profili async yüklendiğinde tüm filtreleri otomatik doldur
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    const hydrateFiltersFromProfile = async () => {
+      if (user.grade) {
+        setClassYear(user.grade);
+      }
+
+      if (semesterInfo?.semester) {
+        setFilterSemester(semesterInfo.semester);
+      }
+
+      if (semesterInfo?.academic_year) {
+        setAcademicYear(semesterInfo.academic_year);
+      }
+
+      if (!user.university || !user.department_id) {
+        if (user.university) setFilterUniversity((prev) => prev || user.university);
+        if (user.department) setFilterDepartment((prev) => prev || user.department);
+        return;
+      }
+
+      try {
+        const universities = await getUniversities();
+        const matchedUniversity = universities.find(
+          (u) => u.name.toLowerCase() === user.university.toLowerCase()
+        );
+
+        if (!matchedUniversity || cancelled) return;
+
+        const faculties = await getFaculties(matchedUniversity.id);
+        const departmentLists = await Promise.all(
+          faculties.map((faculty) => getDepartments(faculty.id).catch(() => []))
+        );
+        const departments: DepartmentItem[] = departmentLists.flat();
+
+        const matchedDepartment = departments.find((d) => d.id === user.department_id);
+        const resolvedFacultyId =
+          departments.find((d) => d.id === user.department_id)?.faculty_id || '';
+
+        if (cancelled) return;
+
+        setSelectedUniversityId(matchedUniversity.id);
+        setFilterUniversity(matchedUniversity.name);
+
+        if (resolvedFacultyId) {
+          setSelectedFacultyId(resolvedFacultyId);
+        }
+
+        if (matchedDepartment) {
+          setSelectedDepartmentId(matchedDepartment.id);
+          setFilterDepartment(matchedDepartment.name);
+        } else if (user.department) {
+          setFilterDepartment((prev) => prev || user.department || '');
+          setSelectedDepartmentId(user.department_id);
+        }
+      } catch {
+        if (cancelled) return;
+        setFilterUniversity((prev) => prev || user.university || '');
+        setFilterDepartment((prev) => prev || user.department || '');
+        setSelectedDepartmentId((prev) => prev || user.department_id || '');
+      }
+    };
+
+    hydrateFiltersFromProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    semesterInfo?.academic_year,
+    semesterInfo?.semester,
+    user,
+  ]);
 
   // Dönem bilgisini yükle
   useEffect(() => {
@@ -623,10 +741,20 @@ export const CourseSchedulePage: React.FC = () => {
   // Ders programını yükle
   const loadSchedule = useCallback(async () => {
     if (!semesterInfo) return;
+    if (!filterUniversity || !filterDepartment) {
+      setSchedule(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const data = await getCourseSchedule({ class_year: classYear });
+      const data = await getCourseSchedule({
+        class_year: classYear,
+        semester: filterSemester || semesterInfo.semester,
+        academic_year: academicYear,
+        university: filterUniversity,
+        department: filterDepartment,
+      });
       setSchedule(data);
     } catch {
       setError('Ders programı yüklenirken hata oluştu.');
@@ -634,14 +762,14 @@ export const CourseSchedulePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [classYear, semesterInfo]);
+  }, [classYear, filterSemester, academicYear, filterUniversity, filterDepartment, semesterInfo]);
 
   useEffect(() => {
     loadSchedule();
   }, [loadSchedule]);
 
-  const departmentName = user?.department || `Bölüm #${user?.department_id}`;
-  const universityName = user?.university || '';
+  const departmentName = filterDepartment || user?.department || `Bölüm #${user?.department_id}`;
+  const universityName = filterUniversity || user?.university || '';
 
   return (
     <MainLayout>
@@ -681,23 +809,69 @@ export const CourseSchedulePage: React.FC = () => {
             </div>
           </div>
 
+          {/* Filtre çubuğu */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+            {/* Üniversite + Bölüm */}
+            <CascadingInstitutionSelect
+              showDepartment
+              initialUniversityName={filterUniversity}
+              initialUniversityId={selectedUniversityId}
+              initialFacultyId={selectedFacultyId}
+              initialDepartmentId={selectedDepartmentId}
+              onChange={(sel) => {
+                if (sel.universityId !== undefined) setSelectedUniversityId(sel.universityId);
+                if (sel.facultyId !== undefined) setSelectedFacultyId(sel.facultyId);
+                if (sel.departmentId !== undefined) setSelectedDepartmentId(sel.departmentId);
+                if (sel.universityName !== undefined) setFilterUniversity(sel.universityName);
+                if (sel.departmentName !== undefined) setFilterDepartment(sel.departmentName);
+              }}
+            />
+
+            {/* Sınıf + Dönem + Akademik Yıl yan yana */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Sınıf</label>
+                <select
+                  value={classYear}
+                  onChange={(e) => setClassYear(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer"
+                >
+                  <option value="">— Seç —</option>
+                  {CLASS_YEARS.map((cy) => (
+                    <option key={cy.value} value={cy.value}>{cy.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Dönem</label>
+                <select
+                  value={filterSemester}
+                  onChange={(e) => setFilterSemester(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer"
+                >
+                  <option value="">— Otomatik —</option>
+                  {SEMESTERS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Akademik Yıl</label>
+                <select
+                  value={academicYear}
+                  onChange={(e) => setAcademicYear(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer"
+                >
+                  {ACADEMIC_YEARS.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
           {/* Kontroller */}
           <div className="flex flex-wrap items-center gap-3 mb-6">
-            {/* Sınıf seçimi */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Sınıf:</label>
-              <select
-                value={classYear}
-                onChange={(e) => setClassYear(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
-              >
-                {CLASS_YEARS.map((cy) => (
-                  <option key={cy.value} value={cy.value}>
-                    {cy.label}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             {/* Görünüm toggle */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1 ml-auto">

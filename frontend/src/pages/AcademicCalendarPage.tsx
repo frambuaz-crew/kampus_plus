@@ -500,6 +500,14 @@ export const AcademicCalendarPage: React.FC = () => {
   const [viewMode,           setViewMode]           = useState<CalendarViewMode>('list');
   const [calendarMonth,      setCalendarMonth]      = useState<Date>(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+  const [selectedUniversity, setSelectedUniversity] = useState<string>(user?.university ?? '');
+
+  // Kullanıcı profili yüklenince üniversiteyi güncelle
+  useEffect(() => {
+    if (user?.university && !selectedUniversity) {
+      setSelectedUniversity(user.university);
+    }
+  }, [user?.university]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dönem bilgisi
   useEffect(() => {
@@ -520,14 +528,14 @@ export const AcademicCalendarPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getCalendarEvents();
+      const data = await getCalendarEvents(selectedUniversity ? { university: selectedUniversity } : undefined);
       setAllEvents(normalizeCalendarEvents(data));
     } catch {
       setError('Etkinlikler yüklenemedi.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedUniversity]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
@@ -551,7 +559,7 @@ export const AcademicCalendarPage: React.FC = () => {
     return map;
   }, [calendarDays, filteredEvents]);
   const urgentCount    = upcomingEvents.filter(e => (e.days_until ?? 99) <= 7).length;
-  const university     = user?.university ?? '';
+  const university     = selectedUniversity || user?.university || '';
   const activeViewHasNoEvents = viewMode === 'list' ? displayEvents.length === 0 : filteredEvents.length === 0;
   const getFilterCount = (filterKey: FilterKey) => {
     if (filterKey === 'all') return upcomingAllEvents.length;
@@ -564,14 +572,11 @@ export const AcademicCalendarPage: React.FC = () => {
         <div className="max-w-2xl mx-auto px-4 py-8">
 
           {/* ── Başlık ───────────────────────────────────── */}
-          <div className="flex items-start justify-between gap-4 mb-8">
+          <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                 Akademik Takvim
               </h1>
-              {university && (
-                <p className="text-sm text-slate-500 mt-0.5">{university}</p>
-              )}
             </div>
 
             <div className="flex items-start gap-2">
@@ -605,6 +610,19 @@ export const AcademicCalendarPage: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* ── Üniversite filtresi ──────────────────────── */}
+          <div className="mb-6">
+            <CascadingInstitutionSelect
+              showDepartment={false}
+              initialUniversityName={selectedUniversity}
+              onChange={(sel) => {
+                if (sel.universityName !== undefined && sel.universityName !== selectedUniversity) {
+                  setSelectedUniversity(sel.universityName);
+                }
+              }}
+            />
           </div>
 
           {/* ── Acil uyarı ───────────────────────────────── */}

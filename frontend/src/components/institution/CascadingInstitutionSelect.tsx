@@ -32,6 +32,9 @@ export interface InstitutionSelection {
 interface Props {
   showDepartment?: boolean;
   initialUniversityName?: string;
+  initialUniversityId?: string;
+  initialFacultyId?: string;
+  initialDepartmentId?: string;
   onChange: (selection: Partial<InstitutionSelection>) => void;
 }
 
@@ -44,6 +47,9 @@ const SELECT_CLS =
 export const CascadingInstitutionSelect: React.FC<Props> = ({
   showDepartment = true,
   initialUniversityName = '',
+  initialUniversityId = '',
+  initialFacultyId = '',
+  initialDepartmentId = '',
   onChange,
 }) => {
   const [universities, setUniversities] = useState<UniversityItem[]>([]);
@@ -64,21 +70,19 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
     getUniversities()
       .then((data) => {
         setUniversities(data);
-        // Varsayılan üniversite adı verildiyse eşleştir
-        if (initialUniversityName) {
-          const match = data.find(
-            (u) => u.name.toLowerCase() === initialUniversityName.toLowerCase()
-          );
-          if (match) {
-            setSelectedUnivId(match.id);
-            onChange({ universityId: match.id, universityName: match.name });
-          }
+        // Varsayılan üniversite id/adı verildiyse eşleştir
+        const match =
+          data.find((u) => u.id === initialUniversityId) ||
+          data.find((u) => u.name.toLowerCase() === initialUniversityName.toLowerCase());
+        if (match) {
+          setSelectedUnivId((prev) => prev || match.id);
+          onChange({ universityId: match.id, universityName: match.name });
         }
       })
       .catch(() => {/* sessizce geç */})
       .finally(() => setLoadingUni(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialUniversityId, initialUniversityName]);
 
   // ── Üniversite değişince fakülteleri yükle ────────────────────────────────
   useEffect(() => {
@@ -99,6 +103,15 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
     setSelectedDeptId('');
   }, [selectedUnivId]);
 
+  // ── Varsayılan fakülteyi uygula ──────────────────────────────────────────
+  useEffect(() => {
+    if (!showDepartment || !initialFacultyId || !faculties.length || selectedFacId) return;
+    const match = faculties.find((f) => f.id === initialFacultyId);
+    if (!match) return;
+    setSelectedFacId(match.id);
+    onChange({ facultyId: match.id, facultyName: match.name });
+  }, [faculties, initialFacultyId, onChange, selectedFacId, showDepartment]);
+
   // ── Fakülte değişince bölümleri yükle ────────────────────────────────────
   useEffect(() => {
     if (!selectedFacId || !showDepartment) {
@@ -113,6 +126,15 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
       .finally(() => setLoadingDept(false));
     setSelectedDeptId('');
   }, [selectedFacId, showDepartment]);
+
+  // ── Varsayılan bölümü uygula ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!showDepartment || !initialDepartmentId || !departments.length || selectedDeptId) return;
+    const match = departments.find((d) => d.id === initialDepartmentId);
+    if (!match) return;
+    setSelectedDeptId(match.id);
+    onChange({ departmentId: match.id, departmentName: match.name });
+  }, [departments, initialDepartmentId, onChange, selectedDeptId, showDepartment]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 

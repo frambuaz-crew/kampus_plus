@@ -293,18 +293,21 @@ async def get_semester_info():
 async def get_calendar_events(
     academic_year: Optional[str] = Query(None, description="Öğretim yılı, örn: 2025-2026"),
     event_type: Optional[str] = Query(None, description="exam / registration / holiday / other"),
+    university: Optional[str] = Query(None, description="Üniversite adı; belirtilmezse kullanıcının üniversitesi kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    """Kullanıcının üniversitesine ait akademik takvim etkinliklerini döndürür.
+    """Onaylı akademik takvim etkinliklerini döndürür.
 
+    Üniversite belirtilmezse kullanıcının üniversitesi kullanılır.
     Öğretim yılı belirtilmezse aktif dönem otomatik kullanılır.
     """
     semester_info = get_current_semester_info()
     target_year = academic_year or semester_info["academic_year"]
+    target_university = university or current_user.university
 
     conditions = [
-        AcademicCalendarEvent.university == current_user.university,
+        AcademicCalendarEvent.university == target_university,
         AcademicCalendarEvent.academic_year == target_year,
         AcademicCalendarEvent.is_approved.is_(True),
     ]
@@ -344,6 +347,7 @@ async def get_calendar_events(
 @router.get("/calendar/upcoming", response_model=list[CalendarEventResponse])
 async def get_upcoming_events(
     days: int = Query(30, ge=1, le=90, description="Kaç gün ilerisi gösterilsin"),
+    university: Optional[str] = Query(None, description="Üniversite adı; belirtilmezse kullanıcının üniversitesi kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -351,13 +355,14 @@ async def get_upcoming_events(
     from datetime import timedelta
     today = date.today()
     end_date = today + timedelta(days=days)
+    target_university = university or current_user.university
 
     stmt = (
         select(AcademicCalendarEvent)
         .where(
             and_(
-                AcademicCalendarEvent.university == current_user.university,
-                    AcademicCalendarEvent.is_approved.is_(True),
+                AcademicCalendarEvent.university == target_university,
+                AcademicCalendarEvent.is_approved.is_(True),
                 AcademicCalendarEvent.start_date >= today,
                 AcademicCalendarEvent.start_date <= end_date,
             )
@@ -398,26 +403,29 @@ async def get_course_schedule(
     class_year: str = Query(..., description="Sınıf: 1, 2, 3, 4, 5"),
     semester: Optional[str] = Query(None, description="Dönem: guz veya bahar"),
     academic_year: Optional[str] = Query(None, description="Öğretim yılı, örn: 2025-2026"),
+    university: Optional[str] = Query(None, description="Üniversite adı; belirtilmezse kullanıcının üniversitesi kullanılır"),
+    department: Optional[str] = Query(None, description="Bölüm adı; belirtilmezse kullanıcının bölümü kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
-    """Kullanıcının üniversitesi + bölümü için ders programını döndürür.
+    """İstenen üniversite + bölüm + sınıf için onaylı ders programını döndürür.
 
+    Üniversite/bölüm belirtilmezse kullanıcının profil bilgileri kullanılır.
     Dönem ve öğretim yılı belirtilmezse aktif dönem otomatik kullanılır.
     Veri yoksa null döner (frontend boş durum gösterir).
     """
     semester_info = get_current_semester_info()
     target_semester = semester or semester_info["semester"]
     target_year = academic_year or semester_info["academic_year"]
-
-    department_name = (
+    target_university = university or current_user.university
+    target_department = department or (
         current_user.department_rel.name if current_user.department_rel else ""
     )
 
     stmt = select(CourseSchedule).where(
         and_(
-            func.lower(CourseSchedule.university) == func.lower(current_user.university),
-            func.lower(CourseSchedule.department) == func.lower(department_name),
+            func.lower(CourseSchedule.university) == func.lower(target_university),
+            func.lower(CourseSchedule.department) == func.lower(target_department),
             CourseSchedule.class_year.ilike(f"{class_year}%"),
             func.lower(CourseSchedule.semester) == func.lower(target_semester),
             CourseSchedule.academic_year == target_year,

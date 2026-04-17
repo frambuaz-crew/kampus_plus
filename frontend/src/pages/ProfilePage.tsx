@@ -9,6 +9,15 @@ import { tr } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { sendRequest } from '../api/friendship';
+import {
+  CascadingInstitutionSelect,
+  type InstitutionSelection,
+} from '../components/institution/CascadingInstitutionSelect';
+import {
+  getDepartments,
+  getFaculties,
+  getUniversities,
+} from '../api/institutions';
 
 // Tab ve Liste Tipleri
 type TabType = 'info' | 'activity' | 'favorites';
@@ -55,18 +64,16 @@ export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser, updateUser } = useAuth();
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-
   const locationState = (location.state as ProfileLocationState | null) || null;
+
+  // URL'deki isim boşsa veya senin isminle aynıysa "Kendi Profilim"dir
+  const isOwnProfile = !username || username === currentUser?.username;
+  const targetUsername = isOwnProfile ? currentUser?.username : username;
+
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>(locationState?.tab || 'info');
-
-  useEffect(() => {
-    if (locationState?.tab) {
-      setActiveTab(locationState.tab);
-    }
-  }, [locationState?.tab]);
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
@@ -90,6 +97,11 @@ export const ProfilePage: React.FC = () => {
     profile_picture_url: '',
     grade: ''
   });
+  const [editInstitution, setEditInstitution] = useState<Partial<InstitutionSelection>>({
+    universityName: '',
+    departmentId: '',
+    departmentName: '',
+  });
 
   // Profil Fotoğrafı Kırpma State'leri
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
@@ -98,9 +110,77 @@ export const ProfilePage: React.FC = () => {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
+  // Arkadaşlık isteği state'i
+  const [friendRequestStatus, setFriendRequestStatus] = useState<
+    'idle' | 'sending' | 'sent' | 'error'
+  >('idle');
+
+  useEffect(() => {
+    if (locationState?.tab) {
+      setActiveTab(locationState.tab);
+    }
+  }, [locationState?.tab]);
+
   const onCropComplete = useCallback((_: Area, croppedAreaPixels: Area) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
+
+  useEffect(() => {
+    if (!isEditing || !isOwnProfile || !currentUser) return;
+
+    setEditInstitution((prev) => ({
+      ...prev,
+      universityName: currentUser.university || profileData?.university || '',
+      departmentId: currentUser.department_id || prev.departmentId || '',
+      departmentName: profileData?.department || prev.departmentName || '',
+    }));
+  }, [isEditing, isOwnProfile, currentUser, profileData?.department, profileData?.university]);
+
+  useEffect(() => {
+    if (!isEditing || !isOwnProfile || !currentUser?.department_id || !currentUser?.university) return;
+
+    let cancelled = false;
+
+    const resolveFacultyFromDepartment = async () => {
+      try {
+        const universities = await getUniversities();
+        const matchedUniversity = universities.find(
+          (u) => u.name.toLowerCase() === currentUser.university.toLowerCase()
+        );
+        if (!matchedUniversity) return;
+
+        const faculties = await getFaculties(matchedUniversity.id);
+        const departmentLists = await Promise.all(
+          faculties.map((faculty) => getDepartments(faculty.id).catch(() => []))
+        );
+        const departments = departmentLists.flat();
+
+        const matchedDepartment = departments.find((d) => d.id === currentUser.department_id);
+        const facultyId = matchedDepartment?.faculty_id || '';
+        const matchedFaculty = faculties.find((f) => f.id === facultyId);
+
+        if (cancelled) return;
+
+        setEditInstitution((prev) => ({
+          ...prev,
+          universityId: matchedUniversity.id,
+          universityName: matchedUniversity.name,
+          facultyId: matchedFaculty?.id || prev.facultyId || '',
+          facultyName: matchedFaculty?.name || prev.facultyName || '',
+          departmentId: matchedDepartment?.id || prev.departmentId || currentUser.department_id,
+          departmentName: matchedDepartment?.name || prev.departmentName || '',
+        }));
+      } catch {
+        // sessizce geç
+      }
+    };
+
+    resolveFacultyFromDepartment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing, isOwnProfile, currentUser?.department_id, currentUser?.university]);
 
   const createImage = (url: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
@@ -142,15 +222,6 @@ export const ProfilePage: React.FC = () => {
       }, 'image/jpeg');
     });
   };
-
-  // URL'deki isim boşsa veya senin isminle aynıysa "Kendi Profilim"dir
-  const isOwnProfile = !username || username === currentUser?.username;
-  const targetUsername = isOwnProfile ? currentUser?.username : username;
-
-  // Arkadaşlık isteği state'i
-  const [friendRequestStatus, setFriendRequestStatus] = useState<
-    'idle' | 'sending' | 'sent' | 'error'
-  >('idle');
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -209,11 +280,34 @@ export const ProfilePage: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.put(`/users/profile`, editForm);
+      const payload = {
+        ...editForm,
+        university: editInstitution.universityName,
+        department_id: editInstitution.departmentId,
+      };
+
+      await apiClient.put(`/users/profile`, payload);
       // UI güncelle
-      setProfileData((prev) => (prev ? { ...prev, ...editForm, grade: editForm.grade || null } : prev));
+      setProfileData((prev) => (
+        prev
+          ? {
+              ...prev,
+              ...editForm,
+              university: editInstitution.universityName || prev.university,
+              department: editInstitution.departmentName || prev.department,
+              grade: editForm.grade || null,
+            }
+          : prev
+      ));
       // Auth context'i güncelle (navbar'a vb. anında yansıması için)
-      updateUser({ bio: editForm.bio, profile_picture_url: editForm.profile_picture_url, grade: editForm.grade || null });
+      updateUser({
+        bio: editForm.bio,
+        profile_picture_url: editForm.profile_picture_url,
+        grade: editForm.grade || null,
+        university: editInstitution.universityName || currentUser?.university || '',
+        department_id: editInstitution.departmentId || currentUser?.department_id || '',
+        department: editInstitution.departmentName || currentUser?.department || null,
+      });
 
       setIsEditing(false);
       alert("Profil başarıyla güncellendi.");
@@ -360,7 +454,17 @@ export const ProfilePage: React.FC = () => {
                   </>
                 ) : (
                   !isEditing && (
-                    <button onClick={() => setIsEditing(true)} className="flex-1 md:flex-none px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95">
+                    <button
+                      onClick={() => {
+                        setEditInstitution({
+                          universityName: currentUser?.university || profileData.university || '',
+                          departmentId: currentUser?.department_id || '',
+                          departmentName: profileData.department || '',
+                        });
+                        setIsEditing(true);
+                      }}
+                      className="flex-1 md:flex-none px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95"
+                    >
                       Profili Düzenle
                     </button>
                   )
@@ -401,6 +505,18 @@ export const ProfilePage: React.FC = () => {
                 <button onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-900 font-bold transition-colors">✕ Kapat</button>
               </div>
               <form onSubmit={handleEditSubmit} className="space-y-6 max-w-2xl mx-auto">
+                <div>
+                  <CascadingInstitutionSelect
+                    showDepartment
+                    initialUniversityName={editInstitution.universityName}
+                    initialUniversityId={editInstitution.universityId}
+                    initialFacultyId={editInstitution.facultyId}
+                    initialDepartmentId={editInstitution.departmentId}
+                    onChange={(selection) => {
+                      setEditInstitution((prev) => ({ ...prev, ...selection }));
+                    }}
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">Sınıf</label>
                   <select

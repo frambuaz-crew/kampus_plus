@@ -95,6 +95,8 @@ export const getCourseSchedule = async (params: {
   class_year: string;
   semester?: string;
   academic_year?: string;
+  university?: string;
+  department?: string;
 }): Promise<CourseSchedule | null> => {
   const res = await apiClient.get<CourseSchedule | null>('/academic/course-schedule', { params });
   return res.data;
@@ -103,6 +105,7 @@ export const getCourseSchedule = async (params: {
 export const getCalendarEvents = async (params?: {
   academic_year?: string;
   event_type?: string;
+  university?: string;
 }): Promise<CalendarEvent[]> => {
   const res = await apiClient.get<CalendarEvent[]>('/academic/calendar', { params });
   return res.data;
