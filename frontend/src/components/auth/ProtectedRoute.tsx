@@ -55,10 +55,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Role kontrolü
-  if (requireRole && actualRole !== requireRole) {
+  // Role kontrolü — admin her rotaya erişebilir (süper kullanıcı)
+  if (requireRole && actualRole !== requireRole && actualRole !== 'admin') {
     console.warn('Erişim Reddedildi: Rol uyumsuzluğu', { actualRole, requireRole });
-    // 🎯 Eğer bir öğrenci admin sayfasına girmeye çalışırsa 403
     return <Navigate to="/403" replace />;
   }
 

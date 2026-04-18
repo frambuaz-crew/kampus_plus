@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, GraduationCap, MessageSquare,
   ShoppingBag, Briefcase, Bot, Users,
-  Mail, LogOut, ShieldAlert, BookOpen
+  Mail, LogOut, ShieldAlert, BookOpen, UserCircle
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -59,13 +59,20 @@ export const AdminLayout: React.FC = () => {
           ))}
         </nav>
 
-        <div className="p-6 border-t border-gray-800">
-          <button 
+        <div className="p-6 border-t border-gray-800 space-y-1">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-4 w-full px-5 py-4 text-gray-500 hover:bg-gray-800 hover:text-indigo-400 font-bold rounded-2xl transition-all"
+          >
+            <UserCircle size={20} />
+            <span className="text-sm">Öğrenci Görünümüne Geç</span>
+          </button>
+          <button
             onClick={handleLogout}
             className="flex items-center gap-4 w-full px-5 py-4 text-gray-500 hover:text-red-500 font-bold transition-colors"
           >
             <LogOut size={20} />
-            <span className="text-sm">Logout</span>
+            <span className="text-sm">Çıkış Yap</span>
           </button>
         </div>
       </aside>

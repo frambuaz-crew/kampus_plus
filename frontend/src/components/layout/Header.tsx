@@ -544,6 +544,25 @@ export const Header: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* Admin Geçiş — sadece admin rolü için */}
+                  {user?.role === 'admin' && (
+                    <>
+                      <div className="border-t border-gray-100 my-2"></div>
+                      <div className="py-2">
+                        <button
+                          className="w-full px-4 py-2 text-left text-sm text-indigo-700 hover:bg-indigo-50 flex items-center space-x-3 font-semibold"
+                          onClick={() => {
+                            navigate('/admin');
+                            setProfileOpen(false);
+                          }}
+                        >
+                          <span>🛡️</span>
+                          <span>Admin Panele Geç</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+
                   {/* Divider */}
                   <div className="border-t border-gray-100 my-2"></div>
 
