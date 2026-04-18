@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   BookOpen,
   CheckCircle2,
   PencilLine,
@@ -377,9 +380,46 @@ interface ScheduleTableProps {
   onEdit: (schedule: CourseSchedule) => void;
 }
 
+type ScheduleSortKey = 'university' | 'class_year' | 'semester' | 'academic_year' | 'courses';
+type SortDirection = 'default' | 'asc' | 'desc';
+
 const ScheduleTable: React.FC<ScheduleTableProps> = ({
   schedules, isPending, loading, error, processingId, onApprove, onDelete, onEdit,
 }) => {
+  const [sortConfig, setSortConfig] = useState<{ key: ScheduleSortKey; direction: SortDirection }>({
+    key: 'university',
+    direction: 'default',
+  });
+
+  const handleSort = (key: ScheduleSortKey) => {
+    setSortConfig((prev) => {
+      if (prev.key !== key) return { key, direction: 'asc' };
+      const next: SortDirection = prev.direction === 'default' ? 'asc' : prev.direction === 'asc' ? 'desc' : 'default';
+      return { key, direction: next };
+    });
+  };
+
+  const renderSortIcon = (key: ScheduleSortKey) => {
+    if (sortConfig.key !== key || sortConfig.direction === 'default') return <ArrowUpDown size={13} className="opacity-40" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />;
+  };
+
+  const sortedData = useMemo(() => {
+    const { key, direction } = sortConfig;
+    if (direction === 'default') return schedules;
+    return [...schedules].sort((a, b) => {
+      let cmp = 0;
+      if (key === 'university') cmp = a.university.localeCompare(b.university, 'tr');
+      else if (key === 'class_year') cmp = a.class_year.localeCompare(b.class_year, 'tr');
+      else if (key === 'semester') cmp = a.semester.localeCompare(b.semester, 'tr');
+      else if (key === 'academic_year') cmp = a.academic_year.localeCompare(b.academic_year, 'tr');
+      else if (key === 'courses') cmp = a.courses.length - b.courses.length;
+      return direction === 'asc' ? cmp : -cmp;
+    });
+  }, [schedules, sortConfig]);
+
+  const thClass = "px-4 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors";
+
   if (loading) return <div className="px-6 py-12 text-center text-sm text-gray-500">Yükleniyor...</div>;
   if (error) return (
     <div className="px-6 py-8">
@@ -401,16 +441,26 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 border-b border-gray-800">
-              <th className="px-6 py-3 font-semibold">Üniversite / Bölüm</th>
-              <th className="px-4 py-3 font-semibold">Sınıf</th>
-              <th className="px-4 py-3 font-semibold">Dönem</th>
-              <th className="px-4 py-3 font-semibold">Yıl</th>
-              <th className="px-4 py-3 font-semibold">Dersler</th>
+              <th className={`px-6 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors`} onClick={() => handleSort('university')}>
+                <span className="inline-flex items-center gap-1.5">Üniversite / Bölüm {renderSortIcon('university')}</span>
+              </th>
+              <th className={thClass} onClick={() => handleSort('class_year')}>
+                <span className="inline-flex items-center gap-1.5">Sınıf {renderSortIcon('class_year')}</span>
+              </th>
+              <th className={thClass} onClick={() => handleSort('semester')}>
+                <span className="inline-flex items-center gap-1.5">Dönem {renderSortIcon('semester')}</span>
+              </th>
+              <th className={thClass} onClick={() => handleSort('academic_year')}>
+                <span className="inline-flex items-center gap-1.5">Yıl {renderSortIcon('academic_year')}</span>
+              </th>
+              <th className={thClass} onClick={() => handleSort('courses')}>
+                <span className="inline-flex items-center gap-1.5">Dersler {renderSortIcon('courses')}</span>
+              </th>
               <th className="px-4 py-3 font-semibold">İşlemler</th>
             </tr>
           </thead>
           <tbody>
-            {schedules.map((sch) => (
+            {sortedData.map((sch) => (
               <tr key={sch.id} className="border-b border-gray-800/70">
                 <td className="px-6 py-4 align-top">
                   <p className="font-semibold text-gray-200 leading-snug">{sch.university}</p>

@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CalendarClock,
   CheckCircle2,
   GraduationCap,
@@ -303,9 +306,45 @@ interface CalendarTableProps {
   onEdit: (event: CalendarEvent) => void;
 }
 
+type CalendarSortKey = 'title' | 'university' | 'event_type' | 'start_date';
+type SortDirection = 'default' | 'asc' | 'desc';
+
 const CalendarTable: React.FC<CalendarTableProps> = ({
   events, isPending, loading, error, processingId, onApprove, onDelete, onEdit,
 }) => {
+  const [sortConfig, setSortConfig] = useState<{ key: CalendarSortKey; direction: SortDirection }>({
+    key: 'title',
+    direction: 'default',
+  });
+
+  const handleSort = (key: CalendarSortKey) => {
+    setSortConfig((prev) => {
+      if (prev.key !== key) return { key, direction: 'asc' };
+      const next: SortDirection = prev.direction === 'default' ? 'asc' : prev.direction === 'asc' ? 'desc' : 'default';
+      return { key, direction: next };
+    });
+  };
+
+  const renderSortIcon = (key: CalendarSortKey) => {
+    if (sortConfig.key !== key || sortConfig.direction === 'default') return <ArrowUpDown size={13} className="opacity-40" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />;
+  };
+
+  const sortedData = useMemo(() => {
+    const { key, direction } = sortConfig;
+    if (direction === 'default') return events;
+    return [...events].sort((a, b) => {
+      let cmp = 0;
+      if (key === 'title') cmp = a.title.localeCompare(b.title, 'tr');
+      else if (key === 'university') cmp = a.university.localeCompare(b.university, 'tr');
+      else if (key === 'event_type') cmp = a.event_type.localeCompare(b.event_type, 'tr');
+      else if (key === 'start_date') cmp = a.start_date < b.start_date ? -1 : a.start_date > b.start_date ? 1 : 0;
+      return direction === 'asc' ? cmp : -cmp;
+    });
+  }, [events, sortConfig]);
+
+  const thClass = "px-4 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors";
+
   if (loading) return <div className="px-6 py-12 text-center text-sm text-gray-500">Yükleniyor...</div>;
   if (error) return (
     <div className="px-6 py-8">
@@ -327,15 +366,23 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 border-b border-gray-800">
-              <th className="px-6 py-3 font-semibold">Etkinlik</th>
-              <th className="px-4 py-3 font-semibold">Üniversite</th>
-              <th className="px-4 py-3 font-semibold">Tür</th>
-              <th className="px-4 py-3 font-semibold">Tarih</th>
+              <th className={`px-6 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors`} onClick={() => handleSort('title')}>
+                <span className="inline-flex items-center gap-1.5">Etkinlik {renderSortIcon('title')}</span>
+              </th>
+              <th className={thClass} onClick={() => handleSort('university')}>
+                <span className="inline-flex items-center gap-1.5">Üniversite {renderSortIcon('university')}</span>
+              </th>
+              <th className={thClass} onClick={() => handleSort('event_type')}>
+                <span className="inline-flex items-center gap-1.5">Tür {renderSortIcon('event_type')}</span>
+              </th>
+              <th className={thClass} onClick={() => handleSort('start_date')}>
+                <span className="inline-flex items-center gap-1.5">Tarih {renderSortIcon('start_date')}</span>
+              </th>
               <th className="px-4 py-3 font-semibold">İşlemler</th>
             </tr>
           </thead>
           <tbody>
-            {events.map((event) => {
+            {sortedData.map((event) => {
               const rangeText = event.end_date && event.end_date !== event.start_date
                 ? `${formatDate(event.start_date)} - ${formatDate(event.end_date)}`
                 : formatDate(event.start_date);
