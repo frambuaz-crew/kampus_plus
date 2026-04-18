@@ -18,7 +18,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, and_, func
+from sqlalchemy import delete, select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
@@ -1114,6 +1114,7 @@ async def _parse_schedule_with_llm(pdf_text: str, department: str, class_year: s
             client.aio.models.generate_content(
                 model=_PDF_LLM_MODEL,
                 contents=prompt,
+                config=genai.types.GenerateContentConfig(temperature=0.0),
             ),
             timeout=_PDF_LLM_TIMEOUT,
         )
@@ -1234,6 +1235,22 @@ async def upload_schedule_pdf(
 
     # ---- is_approved: admin → True, öğrenci → False -------------- #
     is_approved_val = current_user.role == UserRole.ADMIN
+
+    # ---- Onay bekleyen eski taslakları temizle -------------------- #
+    # Aynı PDF tekrar yüklendiğinde is_approved=False kayıtlar katlanmasın
+    await session.execute(
+        delete(CourseSchedule).where(
+            and_(
+                CourseSchedule.university == university,
+                CourseSchedule.department == department,
+                CourseSchedule.class_year == class_year,
+                CourseSchedule.semester == semester,
+                CourseSchedule.academic_year == target_academic_year,
+                CourseSchedule.is_approved.is_(False),
+            )
+        )
+    )
+    await session.commit()
 
     # ---- Veritabanına upsert -------------------------------------- #
     stmt = select(CourseSchedule).where(
@@ -1356,6 +1373,7 @@ async def _parse_calendar_with_llm(pdf_text: str, academic_year: str) -> dict:
             client.aio.models.generate_content(
                 model=settings.gemini_model,
                 contents=prompt,
+                config=genai.types.GenerateContentConfig(temperature=0.0),
             ),
             timeout=_PDF_LLM_TIMEOUT,
         )
@@ -1461,6 +1479,20 @@ async def upload_calendar_pdf(
     events_data: list[dict] = calendar_json.get("events", [])
     saved_count = 0
 
+    # Onay bekleyen eski taslakları temizle — aynı takvim tekrar yüklenince
+    # LLM başlıkları ufak farklarla değiştirebileceğinden string eşleşmesi
+    # yetersiz kalır; tüm is_approved=False kayıtları sıfırdan yaz
+    await session.execute(
+        delete(AcademicCalendarEvent).where(
+            and_(
+                AcademicCalendarEvent.university == university,
+                AcademicCalendarEvent.academic_year == target_academic_year,
+                AcademicCalendarEvent.is_approved.is_(False),
+            )
+        )
+    )
+    await session.commit()
+
     for ev_data in events_data:
         event_name = ev_data.get("event_name", "").strip()
         start_date_str = ev_data.get("start_date", "").strip()
@@ -1488,16 +1520,20 @@ async def upload_calendar_pdf(
             except ValueError:
                 end_date_obj = None
 
-        # Duplicate check: aynı üniversite + yıl + başlık + tarih varsa atla
+        # Duplicate check: onaylı kayıtlarda aynı tarih aralığı + tür varsa atla
+        # title karşılaştırması kasıtla yok — LLM her okuyuşta ufak farklılıklar üretir
+        dup_conditions = [
+            AcademicCalendarEvent.university == university,
+            AcademicCalendarEvent.academic_year == target_academic_year,
+            AcademicCalendarEvent.start_date == start_date_obj,
+            AcademicCalendarEvent.is_approved.is_(True),
+        ]
+        if end_date_obj is not None:
+            dup_conditions.append(AcademicCalendarEvent.end_date == end_date_obj)
+        else:
+            dup_conditions.append(AcademicCalendarEvent.end_date.is_(None))
         dup_check = await session.execute(
-            select(AcademicCalendarEvent).where(
-                and_(
-                    AcademicCalendarEvent.university == university,
-                    AcademicCalendarEvent.academic_year == target_academic_year,
-                    AcademicCalendarEvent.title == event_name,
-                    AcademicCalendarEvent.start_date == start_date_obj,
-                )
-            )
+            select(AcademicCalendarEvent).where(and_(*dup_conditions))
         )
         if dup_check.scalar_one_or_none():
             logger.info("Duplicate etkinlik atlandı: %s / %s", event_name, start_date_str)
