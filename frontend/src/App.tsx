@@ -34,6 +34,7 @@ import { AdminCareerPage } from './pages/admin/AdminCareerPage';
 import { AdminAIPage } from './pages/admin/AdminAIPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
+import { AdminSchedulePage } from './pages/admin/AdminSchedulePage';
 import { AdminLayout } from './components/layout/AdminLayout';
 import './App.css';
 
@@ -221,6 +222,8 @@ function App() {
             <Route path="ai/settings" element={<AdminAIPage />} />
             <Route path="ai/knowledge-base" element={<AdminAIPage />} />
             <Route path="ai/stats" element={<AdminAIPage />} />
+            {/* Schedules */}
+            <Route path="schedules" element={<AdminSchedulePage />} />
             {/* Users & Messages */}
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="messages" element={<AdminMessagesPage />} />

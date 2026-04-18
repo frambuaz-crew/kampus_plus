@@ -1,9 +1,9 @@
 import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, GraduationCap, MessageSquare, 
-  ShoppingBag, Briefcase, Bot, Users, 
-  Mail, LogOut, ShieldAlert 
+import {
+  LayoutDashboard, GraduationCap, MessageSquare,
+  ShoppingBag, Briefcase, Bot, Users,
+  Mail, LogOut, ShieldAlert, BookOpen
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -14,19 +14,20 @@ export const AdminLayout: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/admin/login'); // Çıkış yapınca admin girişine at
+    navigate('/admin/login');
   };
 
   // Admin Sidebar Linkleri
   const menuItems = [
-    { path: '/admin/dashboard',                       icon: <LayoutDashboard size={20} />, label: 'Dashboard'    },
-    { path: '/admin/academic/pending-contributions',  icon: <GraduationCap size={20} />,   label: 'Academic'     },
-    { path: '/admin/forum',                           icon: <MessageSquare size={20} />,   label: 'Forum'        },
-    { path: '/admin/marketplace',                     icon: <ShoppingBag size={20} />,     label: 'Marketplace'  },
-    { path: '/admin/career',                          icon: <Briefcase size={20} />,       label: 'Career'       },
-    { path: '/admin/ai/settings',                     icon: <Bot size={20} />,             label: 'AI Assistant' },
-    { path: '/admin/users',                           icon: <Users size={20} />,           label: 'Users'        },
-    { path: '/admin/messages',                        icon: <Mail size={20} />,            label: 'Messages'     },
+    { path: '/admin/dashboard',                       icon: <LayoutDashboard size={20} />, label: 'Ana Sayfa'        },
+    { path: '/admin/academic/pending-contributions',  icon: <GraduationCap size={20} />,   label: 'Akademik Takvim' },
+    { path: '/admin/schedules',                       icon: <BookOpen size={20} />,         label: 'Ders Programları' },
+    { path: '/admin/forum',                           icon: <MessageSquare size={20} />,   label: 'Forum'            },
+    { path: '/admin/marketplace',                     icon: <ShoppingBag size={20} />,     label: 'Pazar Yeri'       },
+    { path: '/admin/career',                          icon: <Briefcase size={20} />,       label: 'Kariyer'          },
+    { path: '/admin/ai/settings',                     icon: <Bot size={20} />,             label: 'Yapay Zeka'       },
+    { path: '/admin/users',                           icon: <Users size={20} />,           label: 'Kullanıcılar'     },
+    { path: '/admin/messages',                        icon: <Mail size={20} />,            label: 'Mesajlar'         },
   ];
 
   return (
