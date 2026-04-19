@@ -9,6 +9,7 @@ import {
   PencilLine,
   RefreshCw,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import {
@@ -19,6 +20,7 @@ import {
   updateCalendarEvent,
   type CalendarEvent,
 } from '../../services/academic';
+import { CalendarPDFUploadModal } from '../../components/academic/CalendarPDFUploadModal';
 
 // ─── Yardımcılar ─────────────────────────────────────────────────────────────
 
@@ -52,6 +54,7 @@ export const AdminAcademicPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const [calSubTab, setCalSubTab] = useState<'pending' | 'approved'>('pending');
   const [pendingCalendars, setPendingCalendars] = useState<CalendarEvent[]>([]);
@@ -164,13 +167,22 @@ export const AdminAcademicPage: React.FC = () => {
           </div>
           <p className="text-sm text-gray-500">Onay bekleyen akademik takvim etkinliklerini inceleyin ve yayınlayın.</p>
         </div>
-        <button
-          onClick={loadData}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 text-sm font-semibold transition-colors"
-        >
-          <RefreshCw size={14} />
-          Yenile
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors shadow-sm"
+          >
+            <Upload size={14} />
+            PDF Yükle
+          </button>
+          <button
+            onClick={loadData}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 text-sm font-semibold transition-colors"
+          >
+            <RefreshCw size={14} />
+            Yenile
+          </button>
+        </div>
       </div>
 
       {/* Alt sekmeler */}
@@ -200,6 +212,17 @@ export const AdminAcademicPage: React.FC = () => {
         onDelete={handleDeleteCalendar}
         onEdit={openEditModal}
       />
+
+      {/* PDF Yükleme Modal */}
+      {isUploadModalOpen && (
+        <CalendarPDFUploadModal
+          onClose={() => setIsUploadModalOpen(false)}
+          onComplete={() => {
+            setIsUploadModalOpen(false);
+            loadData();
+          }}
+        />
+      )}
 
       {/* Takvim Düzenleme Modal */}
       {editingEvent && (

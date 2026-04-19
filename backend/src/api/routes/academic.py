@@ -1177,7 +1177,7 @@ async def upload_schedule_pdf(
     class_year: str = Form(..., description="Sınıf (örn: '3. Sınıf')"),
     semester: str = Form(..., description="Dönem (örn: 'Bahar' veya 'Güz')"),
     academic_year: Optional[str] = Form(None, description="Öğretim yılı (örn: '2024-2025')"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ) -> ScheduleUploadResponse:
     """PDF ders programını Gemini ile ayrıştırıp veritabanına kaydeder."""
@@ -1429,7 +1429,7 @@ async def upload_calendar_pdf(
     file: UploadFile = File(..., description="Akademik takvim PDF dosyası"),
     university: str = Form(..., description="Üniversite adı"),
     academic_year: Optional[str] = Form(None, description="Öğretim yılı (örn: '2024-2025')"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ) -> CalendarUploadResponse:
     """PDF akademik takvimini Gemini ile ayrıştırıp veritabanına kaydeder."""
