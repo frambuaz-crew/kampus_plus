@@ -9,8 +9,9 @@ export interface User {
   first_name: string;
   last_name: string;
   username: string;
-  role: 'student' | 'instructor' | 'admin';
+  role: 'student' | 'instructor' | 'admin' | 'university_admin';
   university: string;
+  university_id?: string | null;
   department_id: string;
   department?: string | null;
   is_verified: boolean;

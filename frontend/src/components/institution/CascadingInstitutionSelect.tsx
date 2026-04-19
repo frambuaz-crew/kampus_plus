@@ -35,6 +35,8 @@ interface Props {
   initialUniversityId?: string;
   initialFacultyId?: string;
   initialDepartmentId?: string;
+  /** Ayarlandığında üniversite dropdown'ı gizlenir, değer kilitli gösterilir. */
+  lockedUniversity?: string;
   onChange: (selection: Partial<InstitutionSelection>) => void;
 }
 
@@ -50,6 +52,7 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
   initialUniversityId = '',
   initialFacultyId = '',
   initialDepartmentId = '',
+  lockedUniversity,
   onChange,
 }) => {
   const [universities, setUniversities] = useState<UniversityItem[]>([]);
@@ -71,9 +74,10 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
       .then((data) => {
         setUniversities(data);
         // Varsayılan üniversite id/adı verildiyse eşleştir
+        const effectiveName = lockedUniversity ?? initialUniversityName;
         const match =
           data.find((u) => u.id === initialUniversityId) ||
-          data.find((u) => u.name.toLowerCase() === initialUniversityName.toLowerCase());
+          (effectiveName && data.find((u) => u.name.toLowerCase() === effectiveName.toLowerCase()));
         if (match) {
           setSelectedUnivId((prev) => prev || match.id);
           onChange({ universityId: match.id, universityName: match.name });
@@ -82,7 +86,7 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
       .catch(() => {/* sessizce geç */})
       .finally(() => setLoadingUni(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialUniversityId, initialUniversityName]);
+  }, [initialUniversityId, initialUniversityName, lockedUniversity]);
 
   // ── Üniversite değişince fakülteleri yükle ────────────────────────────────
   useEffect(() => {
@@ -164,23 +168,30 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
       {/* Üniversite */}
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-          Üniversite *
+          Üniversite{!lockedUniversity && ' *'}
         </label>
-        <select
-          value={selectedUnivId}
-          onChange={handleUnivChange}
-          disabled={loadingUni}
-          className={SELECT_CLS}
-        >
-          <option value="">
-            {loadingUni ? 'Yükleniyor...' : '— Üniversite seçin —'}
-          </option>
-          {universities.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
+        {lockedUniversity ? (
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 bg-gray-50">
+            <span className="text-sm text-gray-700 font-medium flex-1 truncate">{lockedUniversity}</span>
+            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">Kilitli</span>
+          </div>
+        ) : (
+          <select
+            value={selectedUnivId}
+            onChange={handleUnivChange}
+            disabled={loadingUni}
+            className={SELECT_CLS}
+          >
+            <option value="">
+              {loadingUni ? 'Yükleniyor...' : '— Üniversite seçin —'}
             </option>
-          ))}
-        </select>
+            {universities.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Fakülte — sadece showDepartment=true ise */}

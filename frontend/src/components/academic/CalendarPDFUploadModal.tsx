@@ -4,6 +4,7 @@ import {
   type CalendarUploadResult,
 } from '../../api/academic';
 import { CascadingInstitutionSelect } from '../institution/CascadingInstitutionSelect';
+import { useAuth } from '../../hooks/useAuth';
 
 interface CalendarPDFUploadModalProps {
   defaultUniversity?: string;
@@ -20,9 +21,14 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
   onClose,
   onComplete,
 }) => {
+  const { user } = useAuth();
+  const isUniversityAdmin = user?.role === 'university_admin';
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [universityName, setUniversityName] = useState(defaultUniversity);
+  const [universityName, setUniversityName] = useState(
+    isUniversityAdmin ? (user?.university ?? defaultUniversity) : defaultUniversity
+  );
   const [academicYear, setAcademicYear] = useState(
     ACADEMIC_YEAR_OPTIONS.includes(defaultAcademicYear as (typeof ACADEMIC_YEAR_OPTIONS)[number])
       ? defaultAcademicYear
@@ -123,13 +129,24 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
           </div>
 
           {/* Üniversite */}
-          <CascadingInstitutionSelect
-            showDepartment={false}
-            initialUniversityName={defaultUniversity}
-            onChange={(sel) => {
-              if (sel.universityName !== undefined) setUniversityName(sel.universityName);
-            }}
-          />
+          {isUniversityAdmin ? (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Üniversite</label>
+              <div className="flex items-center gap-2 border border-amber-200 rounded-xl px-3 py-2 bg-amber-50">
+                <span className="text-sm text-gray-800 font-medium flex-1 truncate">{user?.university}</span>
+                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">Otomatik</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Üniversite yetkilisi olarak veriler kendi üniversitenize kaydedilecek.</p>
+            </div>
+          ) : (
+            <CascadingInstitutionSelect
+              showDepartment={false}
+              initialUniversityName={defaultUniversity}
+              onChange={(sel) => {
+                if (sel.universityName !== undefined) setUniversityName(sel.universityName);
+              }}
+            />
+          )}
 
           {/* Akademik Yıl */}
           <div>

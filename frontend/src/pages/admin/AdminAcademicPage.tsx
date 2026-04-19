@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
 import {
   ArrowDown,
   ArrowUp,
@@ -51,6 +52,7 @@ interface EditFormState {
 // ─── Ana Bileşen ──────────────────────────────────────────────────────────────
 
 export const AdminAcademicPage: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -166,6 +168,12 @@ export const AdminAcademicPage: React.FC = () => {
             <h1 className="text-2xl font-black text-white tracking-tight">Akademik Takvim Onay Paneli</h1>
           </div>
           <p className="text-sm text-gray-500">Onay bekleyen akademik takvim etkinliklerini inceleyin ve yayınlayın.</p>
+          {user?.role === 'university_admin' && (
+            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+              Sadece <span className="font-bold mx-0.5">{user.university}</span> verilerini görüntülüyorsunuz
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button

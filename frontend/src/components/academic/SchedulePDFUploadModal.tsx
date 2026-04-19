@@ -7,6 +7,7 @@ import {
   CascadingInstitutionSelect,
   type InstitutionSelection,
 } from '../institution/CascadingInstitutionSelect';
+import { useAuth } from '../../hooks/useAuth';
 
 interface SchedulePDFUploadModalProps {
   defaultUniversity?: string;
@@ -33,10 +34,13 @@ export const SchedulePDFUploadModal: React.FC<SchedulePDFUploadModalProps> = ({
   onClose,
   onComplete,
 }) => {
+  const { user } = useAuth();
+  const isUniversityAdmin = user?.role === 'university_admin';
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [institution, setInstitution] = useState<Partial<InstitutionSelection>>({
-    universityName: defaultUniversity,
+    universityName: isUniversityAdmin ? (user?.university ?? defaultUniversity) : defaultUniversity,
   });
   const [classYear, setClassYear] = useState(defaultClassYear);
   const [semester, setSemester] = useState(defaultSemester);
@@ -141,6 +145,7 @@ export const SchedulePDFUploadModal: React.FC<SchedulePDFUploadModalProps> = ({
           <CascadingInstitutionSelect
             showDepartment
             initialUniversityName={defaultUniversity}
+            lockedUniversity={isUniversityAdmin ? (user?.university ?? undefined) : undefined}
             onChange={(sel) => setInstitution((prev) => ({ ...prev, ...sel }))}
           />
 
