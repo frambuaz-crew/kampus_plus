@@ -19,6 +19,7 @@ class UserRole(str, enum.Enum):
     STUDENT = "student"
     INSTRUCTOR = "instructor"
     ADMIN = "admin"
+    UNIVERSITY_ADMIN = "university_admin"
 
 
 class User(Base):
@@ -41,7 +42,10 @@ class User(Base):
     username_last_changed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
     university: Mapped[str] = mapped_column(String(255), nullable=False)
-    
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("universities.id"), nullable=True, index=True
+    )
+
     department_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("departments.id", ondelete="RESTRICT"),
@@ -84,6 +88,7 @@ class User(Base):
     
     # ⬇️ YENİ İLİŞKİ: Bölüm nesnesine erişim sağlar
     department_rel = relationship("Department", back_populates="users")
+    university_rel = relationship("University", foreign_keys=[university_id])
 
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     

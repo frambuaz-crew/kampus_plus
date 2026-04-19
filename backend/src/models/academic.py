@@ -47,6 +47,9 @@ class AcademicCalendarEvent(Base):
     )
     
     university: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("universities.id"), nullable=True, index=True
+    )
     academic_year: Mapped[str] = mapped_column(String(20), nullable=False)
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
     is_approved: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False, index=True)
@@ -89,6 +92,9 @@ class CourseSchedule(Base):
     )
     
     university: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("universities.id"), nullable=True, index=True
+    )
     department: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     class_year: Mapped[str] = mapped_column(String(50), nullable=False)
     semester: Mapped[str] = mapped_column(String(20), nullable=False)
