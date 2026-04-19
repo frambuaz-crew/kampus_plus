@@ -443,7 +443,7 @@ async def validate_reset_token(
     response_model=LoginResponse,
     responses={
         401: {"model": ErrorResponse, "description": "Hatalı kimlik bilgileri"},
-        403: {"model": ErrorResponse, "description": "Erişim reddedildi - Admin yetkisi gerekli"}
+        403: {"model": ErrorResponse, "description": "Erişim reddedildi - Admin veya Üniversite Admin yetkisi gerekli"}
     }
 )
 async def admin_login(
@@ -451,7 +451,7 @@ async def admin_login(
     response: Response,
     session: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
-    """Sadece admin rolüne sahip kullanıcıların giriş yapmasını sağlar."""
+    """Admin ve university_admin rolüne sahip kullanıcıların giriş yapmasını sağlar."""
     try:
         # 1. Normal kimlik doğrulama (Email/Şifre)
         user, access_token, refresh_token = await auth_service.authenticate_user(
@@ -461,15 +461,15 @@ async def admin_login(
             remember_me=request.remember_me
         )
         
-        # 2. KRİTİK: Admin rol kontrolü
-        if user.role != UserRole.ADMIN:
-            logger.warning(f"Yetkisiz admin giriş denemesi: {user.email}") # Audit Log
+        # 2. KRİTİK: Admin portalı rol kontrolü
+        if user.role not in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN):
+            logger.warning(f"Yetkisiz admin giriş denemesi: {user.email} (role={user.role})") # Audit Log
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "error": {
                         "code": "ACCESS_DENIED",
-                        "message": "Access denied. Admin credentials required." #
+                        "message": "Access denied. Admin or university admin credentials required." #
                     }
                 }
             )

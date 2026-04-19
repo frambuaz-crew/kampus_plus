@@ -72,7 +72,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       if (onSuccess) {
         onSuccess(user);
       } else {
-        navigate('/dashboard');
+        const redirectTarget =
+          user.role === 'admin' || user.role === 'university_admin'
+            ? '/admin/dashboard'
+            : '/dashboard';
+        navigate(redirectTarget);
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {

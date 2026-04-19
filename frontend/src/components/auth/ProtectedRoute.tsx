@@ -2,10 +2,12 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
+type AppRole = 'admin' | 'student' | 'instructor' | 'university_admin';
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireVerified?: boolean;
-  requireRole?: 'admin' | 'student' | 'instructor';
+  requireRole?: AppRole;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
@@ -33,14 +35,22 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const hasStoredAuth = storedToken && (storedUser || isAuthenticated);
   
   if (!isAuthenticated && !hasStoredAuth) {
-    // 🎯 KRİTİK: Eğer admin rolü gerekiyorsa, admin login'e; yoksa normal login'e
-    const redirectPath = requireRole === 'admin' ? "/admin/login" : "/login";
+    // 🎯 KRİTİK: Admin paneline ait roller admin login ekranına yönlendirilir
+    const requiresAdminPortal = requireRole === 'admin' || requireRole === 'university_admin';
+    const redirectPath = requiresAdminPortal ? "/admin/login" : "/login";
     return <Navigate to={redirectPath} state={{ from: location }} replace />;
   }
 
   const actualUser = user || (storedUser ? JSON.parse(storedUser) : null);
-  const actualRole = actualUser?.role;
+  const actualRole = actualUser?.role as AppRole | undefined;
   const actualIsVerified = actualUser?.is_verified;
+  const allowedRoles: AppRole[] | null = requireRole
+    ? (requireRole === 'admin'
+      ? ['admin', 'university_admin']
+      : requireRole === 'student'
+        ? ['student', 'admin', 'university_admin']
+        : [requireRole])
+    : null;
   
   // Email verification kontrolü
   if (requireVerified && !actualIsVerified) {
@@ -55,9 +65,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Role kontrolü — admin her rotaya erişebilir (süper kullanıcı)
-  if (requireRole && actualRole !== requireRole && actualRole !== 'admin') {
-    console.warn('Erişim Reddedildi: Rol uyumsuzluğu', { actualRole, requireRole });
+  // Role kontrolü — admin rotaları: admin + university_admin, öğrenci rotaları: student + admin + university_admin
+  if (allowedRoles && (!actualRole || !allowedRoles.includes(actualRole))) {
+    console.warn('Erişim Reddedildi: Rol uyumsuzluğu', { actualRole, allowedRoles });
     return <Navigate to="/403" replace />;
   }
 

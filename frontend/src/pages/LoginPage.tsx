@@ -51,8 +51,12 @@ export const LoginPage: React.FC = () => {
           
           {/* Login Form */}
           <LoginForm
-            onSuccess={() => {
-              window.location.href = '/dashboard';
+            onSuccess={(user) => {
+              const redirectTarget =
+                user.role === 'admin' || user.role === 'university_admin'
+                  ? '/admin/dashboard'
+                  : '/dashboard';
+              window.location.href = redirectTarget;
             }}
           />
         </div>
