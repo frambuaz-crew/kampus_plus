@@ -133,8 +133,8 @@ def require_role(*allowed_roles: UserRole):
 async def require_admin(
     current_user: User = Depends(get_current_user)
 ) -> User:
-    """Admin rolü gerektiren dependency."""
-    if current_user.role != UserRole.ADMIN:
+    """Admin veya Üniversite Admin rolü gerektiren dependency."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={

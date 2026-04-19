@@ -276,6 +276,30 @@ def build_schedule_response(schedule: CourseSchedule) -> CourseScheduleResponse:
 
 
 # ============================================================================
+# ADMİN — ÜNİVERSİTE İZOLASYON YARDIMCILARI
+# ============================================================================
+
+def _check_university_access(user: User) -> None:
+    """UNIVERSITY_ADMIN rolündeki kullanıcının university_id'sini doğrular."""
+    if not user.university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "NO_UNIVERSITY", "message": "Üniversite bilginiz tanımlı değil, işlem yapamazsınız."}},
+        )
+
+
+def _assert_owns_resource(user: User, resource_university_id: Optional[str]) -> None:
+    """UNIVERSITY_ADMIN'in sadece kendi üniversite kaynaklarında işlem yaptığını doğrular."""
+    if user.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(user)
+        if resource_university_id != user.university_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": {"code": "FORBIDDEN", "message": "Sadece kendi üniversitenize ait verilerde işlem yapabilirsiniz."}},
+            )
+
+
+# ============================================================================
 # GENEL ENDPOINT'LER — Semester bilgisi
 # ============================================================================
 
@@ -526,6 +550,9 @@ async def admin_list_pending_contributions(
 ):
     """Onay bekleyen katkıları listeler. (Admin)"""
     conditions = [AcademicContribution.status == ContributionStatus.PENDING]
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        conditions.append(AcademicContribution.university == admin.university)
     if contribution_type:
         conditions.append(AcademicContribution.type == contribution_type)
 
@@ -542,12 +569,15 @@ async def admin_list_pending_contributions(
 async def admin_list_pending_calendar_events(
     university: Optional[str] = Query(None, description="Üniversiteye göre filtre"),
     academic_year: Optional[str] = Query(None, description="Öğretim yılına göre filtre"),
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Onay bekleyen akademik takvim etkinliklerini listeler. (Admin)"""
     conditions = [AcademicCalendarEvent.is_approved.is_(False)]
-    if university:
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        conditions.append(AcademicCalendarEvent.university_id == admin.university_id)
+    elif university:
         conditions.append(AcademicCalendarEvent.university == university)
     if academic_year:
         conditions.append(AcademicCalendarEvent.academic_year == academic_year)
@@ -583,12 +613,15 @@ async def admin_list_pending_calendar_events(
 async def admin_list_approved_calendar_events(
     university: Optional[str] = Query(None, description="Üniversiteye göre filtre"),
     academic_year: Optional[str] = Query(None, description="Öğretim yılına göre filtre"),
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Onaylanmış akademik takvim etkinliklerini listeler. (Admin)"""
     conditions = [AcademicCalendarEvent.is_approved.is_(True)]
-    if university:
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        conditions.append(AcademicCalendarEvent.university_id == admin.university_id)
+    elif university:
         conditions.append(AcademicCalendarEvent.university == university)
     if academic_year:
         conditions.append(AcademicCalendarEvent.academic_year == academic_year)
@@ -623,7 +656,7 @@ async def admin_list_approved_calendar_events(
 @router.patch("/calendar/{event_id}/approve", response_model=CalendarEventResponse)
 async def approve_calendar_event(
     event_id: str,
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Bir akademik takvim etkinliğini onaylar. (Sadece Admin)"""
@@ -637,6 +670,7 @@ async def approve_calendar_event(
             detail={"error": {"code": "NOT_FOUND", "message": "Takvim etkinliği bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, event.university_id)
     event.is_approved = True
     event.updated_at = datetime.now()
     await session.commit()
@@ -662,7 +696,7 @@ async def approve_calendar_event(
 async def admin_update_calendar_event(
     event_id: str,
     data: AdminCalendarEventUpdateRequest,
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Akademik takvim etkinliği günceller. (Sadece Admin)"""
@@ -676,6 +710,7 @@ async def admin_update_calendar_event(
             detail={"error": {"code": "NOT_FOUND", "message": "Takvim etkinliği bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, event.university_id)
     if data.event_type is not None and data.event_type not in [e.value for e in EventType]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -723,7 +758,7 @@ async def admin_update_calendar_event(
 @router.delete("/calendar/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def admin_delete_calendar_event(
     event_id: str,
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Akademik takvim etkinliğini siler. (Sadece Admin)"""
@@ -737,6 +772,7 @@ async def admin_delete_calendar_event(
             detail={"error": {"code": "NOT_FOUND", "message": "Takvim etkinliği bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, event.university_id)
     await session.delete(event)
     await session.commit()
 
@@ -763,6 +799,14 @@ async def admin_approve_contribution(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": {"code": "ALREADY_REVIEWED", "message": "Bu katkı zaten incelendi"}},
         )
+
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        if contribution.university != admin.university:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": {"code": "FORBIDDEN", "message": "Sadece kendi üniversitenize ait verilerde işlem yapabilirsiniz."}},
+            )
 
     # Onaylandığında gerçek tabloya yaz
     if contribution.type == ContributionType.COURSE_SCHEDULE and contribution.manual_data:
@@ -851,6 +895,14 @@ async def admin_reject_contribution(
             detail={"error": {"code": "ALREADY_REVIEWED", "message": "Bu katkı zaten incelendi"}},
         )
 
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        if contribution.university != admin.university:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": {"code": "FORBIDDEN", "message": "Sadece kendi üniversitenize ait verilerde işlem yapabilirsiniz."}},
+            )
+
     contribution.status = ContributionStatus.REJECTED
     contribution.rejection_reason = data.rejection_reason
     contribution.reviewed_by = admin.id
@@ -875,9 +927,18 @@ async def admin_create_calendar_event(
             detail={"error": {"code": "INVALID_EVENT_TYPE", "message": "Geçersiz etkinlik tipi"}},
         )
 
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        effective_university = admin.university
+        effective_university_id: Optional[str] = admin.university_id
+    else:
+        effective_university = data.university
+        effective_university_id = None
+
     event = AcademicCalendarEvent(
         id=str(uuid4()),
-        university=data.university,
+        university=effective_university,
+        university_id=effective_university_id,
         academic_year=data.academic_year,
         event_type=data.event_type,
         is_approved=True,
@@ -925,6 +986,7 @@ async def admin_delete_calendar_event(
             detail={"error": {"code": "NOT_FOUND", "message": "Etkinlik bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, event.university_id)
     await session.delete(event)
     await session.commit()
 
@@ -936,10 +998,18 @@ async def admin_create_course_schedule(
     session: AsyncSession = Depends(get_db),
 ):
     """Ders programı oluşturur veya günceller. (Admin — unique constraint'e göre upsert)"""
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        effective_university = admin.university
+        effective_university_id: Optional[str] = admin.university_id
+    else:
+        effective_university = data.university
+        effective_university_id = None
+
     # Varsa güncelle, yoksa oluştur
     stmt = select(CourseSchedule).where(
         and_(
-            CourseSchedule.university == data.university,
+            CourseSchedule.university == effective_university,
             CourseSchedule.department == data.department,
             CourseSchedule.class_year == data.class_year,
             CourseSchedule.semester == data.semester,
@@ -952,6 +1022,7 @@ async def admin_create_course_schedule(
     schedule_data = json.dumps({"courses": [c.model_dump() for c in data.courses]})
 
     if existing:
+        _assert_owns_resource(admin, existing.university_id)
         existing.schedule_data = schedule_data
         existing.updated_at = datetime.now()
         await session.commit()
@@ -960,7 +1031,8 @@ async def admin_create_course_schedule(
 
     new_schedule = CourseSchedule(
         id=str(uuid4()),
-        university=data.university,
+        university=effective_university,
+        university_id=effective_university_id,
         department=data.department,
         class_year=data.class_year,
         semester=data.semester,
@@ -991,6 +1063,7 @@ async def admin_delete_course_schedule(
             detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, schedule.university_id)
     await session.delete(schedule)
     await session.commit()
 
@@ -1199,6 +1272,13 @@ async def upload_schedule_pdf(
     # ---- Akademik yıl varsayılanı ---------------------------------- #
     target_academic_year = academic_year or get_current_semester_info()["academic_year"]
 
+    # ---- UNIVERSITY_ADMIN: üniversiteyi zorla eziştir ------------- #
+    effective_university_id: Optional[str] = None
+    if current_user.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(current_user)
+        university = current_user.university
+        effective_university_id = current_user.university_id
+
     # ---- PDF'den metin çıkar -------------------------------------- #
     logger.info(
         "PDF schedule upload başladı. user=%s university=%s department=%s class_year=%s",
@@ -1233,8 +1313,8 @@ async def upload_schedule_pdf(
     day_order = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
     days_parsed = [d for d in day_order if d in all_days]
 
-    # ---- is_approved: admin → True, öğrenci → False -------------- #
-    is_approved_val = current_user.role == UserRole.ADMIN
+    # ---- is_approved: admin veya university_admin → True ---------- #
+    is_approved_val = current_user.role in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN)
 
     # ---- Onay bekleyen eski taslakları temizle -------------------- #
     # Aynı PDF tekrar yüklendiğinde is_approved=False kayıtlar katlanmasın
@@ -1270,6 +1350,8 @@ async def upload_schedule_pdf(
     if existing:
         existing.schedule_data = schedule_data_str
         existing.is_approved = is_approved_val
+        if effective_university_id is not None:
+            existing.university_id = effective_university_id
         existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         action = "güncellendi"
     else:
@@ -1282,6 +1364,7 @@ async def upload_schedule_pdf(
             academic_year=target_academic_year,
             schedule_data=schedule_data_str,
             is_approved=is_approved_val,
+            university_id=effective_university_id,
             created_by=current_user.id,
             created_at=datetime.now(timezone.utc).replace(tzinfo=None),
             updated_at=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -1451,6 +1534,13 @@ async def upload_calendar_pdf(
     # ---- Akademik yıl varsayılanı ---------------------------------- #
     target_academic_year = academic_year or get_current_semester_info()["academic_year"]
 
+    # ---- UNIVERSITY_ADMIN: üniversiteyi zorla eziştir ------------- #
+    effective_university_id: Optional[str] = None
+    if current_user.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(current_user)
+        university = current_user.university
+        effective_university_id = current_user.university_id
+
     # ---- PDF'den metin çıkar -------------------------------------- #
     logger.info(
         "PDF calendar upload başladı. user=%s university=%s academic_year=%s",
@@ -1542,9 +1632,10 @@ async def upload_calendar_pdf(
         new_event = AcademicCalendarEvent(
             id=str(uuid4()),
             university=university,
+            university_id=effective_university_id,
             academic_year=target_academic_year,
             event_type=event_type,
-            is_approved=(current_user.role == UserRole.ADMIN),
+            is_approved=(current_user.role in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN)),
             title=event_name,
             start_date=start_date_obj,
             end_date=end_date_obj,
@@ -1579,12 +1670,15 @@ class AdminScheduleUpdateRequest(BaseModel):
 @router.get("/admin/schedules/pending", response_model=list[CourseScheduleResponse])
 async def admin_list_pending_schedules(
     university: Optional[str] = Query(None),
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Onay bekleyen ders programlarını listeler. (Admin)"""
     conditions = [CourseSchedule.is_approved.is_(False)]
-    if university:
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        conditions.append(CourseSchedule.university_id == admin.university_id)
+    elif university:
         conditions.append(CourseSchedule.university == university)
     stmt = (
         select(CourseSchedule)
@@ -1598,12 +1692,15 @@ async def admin_list_pending_schedules(
 @router.get("/admin/schedules/approved", response_model=list[CourseScheduleResponse])
 async def admin_list_approved_schedules(
     university: Optional[str] = Query(None),
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Onaylı ders programlarını listeler. (Admin)"""
     conditions = [CourseSchedule.is_approved.is_(True)]
-    if university:
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        _check_university_access(admin)
+        conditions.append(CourseSchedule.university_id == admin.university_id)
+    elif university:
         conditions.append(CourseSchedule.university == university)
     stmt = (
         select(CourseSchedule)
@@ -1617,7 +1714,7 @@ async def admin_list_approved_schedules(
 @router.patch("/admin/schedules/{schedule_id}/approve", response_model=CourseScheduleResponse)
 async def admin_approve_schedule(
     schedule_id: str,
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Ders programını onaylar. (Admin)"""
@@ -1631,6 +1728,7 @@ async def admin_approve_schedule(
             detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, schedule.university_id)
     schedule.is_approved = True
     schedule.updated_at = datetime.now()
     await session.commit()
@@ -1642,7 +1740,7 @@ async def admin_approve_schedule(
 async def admin_update_schedule(
     schedule_id: str,
     data: AdminScheduleUpdateRequest,
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Ders programı içeriğini günceller. (Admin)"""
@@ -1656,6 +1754,7 @@ async def admin_update_schedule(
             detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, schedule.university_id)
     schedule.schedule_data = json.dumps(
         {"courses": [c.model_dump() for c in data.courses]}, ensure_ascii=False
     )
@@ -1668,7 +1767,7 @@ async def admin_update_schedule(
 @router.delete("/admin/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def admin_delete_schedule(
     schedule_id: str,
-    admin: User = Depends(require_role(UserRole.ADMIN)),
+    admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
     """Ders programını siler. (Admin)"""
@@ -1682,5 +1781,6 @@ async def admin_delete_schedule(
             detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
         )
 
+    _assert_owns_resource(admin, schedule.university_id)
     await session.delete(schedule)
     await session.commit()
