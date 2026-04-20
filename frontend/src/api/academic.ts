@@ -133,6 +133,7 @@ export interface UpdateCalendarEventPayload {
   event_type?: CalendarEvent['event_type'];
   start_date?: string;
   end_date?: string | null;
+  description?: string | null;
 }
 
 export const updateCalendarEvent = async (

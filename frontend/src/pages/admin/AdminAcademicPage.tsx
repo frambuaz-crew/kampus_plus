@@ -47,6 +47,7 @@ interface EditFormState {
   event_type: CalendarEvent['event_type'];
   start_date: string;
   end_date: string;
+  description: string;
 }
 
 // ─── Ana Bileşen ──────────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ export const AdminAcademicPage: React.FC = () => {
   const [approvedCalendars, setApprovedCalendars] = useState<CalendarEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>({
-    title: '', event_type: 'other', start_date: '', end_date: '',
+    title: '', event_type: 'other', start_date: '', end_date: '', description: '',
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -120,6 +121,7 @@ export const AdminAcademicPage: React.FC = () => {
       event_type: event.event_type,
       start_date: event.start_date,
       end_date: event.end_date ?? event.start_date,
+      description: event.description ?? '',
     });
   };
 
@@ -139,6 +141,7 @@ export const AdminAcademicPage: React.FC = () => {
         event_type: editForm.event_type,
         start_date: editForm.start_date,
         end_date: editForm.end_date || null,
+        description: editForm.description.trim() || null,
       });
       setEditingEvent(null);
       await loadData();
@@ -293,6 +296,16 @@ export const AdminAcademicPage: React.FC = () => {
                     className="w-full rounded-lg border border-gray-700 bg-gray-800 text-gray-100 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">Açıklama (opsiyonel)</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                  rows={3}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 text-gray-100 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                />
               </div>
 
               {error && (

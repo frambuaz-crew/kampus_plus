@@ -460,7 +460,12 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             eff_university = university or (user_ctx.university if user_ctx else None)
             eff_department = department or (user_ctx.department if user_ctx else None)
             eff_grade = class_year or (user_ctx.grade if user_ctx else None)
-            eff_year = academic_year or "2025-2026"
+            if not academic_year:
+                from datetime import date as _d
+                _m, _y = _d.today().month, _d.today().year
+                eff_year = f"{_y-1}-{_y}" if _m <= 6 else f"{_y}-{_y+1}"
+            else:
+                eff_year = academic_year
 
             if not eff_university or not eff_department:
                 return (

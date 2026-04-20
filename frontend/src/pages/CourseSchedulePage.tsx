@@ -85,16 +85,17 @@ function getCurrentAcademicTerm(): { semester: 'guz' | 'bahar'; year: string } {
   const today = new Date();
   const month = today.getMonth() + 1;
   const year = today.getFullYear();
-  if (month >= 8 || month === 1) {
-    return {
-      semester: 'guz',
-      year: month === 1 ? `${year - 1}-${year}` : `${year}-${year + 1}`,
-    };
+  if (month >= 9) {
+    return { semester: 'guz', year: `${year}-${year + 1}` };
   }
-  return {
-    semester: 'bahar',
-    year: `${year - 1}-${year}`,
-  };
+  if (month === 1) {
+    return { semester: 'guz', year: `${year - 1}-${year}` };
+  }
+  if (month >= 2 && month <= 6) {
+    return { semester: 'bahar', year: `${year - 1}-${year}` };
+  }
+  // Temmuz–Ağustos: bir sonraki Güz (backend ile aynı davranış)
+  return { semester: 'guz', year: `${year}-${year + 1}` };
 }
 
 // ============================================================================

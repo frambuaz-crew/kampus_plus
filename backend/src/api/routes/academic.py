@@ -184,6 +184,7 @@ class AdminCalendarEventUpdateRequest(BaseModel):
     event_type: Optional[str] = Field(default=None, description="exam / registration / holiday / other")
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    description: Optional[str] = None
 
 
 class ContributionReviewRequest(BaseModel):
@@ -734,6 +735,8 @@ async def admin_update_calendar_event(
         event.start_date = data.start_date
     if data.end_date is not None:
         event.end_date = data.end_date
+    if data.description is not None:
+        event.description = data.description or None
 
     event.updated_at = datetime.now()
     await session.commit()
@@ -967,28 +970,6 @@ async def admin_create_calendar_event(
         days_until=days_until,
         created_at=event.created_at,
     )
-
-
-@router.delete("/admin/calendar/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def admin_delete_calendar_event(
-    event_id: str,
-    admin: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_db),
-):
-    """Akademik takvim etkinliğini siler. (Admin)"""
-    stmt = select(AcademicCalendarEvent).where(AcademicCalendarEvent.id == event_id)
-    result = await session.execute(stmt)
-    event = result.scalar_one_or_none()
-
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "Etkinlik bulunamadı"}},
-        )
-
-    _assert_owns_resource(admin, event.university_id)
-    await session.delete(event)
-    await session.commit()
 
 
 @router.post("/admin/course-schedule", response_model=CourseScheduleResponse, status_code=status.HTTP_201_CREATED)
