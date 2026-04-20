@@ -236,34 +236,6 @@ async def create_listing(
     return _listing_to_response(new_listing, current_user)
 
 
-@router.get("/listings/{listing_id}", response_model=CareerListingResponse)
-async def get_listing(
-    listing_id: str,
-    session: AsyncSession = Depends(get_db),
-):
-    stmt = (
-        select(CareerListing, User)
-        .outerjoin(User, CareerListing.posted_by == User.id)
-        .where(CareerListing.id == listing_id)
-        .where(CareerListing.status == "active")
-    )
-    result = await session.execute(stmt)
-    row = result.first()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
-
-    listing, user = row
-    listing.view_count = (listing.view_count or 0) + 1
-    try:
-        await session.commit()
-        await session.refresh(listing)
-    except Exception:
-        await session.rollback()
-
-    return _listing_to_response(listing, user)
-
-
 @router.delete("/listings/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_listing(
     listing_id: str,
@@ -289,55 +261,6 @@ async def delete_listing(
         raise HTTPException(status_code=500, detail="İlan silinemedi.")
 
     return None
-
-
-@router.patch("/listings/{listing_id}/archive", response_model=CareerListingResponse)
-async def archive_listing(
-    listing_id: str,
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-):
-    stmt = select(CareerListing).where(CareerListing.id == listing_id)
-    result = await session.execute(stmt)
-    listing = result.scalar_one_or_none()
-
-    if not listing:
-        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
-
-    if listing.posted_by != current_user.id:
-        raise HTTPException(status_code=403, detail="Bu ilanı arşivleme yetkiniz yok.")
-
-    listing.status = "archived"
-    listing.updated_at = datetime.utcnow()
-    try:
-        await session.commit()
-        await session.refresh(listing)
-    except Exception:
-        await session.rollback()
-        raise HTTPException(status_code=500, detail="İlan arşivlenemedi.")
-
-    return _listing_to_response(listing, current_user)
-
-
-@router.get("/my-listings", response_model=List[CareerListingResponse])
-async def get_my_listings(
-    status: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-):
-    stmt = (
-        select(CareerListing)
-        .where(CareerListing.posted_by == current_user.id)
-        .where(CareerListing.status != "deleted")
-        .order_by(desc(CareerListing.created_at))
-    )
-    if status:
-        stmt = stmt.where(CareerListing.status == status)
-
-    result = await session.execute(stmt)
-    listings = result.scalars().all()
-
-    return [_listing_to_response(l, current_user) for l in listings]
 
 
 @router.post("/listings/{listing_id}/report", status_code=status.HTTP_201_CREATED)

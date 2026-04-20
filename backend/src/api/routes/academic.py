@@ -187,10 +187,6 @@ class AdminCalendarEventUpdateRequest(BaseModel):
     description: Optional[str] = None
 
 
-class ContributionReviewRequest(BaseModel):
-    rejection_reason: Optional[str] = None
-
-
 # ============================================================================
 # YARDIMCI: schedule_data parse
 # ============================================================================
@@ -543,29 +539,6 @@ async def get_my_contributions(
 # ADMİN ENDPOINT'LERİ
 # ============================================================================
 
-@router.get("/admin/contributions/pending", response_model=list[ContributionResponse])
-async def admin_list_pending_contributions(
-    contribution_type: Optional[str] = Query(None),
-    admin: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_db),
-):
-    """Onay bekleyen katkıları listeler. (Admin)"""
-    conditions = [AcademicContribution.status == ContributionStatus.PENDING]
-    if admin.role == UserRole.UNIVERSITY_ADMIN:
-        _check_university_access(admin)
-        conditions.append(AcademicContribution.university == admin.university)
-    if contribution_type:
-        conditions.append(AcademicContribution.type == contribution_type)
-
-    stmt = (
-        select(AcademicContribution)
-        .where(and_(*conditions))
-        .order_by(AcademicContribution.created_at)
-    )
-    result = await session.execute(stmt)
-    return result.scalars().all()
-
-
 @router.get("/admin/calendar/pending", response_model=list[CalendarEventResponse])
 async def admin_list_pending_calendar_events(
     university: Optional[str] = Query(None, description="Üniversiteye göre filtre"),
@@ -780,143 +753,6 @@ async def admin_delete_calendar_event(
     await session.commit()
 
 
-@router.post("/admin/contributions/{contribution_id}/approve", response_model=ContributionResponse)
-async def admin_approve_contribution(
-    contribution_id: str,
-    admin: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_db),
-):
-    """Katkıyı onaylar ve ilgili tabloya ekler. (Admin)"""
-    stmt = select(AcademicContribution).where(AcademicContribution.id == contribution_id)
-    result = await session.execute(stmt)
-    contribution = result.scalar_one_or_none()
-
-    if not contribution:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "Katkı bulunamadı"}},
-        )
-
-    if contribution.status != ContributionStatus.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": {"code": "ALREADY_REVIEWED", "message": "Bu katkı zaten incelendi"}},
-        )
-
-    if admin.role == UserRole.UNIVERSITY_ADMIN:
-        _check_university_access(admin)
-        if contribution.university != admin.university:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": {"code": "FORBIDDEN", "message": "Sadece kendi üniversitenize ait verilerde işlem yapabilirsiniz."}},
-            )
-
-    # Onaylandığında gerçek tabloya yaz
-    if contribution.type == ContributionType.COURSE_SCHEDULE and contribution.manual_data:
-        manual = json.loads(contribution.manual_data)
-        semester_info = get_current_semester_info()
-
-        existing = await session.execute(
-            select(CourseSchedule).where(
-                and_(
-                    CourseSchedule.university == contribution.university,
-                    CourseSchedule.department == (contribution.department or ""),
-                    CourseSchedule.class_year == (contribution.class_year or ""),
-                    CourseSchedule.semester == (contribution.semester or semester_info["semester"]),
-                    CourseSchedule.academic_year == (contribution.academic_year or semester_info["academic_year"]),
-                )
-            )
-        )
-        existing_schedule = existing.scalar_one_or_none()
-
-        if existing_schedule:
-            existing_schedule.schedule_data = json.dumps(manual)
-            existing_schedule.updated_at = datetime.now()
-        else:
-            new_schedule = CourseSchedule(
-                id=str(uuid4()),
-                university=contribution.university,
-                department=contribution.department or "",
-                class_year=contribution.class_year or "",
-                semester=contribution.semester or semester_info["semester"],
-                academic_year=contribution.academic_year or semester_info["academic_year"],
-                schedule_data=json.dumps(manual),
-                created_by=contribution.user_id,
-            )
-            session.add(new_schedule)
-
-    elif contribution.type == ContributionType.ACADEMIC_CALENDAR and contribution.manual_data:
-        manual = json.loads(contribution.manual_data)
-        semester_info = get_current_semester_info()
-        events_data = manual.get("events", [manual])
-        for ev_data in events_data:
-            new_event = AcademicCalendarEvent(
-                id=str(uuid4()),
-                university=contribution.university,
-                academic_year=contribution.academic_year or semester_info["academic_year"],
-                event_type=ev_data.get("event_type", EventType.OTHER),
-                is_approved=True,
-                title=ev_data.get("title", "Etkinlik"),
-                description=ev_data.get("description"),
-                start_date=date.fromisoformat(ev_data["start_date"]) if "start_date" in ev_data else date.today(),
-                end_date=date.fromisoformat(ev_data["end_date"]) if ev_data.get("end_date") else None,
-                created_by=contribution.user_id,
-            )
-            session.add(new_event)
-
-    contribution.status = ContributionStatus.APPROVED
-    contribution.reviewed_by = admin.id
-    contribution.reviewed_at = datetime.now()
-
-    await session.commit()
-    await session.refresh(contribution)
-    logger.info(f"Katkı onaylandı: {contribution_id} (admin: {admin.id})")
-    return contribution
-
-
-@router.post("/admin/contributions/{contribution_id}/reject", response_model=ContributionResponse)
-async def admin_reject_contribution(
-    contribution_id: str,
-    data: ContributionReviewRequest,
-    admin: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_db),
-):
-    """Katkıyı reddeder. (Admin)"""
-    stmt = select(AcademicContribution).where(AcademicContribution.id == contribution_id)
-    result = await session.execute(stmt)
-    contribution = result.scalar_one_or_none()
-
-    if not contribution:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "Katkı bulunamadı"}},
-        )
-
-    if contribution.status != ContributionStatus.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": {"code": "ALREADY_REVIEWED", "message": "Bu katkı zaten incelendi"}},
-        )
-
-    if admin.role == UserRole.UNIVERSITY_ADMIN:
-        _check_university_access(admin)
-        if contribution.university != admin.university:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": {"code": "FORBIDDEN", "message": "Sadece kendi üniversitenize ait verilerde işlem yapabilirsiniz."}},
-            )
-
-    contribution.status = ContributionStatus.REJECTED
-    contribution.rejection_reason = data.rejection_reason
-    contribution.reviewed_by = admin.id
-    contribution.reviewed_at = datetime.now()
-
-    await session.commit()
-    await session.refresh(contribution)
-    logger.info(f"Katkı reddedildi: {contribution_id} (admin: {admin.id})")
-    return contribution
-
-
 @router.post("/admin/calendar", response_model=CalendarEventResponse, status_code=status.HTTP_201_CREATED)
 async def admin_create_calendar_event(
     data: AdminCalendarEventRequest,
@@ -970,83 +806,6 @@ async def admin_create_calendar_event(
         days_until=days_until,
         created_at=event.created_at,
     )
-
-
-@router.post("/admin/course-schedule", response_model=CourseScheduleResponse, status_code=status.HTTP_201_CREATED)
-async def admin_create_course_schedule(
-    data: AdminCourseScheduleRequest,
-    admin: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_db),
-):
-    """Ders programı oluşturur veya günceller. (Admin — unique constraint'e göre upsert)"""
-    if admin.role == UserRole.UNIVERSITY_ADMIN:
-        _check_university_access(admin)
-        effective_university = admin.university
-        effective_university_id: Optional[str] = admin.university_id
-    else:
-        effective_university = data.university
-        effective_university_id = None
-
-    # Varsa güncelle, yoksa oluştur
-    stmt = select(CourseSchedule).where(
-        and_(
-            CourseSchedule.university == effective_university,
-            CourseSchedule.department == data.department,
-            CourseSchedule.class_year == data.class_year,
-            CourseSchedule.semester == data.semester,
-            CourseSchedule.academic_year == data.academic_year,
-        )
-    )
-    result = await session.execute(stmt)
-    existing = result.scalar_one_or_none()
-
-    schedule_data = json.dumps({"courses": [c.model_dump() for c in data.courses]})
-
-    if existing:
-        _assert_owns_resource(admin, existing.university_id)
-        existing.schedule_data = schedule_data
-        existing.updated_at = datetime.now()
-        await session.commit()
-        await session.refresh(existing)
-        return build_schedule_response(existing)
-
-    new_schedule = CourseSchedule(
-        id=str(uuid4()),
-        university=effective_university,
-        university_id=effective_university_id,
-        department=data.department,
-        class_year=data.class_year,
-        semester=data.semester,
-        academic_year=data.academic_year,
-        schedule_data=schedule_data,
-        created_by=admin.id,
-    )
-    session.add(new_schedule)
-    await session.commit()
-    await session.refresh(new_schedule)
-    return build_schedule_response(new_schedule)
-
-
-@router.delete("/admin/course-schedule/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def admin_delete_course_schedule(
-    schedule_id: str,
-    admin: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_db),
-):
-    """Ders programını siler. (Admin)"""
-    stmt = select(CourseSchedule).where(CourseSchedule.id == schedule_id)
-    result = await session.execute(stmt)
-    schedule = result.scalar_one_or_none()
-
-    if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "Ders programı bulunamadı"}},
-        )
-
-    _assert_owns_resource(admin, schedule.university_id)
-    await session.delete(schedule)
-    await session.commit()
 
 
 # ============================================================================
