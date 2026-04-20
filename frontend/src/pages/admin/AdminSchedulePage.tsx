@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   PencilLine,
   RefreshCw,
+  Search,
   Trash2,
   Upload,
   X,
@@ -400,6 +401,8 @@ export const AdminSchedulePage: React.FC = () => {
 
 // ─── Ders Programı Tablosu ────────────────────────────────────────────────────
 
+const SCH_ITEMS_PER_PAGE = 10;
+
 interface ScheduleTableProps {
   schedules: CourseSchedule[];
   isPending: boolean;
@@ -418,9 +421,13 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
   schedules, isPending, loading, error, processingId, onApprove, onDelete, onEdit,
 }) => {
   const [sortConfig, setSortConfig] = useState<{ key: ScheduleSortKey; direction: SortDirection }>({
-    key: 'university',
-    direction: 'default',
+    key: 'university', direction: 'default',
   });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  useEffect(() => { setCurrentPage(1); }, [schedules, searchQuery]);
 
   const handleSort = (key: ScheduleSortKey) => {
     setSortConfig((prev) => {
@@ -449,6 +456,32 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
     });
   }, [schedules, sortConfig]);
 
+  const filteredData = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return sortedData;
+    return sortedData.filter((s) =>
+      s.university.toLowerCase().includes(q) ||
+      s.department.toLowerCase().includes(q) ||
+      s.class_year.toLowerCase().includes(q) ||
+      s.semester.toLowerCase().includes(q) ||
+      s.academic_year.toLowerCase().includes(q)
+    );
+  }, [sortedData, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / SCH_ITEMS_PER_PAGE));
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * SCH_ITEMS_PER_PAGE,
+    currentPage * SCH_ITEMS_PER_PAGE
+  );
+
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+    .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+      if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...');
+      acc.push(p);
+      return acc;
+    }, []);
+
   const thClass = "px-4 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors";
 
   if (loading) return <div className="px-6 py-12 text-center text-sm text-gray-500">Yükleniyor...</div>;
@@ -457,87 +490,183 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
       <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</div>
     </div>
   );
-  if (schedules.length === 0) return (
-    <div className="bg-gray-900 rounded-2xl border border-gray-800 px-6 py-12 text-center">
-      <CheckCircle2 size={28} className="text-emerald-400 mx-auto mb-3" />
-      <p className="text-sm font-semibold text-gray-300">
-        {isPending ? 'Onay bekleyen ders programı yok.' : 'Onaylı ders programı yok.'}
-      </p>
-    </div>
-  );
 
   return (
-    <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-800">
-              <th className={`px-6 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors`} onClick={() => handleSort('university')}>
-                <span className="inline-flex items-center gap-1.5">Üniversite / Bölüm {renderSortIcon('university')}</span>
-              </th>
-              <th className={thClass} onClick={() => handleSort('class_year')}>
-                <span className="inline-flex items-center gap-1.5">Sınıf {renderSortIcon('class_year')}</span>
-              </th>
-              <th className={thClass} onClick={() => handleSort('semester')}>
-                <span className="inline-flex items-center gap-1.5">Dönem {renderSortIcon('semester')}</span>
-              </th>
-              <th className={thClass} onClick={() => handleSort('academic_year')}>
-                <span className="inline-flex items-center gap-1.5">Yıl {renderSortIcon('academic_year')}</span>
-              </th>
-              <th className={thClass} onClick={() => handleSort('courses')}>
-                <span className="inline-flex items-center gap-1.5">Dersler {renderSortIcon('courses')}</span>
-              </th>
-              <th className="px-4 py-3 font-semibold">İşlemler</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedData.map((sch) => (
-              <tr key={sch.id} className="border-b border-gray-800/70">
-                <td className="px-6 py-4 align-top">
-                  <p className="font-semibold text-gray-200 leading-snug">{sch.university}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{sch.department}</p>
-                </td>
-                <td className="px-4 py-4 text-gray-300 align-top">{sch.class_year}</td>
-                <td className="px-4 py-4 text-gray-300 align-top">{sch.semester}</td>
-                <td className="px-4 py-4 text-gray-300 align-top">{sch.academic_year}</td>
-                <td className="px-4 py-4 align-top">
-                  <span className="bg-indigo-500/10 text-indigo-400 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {sch.courses.length} ders
-                  </span>
-                </td>
-                <td className="px-4 py-4 align-top">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => onEdit(sch)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gray-800 text-gray-200 hover:bg-gray-700 text-xs font-semibold"
-                    >
-                      <PencilLine size={12} /> Düzenle
-                    </button>
-                    {isPending && (
-                      <button
-                        onClick={() => onApprove(sch.id)}
-                        disabled={processingId === sch.id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold"
-                      >
-                        <CheckCircle2 size={12} />
-                        {processingId === sch.id ? 'Onaylanıyor...' : 'Onayla'}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => onDelete(sch.id)}
-                      disabled={processingId === sch.id}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 text-xs font-semibold"
-                    >
-                      <Trash2 size={12} />
-                      {processingId === sch.id ? 'Siliniyor...' : isPending ? 'Reddet' : 'Sil'}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <>
+      {/* Arama Çubuğu */}
+      <div className="mb-3 relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Üniversite, bölüm, sınıf, dönem ile ara..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-8 pr-8 py-2 rounded-lg border border-gray-700 bg-gray-900 text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+            <X size={13} />
+          </button>
+        )}
       </div>
-    </div>
+
+      {schedules.length === 0 ? (
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 px-6 py-12 text-center">
+          <CheckCircle2 size={28} className="text-emerald-400 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-gray-300">
+            {isPending ? 'Onay bekleyen ders programı yok.' : 'Onaylı ders programı yok.'}
+          </p>
+        </div>
+      ) : filteredData.length === 0 ? (
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 px-6 py-12 text-center">
+          <p className="text-sm text-gray-500">"{searchQuery}" için sonuç bulunamadı.</p>
+        </div>
+      ) : (
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-800">
+                  <th className="px-6 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors" onClick={() => handleSort('university')}>
+                    <span className="inline-flex items-center gap-1.5">Üniversite / Bölüm {renderSortIcon('university')}</span>
+                  </th>
+                  <th className={thClass} onClick={() => handleSort('class_year')}>
+                    <span className="inline-flex items-center gap-1.5">Sınıf {renderSortIcon('class_year')}</span>
+                  </th>
+                  <th className={thClass} onClick={() => handleSort('semester')}>
+                    <span className="inline-flex items-center gap-1.5">Dönem {renderSortIcon('semester')}</span>
+                  </th>
+                  <th className={thClass} onClick={() => handleSort('academic_year')}>
+                    <span className="inline-flex items-center gap-1.5">Yıl {renderSortIcon('academic_year')}</span>
+                  </th>
+                  <th className={thClass} onClick={() => handleSort('courses')}>
+                    <span className="inline-flex items-center gap-1.5">Dersler {renderSortIcon('courses')}</span>
+                  </th>
+                  <th className="px-4 py-3 font-semibold">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedData.map((sch) => (
+                  <tr key={sch.id} className="border-b border-gray-800/70">
+                    <td className="px-6 py-4 align-top">
+                      <p className="font-semibold text-gray-200 leading-snug">{sch.university}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{sch.department}</p>
+                    </td>
+                    <td className="px-4 py-4 text-gray-300 align-top">{sch.class_year}</td>
+                    <td className="px-4 py-4 text-gray-300 align-top">{sch.semester}</td>
+                    <td className="px-4 py-4 text-gray-300 align-top">{sch.academic_year}</td>
+                    <td className="px-4 py-4 align-top">
+                      <span className="bg-indigo-500/10 text-indigo-400 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {sch.courses.length} ders
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => onEdit(sch)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gray-800 text-gray-200 hover:bg-gray-700 text-xs font-semibold"
+                        >
+                          <PencilLine size={12} /> Düzenle
+                        </button>
+                        {isPending && (
+                          <button
+                            onClick={() => onApprove(sch.id)}
+                            disabled={processingId === sch.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold"
+                          >
+                            <CheckCircle2 size={12} />
+                            {processingId === sch.id ? 'Onaylanıyor...' : 'Onayla'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setDeleteConfirmId(sch.id)}
+                          disabled={processingId === sch.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 text-xs font-semibold"
+                        >
+                          <Trash2 size={12} />
+                          {processingId === sch.id ? 'Siliniyor...' : isPending ? 'Reddet' : 'Sil'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Sayfalama */}
+          {totalPages > 1 && (
+            <div className="px-4 py-3 border-t border-gray-800 flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs text-gray-500">
+                {(currentPage - 1) * SCH_ITEMS_PER_PAGE + 1}–{Math.min(currentPage * SCH_ITEMS_PER_PAGE, filteredData.length)} / {filteredData.length} kayıt
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2.5 py-1.5 rounded-md bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 text-xs font-semibold"
+                >
+                  Önceki
+                </button>
+                {pageNumbers.map((item, idx) =>
+                  item === '...' ? (
+                    <span key={`e-${idx}`} className="px-1.5 text-xs text-gray-500">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setCurrentPage(item as number)}
+                      className={`w-7 h-7 rounded-md text-xs font-semibold transition-colors ${
+                        currentPage === item ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-2.5 py-1.5 rounded-md bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 text-xs font-semibold"
+                >
+                  Sonraki
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Silme Onay Modalı */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-6">
+            <h3 className="text-base font-bold text-gray-100 mb-2">
+              {isPending ? 'Reddet ve Sil' : 'Kaydı Sil'}
+            </h3>
+            <p className="text-sm text-gray-400 mb-6">
+              Bu ders programını{' '}
+              <span className="text-red-400 font-semibold">
+                {isPending ? 'reddetmek ve kalıcı olarak silmek' : 'kalıcı olarak silmek'}
+              </span>{' '}
+              istediğinize emin misiniz? Bu işlem geri alınamaz.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 text-sm font-semibold"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={() => { onDelete(deleteConfirmId); setDeleteConfirmId(null); }}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 text-sm font-semibold"
+              >
+                {isPending ? 'Reddet ve Sil' : 'Sil'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
