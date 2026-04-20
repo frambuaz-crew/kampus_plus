@@ -223,6 +223,7 @@ export const AdminAcademicPage: React.FC = () => {
         onApprove={handleApproveCalendar}
         onDelete={handleDeleteCalendar}
         onEdit={openEditModal}
+        onReload={loadData}
       />
 
       {/* PDF Yükleme Modal */}
@@ -351,13 +352,14 @@ interface CalendarTableProps {
   onApprove: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (event: CalendarEvent) => void;
+  onReload: () => Promise<void>;
 }
 
 type CalendarSortKey = 'title' | 'university' | 'event_type' | 'start_date';
 type SortDirection = 'default' | 'asc' | 'desc';
 
 const CalendarTable: React.FC<CalendarTableProps> = ({
-  events, isPending, loading, error, processingId, onApprove, onDelete, onEdit,
+  events, isPending, loading, error, processingId, onApprove, onDelete, onEdit, onReload,
 }) => {
   const [sortConfig, setSortConfig] = useState<{ key: CalendarSortKey; direction: SortDirection }>({
     key: 'title', direction: 'default',
@@ -365,6 +367,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   useEffect(() => { setCurrentPage(1); }, [events, searchQuery]);
 
@@ -411,6 +414,41 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
     currentPage * CAL_ITEMS_PER_PAGE
   );
 
+  const handleBulkDelete = async () => {
+    if (isBulkDeleting) return;
+    const ids = filteredData.map((item) => item.id);
+    if (ids.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Şu an listelenen ${ids.length} kaydın TÜMÜNÜ silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`
+    );
+    if (!confirmed) return;
+
+    setIsBulkDeleting(true);
+    try {
+      const results = await Promise.all(
+        ids.map((id) =>
+          deleteCalendarEvent(id)
+            .then(() => ({ ok: true }))
+            .catch(() => ({ ok: false }))
+        )
+      );
+
+      const successCount = results.filter((r) => r.ok).length;
+      const failCount = ids.length - successCount;
+
+      if (failCount === 0) {
+        window.alert(`${successCount} kayıt başarıyla silindi.`);
+      } else {
+        window.alert(`${successCount} kayıt silindi, ${failCount} kayıt silinemedi.`);
+      }
+
+      await onReload();
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
     .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
     .reduce<(number | '...')[]>((acc, p, idx, arr) => {
@@ -431,20 +469,31 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   return (
     <>
       {/* Arama Çubuğu */}
-      <div className="mb-3 relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Başlık, üniversite veya tür ile ara..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-8 py-2 rounded-lg border border-gray-700 bg-gray-900 text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        />
-        {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
-            <X size={13} />
-          </button>
-        )}
+      <div className="mb-3 flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Başlık, üniversite veya tür ile ara..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-8 py-2 rounded-lg border border-gray-700 bg-gray-900 text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={handleBulkDelete}
+          disabled={isBulkDeleting || filteredData.length === 0}
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold whitespace-nowrap"
+        >
+          <Trash2 size={14} />
+          {isBulkDeleting ? 'Siliniyor...' : 'Sayfadaki Tümünü Sil'}
+        </button>
       </div>
 
       {events.length === 0 ? (
