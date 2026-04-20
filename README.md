@@ -1,194 +1,100 @@
-# 🎓 KAMPÜS+ - AI Destekli Öğrenme Platformu
+# KAMPUS+ - AI Destekli Ogrenci Platformu
 
-**Versiyon:** 1.0  
-**Durum:** 🚧 Development  
-**Son Güncelleme:** 5 Ocak 2026
-
----
-
-## 📖 Hakkında
-
-KAMPÜS+, üniversite öğrencileri için tasarlanmış modern bir öğrenme ve sosyal platformdur. AI destekli asistan, forum, marketplace, kariyer rehberliği ve akademik takvim gibi özellikler sunar.
-
-### 🎯 Özellikler
-
-- 🤖 **AI Asistan** - Google Gemini ile entegre akıllı asistan
-- 💬 **Forum** - Öğrenciler arası tartışma ve paylaşım platformu
-- 🛒 **Marketplace** - İkinci el kitap ve materyal alışverişi
-- 💼 **Kariyer Rehberliği** - İş ilanları ve kariyer danışmanlığı
-- 📅 **Akademik Takvim** - Ders programı ve etkinlik takibi
-- 🔔 **Bildirimler** - Anlık bildirim sistemi
-- 💌 **Mesajlaşma** - Öğrenciler arası iletişim
-- 🔍 **Global Arama** - Platform genelinde arama
+Versiyon: 1.1  
+Durum: Development  
+Son Guncelleme: 20 Nisan 2026
 
 ---
 
-## 🚀 Hızlı Başlangıç
+## Hakkinda
+
+KAMPUS+, universite ogrencileri icin tasarlanmis modern bir ogrenme ve sosyal platformdur. AI asistan, forum, marketplace, kariyer ve akademik ozellikleri tek cati altinda sunar.
+
+## Hızlı Başlangıç (Quick Start)
+
+Tek komut, sifir surpriz: Bu projede onboarding tek komutluk yapidadir. Lokal gelistirmede veritabani olarak SQLite kullanilir; lokal PostgreSQL kurulumu gerekmez.
 
 ### Gereksinimler
 
-- Docker Desktop (v20.10+) veya Docker Engine + Docker Compose
+- Docker Desktop (veya Docker Engine + Docker Compose v2)
 - Git
-- Minimum 4GB RAM, 5GB disk alanı
 
-### Kurulum
+### 1) Repoyu cek
 
 ```bash
-# 1. Projeyi klonlayın
 git clone <repository-url>
 cd kampus_plus
-
-# 2. Backend .env dosyasını oluşturun
-cd backend
-# .env dosyasını oluşturun ve GOOGLE_API_KEY, JWT_SECRET_KEY ekleyin
-cd ..
-
-# 3. Container'ları başlatın
-docker-compose up -d
-
-# 4. Uygulamayı açın
-# Frontend: http://localhost:5173
-# Backend API: http://localhost:8000/docs
 ```
 
-**Detaylı kurulum rehberi için:** [DOCKER_SETUP.md](./DOCKER_SETUP.md)
+### 2) One-click calistir
 
----
+- Windows: koydeki setup.bat dosyasina cift tikla (veya terminalden setup.bat calistir).
+- Mac/Linux: terminalde make up (alternatif: make install) calistir.
 
-## 📚 Dokümantasyon
+### 3) Uygulamayi ac
 
-- **[DOCKER_SETUP.md](./DOCKER_SETUP.md)** - Docker kurulum ve kullanım rehberi
-- **[docs/SETUP.md](./docs/SETUP.md)** - Genel kurulum rehberi
-- **[docs/TEST_USERS.md](./docs/TEST_USERS.md)** - Test kullanıcı bilgileri
-- **[specs/SYSTEM_OVERVIEW.md](./specs/SYSTEM_OVERVIEW.md)** - Sistem mimarisi
+- Frontend: http://localhost:5174
+- Backend API Docs (Swagger): http://localhost:8001/docs
 
----
+### Bu tek komut neyi otomatik yapar?
 
-## 🏗️ Teknoloji Stack
+- Alembic migration'larini calistirir ve veritabani semasini olusturur.
+- Konya normalize seed'ini calistirir ve 5 Konya universitesinin guncel verilerini ekler.
+- Baslangic test hesaplarini idempotent sekilde garanti eder.
 
-### Backend
-- **Framework:** FastAPI (Python 3.11)
-- **Database:** SQLite (WAL mode)
-- **ORM:** SQLAlchemy 2.0
-- **Migrations:** Alembic
-- **AI:** Google Gemini API
-- **Vector Store:** FAISS
-- **Authentication:** JWT
+## Test Hesapları (Test Accounts)
 
-### Frontend
-- **Framework:** React 19
-- **Build Tool:** Vite 7
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS
-- **Routing:** React Router v7
-- **HTTP Client:** Axios
+| Rol | E-posta | Şifre | Açıklama |
+| :--- | :--- | :--- | :--- |
+| **Süper Admin** | admin@abc.com | admin123 | Tüm üniversiteleri yöneten en yetkili hesap. |
+| **Üniversite Admini** | kgtu_admin@kampusplus.edu.tr | admin123 | Sadece KGTÜ verilerini yöneten kısıtlı admin. |
+| **Öğrenci (KGTÜ)** | kgtu_student@kampusplus.edu.tr | student123 | KGTÜ ders programı ve takvimini gören kullanıcı. |
+| **Öğrenci (Selçuk)** | selcuk_student@kampusplus.edu.tr | student123 | Selçuk Üniversitesi verilerini gören kullanıcı. |
 
-### DevOps
-- **Containerization:** Docker & Docker Compose
-- **Development:** Hot reload (backend & frontend)
+Not: Bu hesaplar `setup.bat` veya `make up` komutu calisirken `backend/scripts/ensure_initial_data.py` scripti ile otomatik olarak olusturulur.
 
----
+## Gelistirme Komutlari
 
-## 📁 Proje Yapısı
+```bash
+# Tum servislari baslat
+docker compose up --build -d
 
+# Backend loglarini izle
+docker compose logs -f backend
+
+# Servisleri durdur
+docker compose stop
+
+# Servisleri tamamen kaldir
+docker compose down
 ```
+
+## Teknoloji Ozeti
+
+- Backend: FastAPI, SQLAlchemy, Alembic
+- Veritabani: SQLite
+- Frontend: React + TypeScript + Vite
+- Konteyner: Docker + Docker Compose
+
+## Proje Yapisi
+
+```text
 kampus_plus/
-├── backend/          # FastAPI backend
-├── frontend/          # React frontend
-├── docs/              # Dokümantasyon
-├── specs/             # Proje spesifikasyonları
-├── docker-compose.yml # Docker Compose yapılandırması
-└── README.md         # Bu dosya
+├── backend/
+├── frontend/
+├── docs/
+├── specs/
+├── docker-compose.yml
+├── setup.bat
+├── Makefile
+└── README.md
 ```
 
----
+## Referans
 
-## 🧪 Test Kullanıcıları
+- Sistem mimarisi: [specs/SYSTEM_OVERVIEW.md](specs/SYSTEM_OVERVIEW.md)
 
-- **Öğrenci 1:** `student1@selcuk.edu.tr` / `Student123!`
-- **Öğrenci 2:** `student2@selcuk.edu.tr` / `Student123!`
-- **Admin:** `admin@kampusplus.edu.tr` / `Admin123!`
+## Lisans
 
-Detaylı bilgi: [docs/TEST_USERS.md](./docs/TEST_USERS.md)
-
----
-
-## 🔧 Geliştirme
-
-### Container'ları Çalıştırma
-
-```bash
-# Başlat
-docker-compose up -d
-
-# Logları izle
-docker-compose logs -f
-
-# Durdur
-docker-compose stop
-```
-
-### Backend Geliştirme
-
-```bash
-# Container'a gir
-docker-compose exec backend bash
-
-# Migration oluştur
-alembic revision --autogenerate -m "migration_name"
-
-# Migration uygula
-alembic upgrade head
-
-# Test çalıştır
-pytest
-```
-
-### Frontend Geliştirme
-
-```bash
-# Container'a gir
-docker-compose exec frontend sh
-
-# Test çalıştır
-npm test
-```
-
-**Detaylı bilgi:** [DOCKER_SETUP.md](./DOCKER_SETUP.md)
-
----
-
-## 📝 API Dokümantasyonu
-
-Backend API dokümantasyonu:
-- **Swagger UI:** http://localhost:8000/docs
-- **OpenAPI JSON:** http://localhost:8000/openapi.json
-
----
-
-## 🐛 Sorun Giderme
-
-Yaygın sorunlar ve çözümleri için: [DOCKER_SETUP.md#sorun-giderme](./DOCKER_SETUP.md#sorun-giderme)
-
----
-
-## 📄 Lisans
-
-Bu proje mezuniyet projesi kapsamında geliştirilmiştir.
-
----
-
-## 👥 Katkıda Bulunanlar
-
-KAMPÜS+ Development Team
-
----
-
-## 📞 İletişim
-
-Sorularınız için issue açabilir veya dokümantasyonu inceleyebilirsiniz.
-
----
-
-**Son Güncelleme:** 5 Ocak 2026
+Bu proje mezuniyet projesi kapsaminda gelistirilmistir.
 
