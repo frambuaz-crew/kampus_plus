@@ -86,8 +86,9 @@ def upgrade() -> None:
     sa.Column('username', sa.String(length=50), nullable=False),
     sa.Column('username_last_changed_at', sa.DateTime(), nullable=True),
     sa.Column('university', sa.String(length=255), nullable=False),
+    sa.Column('university_id', sa.String(length=36), nullable=True),
     sa.Column('department_id', sa.String(length=36), nullable=False),
-    sa.Column('role', sa.Enum('student', 'instructor', 'admin', name='userrole', native_enum=False), nullable=False),
+    sa.Column('role', sa.Enum('student', 'instructor', 'admin', 'university_admin', name='userrole', native_enum=False), nullable=False),
     sa.Column('is_verified', sa.Boolean(), server_default=sa.text('(false)'), nullable=False),
     sa.Column('is_active', sa.Boolean(), server_default=sa.text('(true)'), nullable=False),
     sa.Column('is_deleted', sa.Boolean(), server_default=sa.text('(false)'), nullable=False),
@@ -103,10 +104,12 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['department_id'], ['departments.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['university_id'], ['universities.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_users_department_id'), ['department_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_users_university_id'), ['university_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_users_email'), ['email'], unique=True)
         batch_op.create_index(batch_op.f('ix_users_is_active'), ['is_active'], unique=False)
         batch_op.create_index(batch_op.f('ix_users_is_deleted'), ['is_deleted'], unique=False)
@@ -662,6 +665,7 @@ def downgrade() -> None:
     op.drop_table('academic_calendar_events')
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_users_username'))
+        batch_op.drop_index(batch_op.f('ix_users_university_id'))
         batch_op.drop_index(batch_op.f('ix_users_role'))
         batch_op.drop_index(batch_op.f('ix_users_is_verified'))
         batch_op.drop_index(batch_op.f('ix_users_is_deleted'))
