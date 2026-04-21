@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-cd /app
+mkdir -p data
 
 echo "[START] Running Alembic migrations..."
 python -m alembic upgrade head

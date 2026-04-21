@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     
     # Veritabanı - PostgreSQL (ekip) veya SQLite (yerel)
     # Örnek PostgreSQL: postgresql+asyncpg://kampus:secret@postgres:5432/kampus_plus
-    database_url: str = "postgresql+asyncpg://kampus:kampus@localhost:5432/kampus_plus"
+    database_url: str = "sqlite+aiosqlite:///./data/kampus_plus.db"
     
     def get_database_url(self) -> str:
         """Async uygulama için veritabanı URL'ini al."""
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
         return url
     
     # JWT Kimlik Doğrulama
-    jwt_secret_key: str
+    jwt_secret_key: str = "dev_secret_key_change_me_in_production"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 7
