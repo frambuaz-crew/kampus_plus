@@ -45,7 +45,7 @@ export const Sidebar: React.FC = () => {
     { id: 'academic-calendar', label: 'Akademik Takvim', icon: '⏰', path: '/dashboard/academic-calendar' },
   ];
 
-  const adminItems: NavItem[] = user?.role === 'admin'
+  const adminItems: NavItem[] = ['admin', 'university_admin'].includes(user?.role ?? '')
     ? [{ id: 'admin-panel', label: 'Admin Paneli', icon: '🛡️', path: '/admin' }]
     : [];
 

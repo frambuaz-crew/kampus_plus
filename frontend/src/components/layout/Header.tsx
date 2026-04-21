@@ -544,8 +544,8 @@ export const Header: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Admin Geçiş — sadece admin rolü için */}
-                  {user?.role === 'admin' && (
+                  {/* Admin Geçiş — admin ve university_admin rolleri için */}
+                  {(['admin', 'university_admin'] as const).includes(user?.role as 'admin' | 'university_admin') && (
                     <>
                       <div className="border-t border-gray-100 my-2"></div>
                       <div className="py-2">
