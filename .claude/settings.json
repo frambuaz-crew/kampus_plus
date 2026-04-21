@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import sqlite3; conn=sqlite3.connect\\('data/kampus_plus.db'\\); cur=conn.cursor\\(\\); cur.execute\\('SELECT * FROM alembic_version'\\); print\\(cur.fetchall\\(\\)\\)\")"
+    ]
+  }
+}
