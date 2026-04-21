@@ -111,6 +111,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - Akademik ders içerikleri hakkında yardım VERME. Sadece kampüs bilgileri (akademik takvim, şenlikler, kampüs kuralları, forum, pazar yeri, kariyer) konularında destek ver.
 - Pazar yeri ilanları veya platform istatistikleri sorulduğunda mutlaka ilgili veritabanı araçlarını kullan.
 - Akademik takvim, şenlik, kampüs kuralı gibi resmi bilgiler için doküman arama aracını kullan.
+- Öğrenciler forum gönderileri, diğer öğrencilerin tartışmaları veya platformdaki konular hakkında soru sorduğunda `search_forum_topics` aracını kullan. "En son neler paylaşıldı", "yeni ne var", "forumda neler oluyor" gibi genel sorularda `query` parametresini BOŞ ("") bırak — bu en yeni gönderileri kronolojik sırayla getirir. Yalnızca "yapay zeka hakkında ne yazıyor" gibi spesifik konu sorulduğunda ilgili kelimeyi `query`'e yaz.
 - Kullanıcı ders programını sorduğunda (örn. "bugün ne dersim var", "salı günkü derslerim") mutlaka `get_user_schedule` aracını kullan.
 - Kullanıcı sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon veya akademik takvim tarihlerini sorduğunda MUTLAKA `get_academic_calendar` aracını kullan.
 - Artık tüm bölümlerin ve sınıfların ders programına, tüm üniversitelerin takvimine erişebilirsin. Kullanıcı başka bir sınıf, bölüm veya üniversite sorarsa ilgili `university`, `department`, `class_year`, `semester` parametrelerini açıkça araçlara geçir.
@@ -335,6 +336,17 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 description=(
                     "Öğretim yılı, örn: '2024-2025', '2025-2026'. "
                     "Belirtilmezse '2025-2026' yılı kullanılır."
+                ),
+            )
+
+        class SearchForumInput(BaseModel):
+            query: Optional[str] = Field(
+                default="",
+                description=(
+                    "Forum konularında aranacak anahtar kelime. "
+                    "Kullanıcı genel ('en son neler var', 'gündem ne') soruyorsa BOŞ bırak — "
+                    "bu en yeni gönderileri kronolojik sırayla getirir. "
+                    "Spesifik konu varsa ('yapay zeka', 'vize') o kelimeyi yaz."
                 ),
             )
 
@@ -627,7 +639,69 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             lines.extend(schedule_by_day[matched_day])
             return "\n".join(lines)
 
-        # ---- Tool 5: Akademik takvim etkinlikleri (AcademicCalendarEvent) #
+        # ---- Tool 5: Forum konu araması (ForumTopic + User join) --------- #
+
+        # Genel/zaman belirten sorgular için keyword listesi — ilike yerine "en yeni" modu tetiklenir
+        _FORUM_GENERIC_KEYWORDS = frozenset({
+            "en son", "son", "yeni", "gündem", "neler var", "neler oluyor",
+            "ne var", "ne paylaşıldı", "ne yazıyor", "genel", "hepsi", "tümü",
+        })
+
+        async def _search_forum_topics(query: Optional[str] = "") -> str:
+            """Forum konularında arama yapar; boş query en yeni gönderileri getirir."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            from src.models.forum import ForumTopic  # yerel import
+
+            kw = (query or "").strip().lower()
+
+            # Jenerik/zaman sorgusunu tespit et: boşsa veya sadece genel kelimeler içeriyorsa
+            is_generic = not kw or any(token in kw for token in _FORUM_GENERIC_KEYWORDS)
+
+            base_stmt = (
+                select(ForumTopic)
+                .where(ForumTopic.is_deleted == False)  # noqa: E712
+                .options(selectinload(ForumTopic.author))
+                .order_by(ForumTopic.created_at.desc())
+            )
+
+            if is_generic:
+                stmt = base_stmt.limit(5)
+                header = "Forum'daki en yeni 5 gönderi"
+            else:
+                pattern = f"%{kw}%"
+                stmt = base_stmt.where(
+                    or_(
+                        ForumTopic.title.ilike(pattern),
+                        ForumTopic.content.ilike(pattern),
+                    )
+                ).limit(6)
+                header = f"Forum'da '{query}' için sonuçlar"
+
+            result = await db.execute(stmt)
+            topics = result.scalars().all()
+
+            if not topics:
+                if is_generic:
+                    return "Forum'da henüz hiç gönderi yok."
+                return f"Forum'da '{query}' ile ilgili konu bulunamadı."
+
+            rows = []
+            for t in topics:
+                author_name = "Anonim"
+                if t.author:
+                    author_name = f"{t.author.first_name} {t.author.last_name}".strip() or t.author.username
+                snippet = t.content[:120].replace("\n", " ")
+                if len(t.content) > 120:
+                    snippet += "..."
+                rows.append(
+                    f"- **{t.title}** (Yazar: {author_name} | {t.reply_count} yorum)\n  {snippet}"
+                )
+
+            return f"{header} ({len(rows)} sonuç):\n" + "\n".join(rows)
+
+        # ---- Tool 6: Akademik takvim etkinlikleri (AcademicCalendarEvent) #
 
         async def _get_academic_calendar(
             event_type_keyword: str = "",
@@ -703,6 +777,16 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
         # ---- StructuredTool sarmalayıcıları --------------------------- #
 
         tools: List[StructuredTool] = [
+            StructuredTool.from_function(
+                coroutine=_search_forum_topics,
+                name="search_forum_topics",
+                description=(
+                    "Öğrencilerin forum'da paylaştığı konuları ve tartışmaları arar. "
+                    "Öğrenciler forum gönderileri, diğer öğrencilerin yazdıkları veya "
+                    "platformdaki tartışmalar hakkında soru sorduğunda bu aracı kullan."
+                ),
+                args_schema=SearchForumInput,
+            ),
             StructuredTool.from_function(
                 coroutine=_search_official_documents,
                 name="search_official_documents",

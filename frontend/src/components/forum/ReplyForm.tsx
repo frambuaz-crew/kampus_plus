@@ -15,22 +15,14 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const MIN_CHAR = 10;
-  const MAX_CHAR = 10000;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (content.trim().length < MIN_CHAR) {
-      setError('Cevap en az 10 karakter olmalı');
-      return;
-    }
+    if (!content.trim()) return;
 
     try {
-      await onSubmit({
-        content: content.trim(),
-      });
+      await onSubmit({ content: content.trim() });
       setContent('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Cevap gönderilemedi');
@@ -38,62 +30,42 @@ export const ReplyForm: React.FC<ReplyFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
-      {/* Hata Mesajı */}
+    <form onSubmit={handleSubmit} className="animate-in fade-in duration-200">
       {error && (
-        <div className="flex items-center p-3 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
-          <AlertCircle size={16} className="mr-2 shrink-0" />
-          {error}
+        <div className="mb-3 text-sm text-red-500 flex items-center gap-2 bg-red-50 p-2 rounded-lg">
+          <AlertCircle size={16} /> {error}
         </div>
       )}
 
-      {/* Textarea Alanı */}
-      <div className="relative">
-        <div className="absolute top-3 right-3 text-[10px] font-mono text-gray-500 bg-[#0f1624] px-2 py-1 rounded border border-gray-800">
-          {content.length} / {MAX_CHAR}
-        </div>
+      <div className="flex items-end gap-2">
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Cevabınızı buraya yazın..."
-          className="w-full px-4 py-4 bg-[#0f1624] border border-[#0f1624] text-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent min-h-[180px] resize-y placeholder-gray-600 transition-all"
+          placeholder="Yanıtını buraya yaz..."
+          className="flex-1 max-h-40 min-h-[44px] py-2.5 px-4 bg-white border border-gray-200 text-sm text-gray-800 rounded-3xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 resize-none shadow-sm transition-all"
           disabled={isSubmitting}
-          maxLength={MAX_CHAR}
-          required
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (content.trim()) handleSubmit(e as any);
+            }
+          }}
         />
-        <div className="mt-2 text-[10px] text-gray-500 italic">
-          En az {MIN_CHAR}, en fazla {MAX_CHAR} karakter.
-        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting || !content.trim()}
+          className="shrink-0 w-11 h-11 flex items-center justify-center bg-indigo-600 text-white rounded-full shadow-md hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
+        >
+          {isSubmitting ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Send size={16} className="-ml-0.5" />
+          )}
+        </button>
       </div>
-
-      {/* Alt Bölüm: Dosya ve Butonlar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-        <div />
-
-        <div className="flex items-center space-x-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="px-5 py-2.5 text-sm font-bold text-gray-400 hover:text-white transition-colors"
-          >
-            İptal
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting || content.trim().length < MIN_CHAR}
-            className="flex items-center space-x-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <Send size={18} />
-                <span>Gönder</span>
-              </>
-            )}
-          </button>
-        </div>
+      <div className="text-[10px] text-gray-400 font-medium px-4 mt-1.5 flex justify-between tracking-wide">
+        <span>Enter ile gönder · Shift+Enter yeni satır</span>
+        <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">İptal</button>
       </div>
     </form>
   );

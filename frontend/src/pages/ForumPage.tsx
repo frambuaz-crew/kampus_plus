@@ -1,36 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Home, MessageSquare, PlusCircle } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { SearchBar } from '../components/forum/SearchBar';
-import { CategoryCard } from '../components/forum/CategoryCard';
 import { ThreadList } from '../components/forum/ThreadList';
 import { ThreadView } from '../components/forum/ThreadView';
 import { NewThreadForm } from '../components/forum/NewThreadForm';
-import type { Category, ThreadListItem, ThreadWithReplies } from '../types/forum';
+import type { ThreadListItem, ThreadWithReplies } from '../types/forum';
 import { useAuth } from '../hooks/useAuth';
 import {
   createForumReply,
   createForumTopic,
-  getForumCategories,
   getForumTopicDetail,
   getForumTopics,
 } from '../api/forum';
 
-type ForumView = 'categories' | 'category-threads' | 'thread-detail' | 'new-thread' | 'search';
+type ForumView = 'feed' | 'category-threads' | 'thread-detail' | 'new-thread' | 'search';
 
 interface BackState {
   from?: string;
   tab?: string;
 }
 
-const SEARCH_CATEGORY: Category = {
-  id: 'search-results',
-  name: 'Arama Sonuçları',
-  description: 'Tüm forum konuları içinde arama sonuçları',
-  icon: '🔎',
-  topic_count: 0,
-};
+
 
 export const ForumPage: React.FC = () => {
   const { user } = useAuth();
@@ -38,31 +30,36 @@ export const ForumPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [view, setView] = useState<ForumView>('categories');
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [view, setView] = useState<ForumView>('feed');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'text' | 'event'>('all');
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [currentThread, setCurrentThread] = useState<ThreadWithReplies | null>(null);
+  const [autoOpenReply, setAutoOpenReply] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCategories = async () => {
+  const fetchFeed = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await getForumCategories();
-      setCategories(res.categories || []);
+      setActiveFilter('all');
+      const res = await getForumTopics({
+        page: 1,
+        limit: 50,
+        sort: 'newest',
+      });
+      setThreads(res.topics || []);
     } catch {
-      setError('Kategoriler yüklenemedi.');
+      setError('Akış yüklenemedi.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void fetchCategories();
+    void fetchFeed();
   }, []);
 
   useEffect(() => {
@@ -73,6 +70,7 @@ export const ForumPage: React.FC = () => {
           setError(null);
           const res = await getForumTopicDetail(id);
           setCurrentThread({ thread: res.topic, replies: res.replies });
+          setAutoOpenReply(false);
           setView('thread-detail');
         } catch {
           setError('Konu detayı yüklenemedi.');
@@ -85,19 +83,19 @@ export const ForumPage: React.FC = () => {
     }
   }, [id, currentThread]);
 
-  const loadTopicsByCategory = async (category: Category) => {
+  const loadTopicsByType = async (type: 'text' | 'event') => {
     try {
       setLoading(true);
       setError(null);
-      setSelectedCategory(category);
+      setActiveFilter(type);
       const res = await getForumTopics({
-        category_id: category.id,
+        topic_type: type,
         page: 1,
         limit: 20,
         sort: 'newest',
       });
       setThreads(res.topics || []);
-      setView('category-threads');
+      setView('feed');
       if (id) {
         navigate('/dashboard/forum', { replace: true });
       }
@@ -108,12 +106,13 @@ export const ForumPage: React.FC = () => {
     }
   };
 
-  const handleThreadClick = async (threadId: string) => {
+  const handleThreadClick = async (threadId: string, action?: 'comment') => {
     try {
       setLoading(true);
       setError(null);
       const res = await getForumTopicDetail(threadId);
       setCurrentThread({ thread: res.topic, replies: res.replies });
+      setAutoOpenReply(action === 'comment');
       setView('thread-detail');
       if (id !== threadId) {
         navigate(`/dashboard/forum/${threadId}`, { replace: false, state: location.state });
@@ -125,17 +124,13 @@ export const ForumPage: React.FC = () => {
     }
   };
 
-  const handleCreateThread = async (data: {
-    title: string;
-    content: string;
-    category_id: string;
-  }) => {
+  const handleCreateThread = async (data: any) => {
     try {
       setIsSubmitting(true);
       setError(null);
-      const response = await createForumTopic(data);
-      await fetchCategories();
-      await handleThreadClick(response.topic_id);
+      await createForumTopic(data);
+      setView('feed');
+      void fetchFeed();
     } catch {
       setError('Konu oluşturulamadı.');
     } finally {
@@ -143,7 +138,7 @@ export const ForumPage: React.FC = () => {
     }
   };
 
-  const handleReplySubmit = async (data: { content: string }) => {
+  const handleReplySubmit = async (data: { content: string; parent_id?: string }) => {
     if (!currentThread) {
       return;
     }
@@ -151,7 +146,7 @@ export const ForumPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       setError(null);
-      await createForumReply(currentThread.thread.id, { content: data.content });
+      await createForumReply(currentThread.thread.id, { content: data.content, parent_id: data.parent_id });
       const refreshed = await getForumTopicDetail(currentThread.thread.id);
       setCurrentThread({ thread: refreshed.topic, replies: refreshed.replies });
     } catch {
@@ -163,7 +158,8 @@ export const ForumPage: React.FC = () => {
 
   const handleSearch = async (query: string) => {
     if (!query.trim()) {
-      setView('categories');
+      setView('feed');
+      void fetchFeed();
       return;
     }
 
@@ -185,7 +181,7 @@ export const ForumPage: React.FC = () => {
         );
       });
 
-      setSelectedCategory(null);
+      setActiveFilter('all');
       setThreads(filtered);
       setView('search');
     } catch {
@@ -195,16 +191,7 @@ export const ForumPage: React.FC = () => {
     }
   };
 
-  const activeThreadListCategory = useMemo(() => {
-    if (view === 'search') {
-      return {
-        ...SEARCH_CATEGORY,
-        topic_count: threads.length,
-      };
-    }
 
-    return selectedCategory;
-  }, [view, selectedCategory, threads.length]);
 
   const goBackFromThread = () => {
     const state = (location.state as BackState | null) || null;
@@ -214,11 +201,7 @@ export const ForumPage: React.FC = () => {
     }
 
     setCurrentThread(null);
-    if (selectedCategory) {
-      setView('category-threads');
-    } else {
-      setView('categories');
-    }
+    setView('feed');
 
     if (id) {
       navigate('/dashboard/forum', { replace: true });
@@ -229,7 +212,9 @@ export const ForumPage: React.FC = () => {
     <nav className="mb-8 flex items-center space-x-2 rounded-2xl border border-gray-100 bg-white/50 p-4 text-sm shadow-sm backdrop-blur-md animate-in fade-in duration-500">
       <button
         onClick={() => {
-          setView('categories');
+          setView('feed');
+          setActiveFilter('all');
+          void fetchFeed();
           if (id) {
             navigate('/dashboard/forum', { replace: true });
           }
@@ -239,20 +224,10 @@ export const ForumPage: React.FC = () => {
         <Home size={16} className="mr-2" /> Forum
       </button>
 
-      {activeThreadListCategory && (view === 'category-threads' || view === 'search') && (
+      {view === 'search' && (
         <>
           <ChevronRight size={14} className="text-gray-300" />
-          <button
-            onClick={() => {
-              setView('category-threads');
-              if (id) {
-                navigate('/dashboard/forum', { replace: true });
-              }
-            }}
-            className="font-bold text-gray-700 transition-colors hover:text-indigo-600"
-          >
-            {activeThreadListCategory.name}
-          </button>
+          <span className="font-bold text-gray-700">Arama Sonuçları</span>
         </>
       )}
 
@@ -268,36 +243,12 @@ export const ForumPage: React.FC = () => {
   return (
     <MainLayout>
       <div className="min-h-screen bg-gray-50 pb-20 text-gray-900">
-        <div className="mx-auto max-w-7xl px-6 pt-10">
-          <header className="relative mb-12 overflow-hidden rounded-[2rem] border border-indigo-100/50 bg-gradient-to-br from-white to-indigo-50 p-12 shadow-xl shadow-indigo-100/40">
-            <div className="pointer-events-none absolute -right-24 -top-24 rotate-12 select-none p-10 text-indigo-600 opacity-[0.04]">
-              <MessageSquare size={300} />
-            </div>
+        <div className="mx-auto max-w-7xl px-6 pt-6">
+          <div className="mb-6">
+            <SearchBar onSearch={handleSearch} />
+          </div>
 
-            <div className="relative z-10 flex flex-col justify-between gap-8 lg:flex-row lg:items-center">
-              <div className="max-w-2xl">
-                <h1 className="mb-4 text-5xl font-black leading-tight tracking-tight text-gray-900">
-                  Merhaba, <span className="text-indigo-600">{user?.first_name || 'Öğrenci'}</span>! 👋
-                </h1>
-                <p className="text-xl font-medium leading-relaxed text-gray-500">
-                  Forumda kategorileri keşfet, konu aç ve diğer öğrencilerle bilgi paylaş.
-                </p>
-              </div>
-              <button
-                onClick={() => setView('new-thread')}
-                className="group flex items-center justify-center gap-3 rounded-2xl bg-indigo-600 px-8 py-5 font-bold text-white shadow-lg shadow-indigo-200 transition-all hover:-translate-y-1 hover:bg-indigo-700 active:scale-95"
-              >
-                <PlusCircle size={24} className="transition-transform duration-300 group-hover:rotate-90" />
-                Yeni Bir Tartışma Başlat
-              </button>
-            </div>
-
-            <div className="mt-12 max-w-3xl">
-              <SearchBar onSearch={handleSearch} />
-            </div>
-          </header>
-
-          <Breadcrumbs />
+          {view !== 'feed' && <Breadcrumbs />}
 
           {loading ? (
             <div className="flex flex-col items-center justify-center space-y-4 py-32">
@@ -308,43 +259,77 @@ export const ForumPage: React.FC = () => {
             </div>
           ) : (
             <div className="animate-in slide-in-from-bottom-4 fade-in duration-700">
-              {view === 'categories' && (
+              {/* Main Content Areas */}
+              {(view === 'feed' || view === 'category-threads' || view === 'search') && (
                 <section>
-                  <div className="mb-8 flex items-start">
-                    <div className="mr-5 rounded-2xl border border-gray-100 bg-white p-3 shadow-md">📚</div>
-                    <div>
-                      <h2 className="mb-2 text-3xl font-black tracking-tight text-gray-900">
-                        Forum Kategorileri
-                      </h2>
-                      <p className="max-w-2xl text-sm font-bold leading-relaxed tracking-wide text-gray-500">
-                        Backend tarafından dönen aktif kategorilerden birini seçerek konu listesini
-                        görüntüleyebilirsin.
-                      </p>
+                  {/* Gönderi Oluştur Input */}
+                  <div
+                    onClick={() => setView('new-thread')}
+                    className="mb-8 p-4 bg-white border border-gray-100/80 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-text group"
+                  >
+                    <div className="flex items-center gap-4">
+                      {user?.profile_picture_url ? (
+                        <img
+                          src={user.profile_picture_url.startsWith('http') ? user.profile_picture_url : `http://localhost:8000${user.profile_picture_url}`}
+                          alt="Profil"
+                          className="w-10 h-10 rounded-full object-cover shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                        />
+                      ) : null}
+                      <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0 ${user?.profile_picture_url ? 'hidden' : ''}`}>
+                        {user?.first_name?.[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="flex-1 text-gray-400 font-medium text-sm group-hover:text-gray-500 transition-colors">
+                        Soru sor, etkinlik paylaş veya bir konuyu tartış...
+                      </div>
+                      <button className="shrink-0 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2">
+                        <PlusCircle size={16} />
+                        Gönderi Oluştur
+                      </button>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    {categories.length > 0 ? (
-                      categories.map((category) => (
-                        <CategoryCard key={category.id} category={category} onClick={loadTopicsByCategory} />
-                      ))
-                    ) : (
-                      <div className="col-span-full flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 bg-white py-16 text-gray-400 shadow-sm">
-                        <MessageSquare size={48} className="mb-4 opacity-10" />
-                        <p className="text-lg font-bold italic tracking-tight">Henüz kategori bulunmuyor.</p>
-                      </div>
-                    )}
+                  {/* İçerik Filtreleri */}
+                  <div className="mb-6 flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x">
+                    <button
+                      onClick={() => {
+                        setActiveFilter('all');
+                        setView('feed');
+                        void fetchFeed();
+                      }}
+                      className={`whitespace-nowrap rounded-2xl px-5 py-2.5 text-sm font-bold transition-all snap-start ${activeFilter === 'all' && view !== 'search'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                        : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-100'
+                        }`}
+                    >
+                      Tümü
+                    </button>
+                    <button
+                      onClick={() => loadTopicsByType('text')}
+                      className={`whitespace-nowrap flex items-center rounded-2xl px-5 py-2.5 text-sm font-bold transition-all snap-start ${activeFilter === 'text'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                        : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-100'
+                        }`}
+                    >
+                      Gönderiler
+                    </button>
+                    <button
+                      onClick={() => loadTopicsByType('event')}
+                      className={`whitespace-nowrap flex items-center rounded-2xl px-5 py-2.5 text-sm font-bold transition-all snap-start ${activeFilter === 'event'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                        : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-100'
+                        }`}
+                    >
+                      Etkinlikler
+                    </button>
                   </div>
-                </section>
-              )}
 
-              {(view === 'category-threads' || view === 'search') && activeThreadListCategory && (
-                <ThreadList
-                  category={activeThreadListCategory}
-                  threads={threads}
-                  onThreadClick={handleThreadClick}
-                  loading={loading}
-                />
+                  <ThreadList
+                    threads={threads}
+                    onThreadClick={handleThreadClick}
+                    loading={loading}
+                    isFeed={true}
+                  />
+                </section>
               )}
 
               {view === 'thread-detail' && currentThread && (
@@ -355,15 +340,17 @@ export const ForumPage: React.FC = () => {
                   >
                     ← Geri Dön
                   </button>
-                  <ThreadView data={currentThread} onReplySubmit={handleReplySubmit} isSubmitting={isSubmitting} />
+                  <ThreadView data={currentThread} onReplySubmit={handleReplySubmit} isSubmitting={isSubmitting} autoOpenReply={autoOpenReply} />
                 </div>
               )}
 
               {view === 'new-thread' && (
                 <NewThreadForm
-                  categories={categories}
                   onSubmit={handleCreateThread}
-                  onCancel={() => setView('categories')}
+                  onCancel={() => {
+                    setView('feed');
+                    void fetchFeed();
+                  }}
                   isSubmitting={isSubmitting}
                 />
               )}

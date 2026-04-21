@@ -40,6 +40,7 @@ class ForumCategory(Base):
     topics = relationship("ForumTopic", back_populates="category", cascade="all, delete-orphan")
 
 
+
 class ForumTopic(Base):
     """Forum konu modeli."""
     
@@ -51,10 +52,10 @@ class ForumTopic(Base):
         default=lambda: str(uuid4()),
     )
     
-    category_id: Mapped[str] = mapped_column(
+    category_id: Mapped[Optional[str]] = mapped_column(
         String(36),
         ForeignKey("forum_categories.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     author_id: Mapped[Optional[str]] = mapped_column(
@@ -66,6 +67,12 @@ class ForumTopic(Base):
     
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    # SARI YENİ EKLENTİLER
+    topic_type: Mapped[str] = mapped_column(String(20), server_default=text("'text'"), nullable=False)
+    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # JSON array tutulacak
+    image_urls: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # JSON array tutulacak
+    event_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
     is_pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
@@ -117,6 +124,14 @@ class ForumReply(Base):
         index=True,
     )
     
+    # SARI YENİ: Threaded comments için üst yorum referansı
+    parent_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("forum_replies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    
     content: Mapped[str] = mapped_column(Text, nullable=False)
     helpful_count: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
@@ -135,4 +150,8 @@ class ForumReply(Base):
     
     topic = relationship("ForumTopic", back_populates="replies")
     author = relationship("User", foreign_keys=[author_id])
+    
+    # Kendi kendine ilişki (Self-referential)
+    replies = relationship("ForumReply", back_populates="parent", cascade="all, delete-orphan")
+    parent = relationship("ForumReply", back_populates="replies", remote_side=[id])
 
