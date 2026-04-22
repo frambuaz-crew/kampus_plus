@@ -26,6 +26,7 @@ from models import (
     department,
     sync,
     favorite,
+    course_notes,
 )
 
 config = context.config

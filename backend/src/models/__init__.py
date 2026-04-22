@@ -21,6 +21,7 @@ from .university import University
 from .sync import AuditLog
 from .favorite import UserFavorite
 from .friendship import Friendship
+from .course_notes import CourseNoteTopic, CourseNoteEntry, CourseNoteAttachment
 
 __all__ = [
     "Base",
@@ -65,4 +66,8 @@ __all__ = [
     "UserFavorite",
     # Friendship
     "Friendship",
+    # Course Notes
+    "CourseNoteTopic",
+    "CourseNoteEntry",
+    "CourseNoteAttachment",
 ]

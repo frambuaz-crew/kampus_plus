@@ -21,6 +21,8 @@ import { MarketplacePage } from './pages/MarketplacePage';
 import { CareerPage } from './pages/CareerPage';
 import { CourseSchedulePage } from './pages/CourseSchedulePage';
 import { AcademicCalendarPage } from './pages/AcademicCalendarPage';
+import { CourseNotesPage } from './pages/course-notes/CourseNotesPage';
+import { CourseNoteDetailPage } from './pages/course-notes/CourseNoteDetailPage';
 import { Error404Page } from './pages/Error404Page';
 import { Error500Page } from './pages/Error500Page';
 import { Error403Page } from './pages/Error403Page';
@@ -138,6 +140,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <AcademicCalendarPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/course-notes"
+            element={
+              <ProtectedRoute>
+                <CourseNotesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/course-notes/:id"
+            element={
+              <ProtectedRoute>
+                <CourseNoteDetailPage />
               </ProtectedRoute>
             }
           />

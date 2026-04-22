@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.core.config import get_settings
@@ -28,6 +28,7 @@ from src.api.routes.academic import router as academic_router
 from src.api.routes import users
 from src.api.routes.friendships import router as friendships_router
 from src.api.routes.institutions import router as institutions_router
+from src.api.routes.course_notes import router as course_notes_router
 
 
 @asynccontextmanager
@@ -117,10 +118,31 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # --- STATİK DOSYA AYARLARI ---
 
-# 1. Mevcut Uploads Dizini
+# 1. Uploads dizini — PDF'lerin tarayıcıda önizlenebilmesi için StaticFiles yerine
+#    özel bir endpoint kullanılır. StaticFiles bazen Content-Disposition: attachment
+#    veya application/octet-stream döndürerek indirmeye zorlar.
 upload_dir = settings.get_upload_dir_absolute()
 upload_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
+
+
+@app.get("/uploads/{file_path:path}", include_in_schema=False)
+async def serve_upload(file_path: str):
+    """Yüklenen dosyaları serer. PDF'ler tarayıcıda inline açılır."""
+    full_path = upload_dir / file_path
+    if not full_path.exists() or not full_path.is_file():
+        raise HTTPException(status_code=404, detail="Dosya bulunamadı.")
+    # Güvenlik: uploads dizini dışına çıkmayı engelle
+    try:
+        full_path.resolve().relative_to(upload_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Geçersiz dosya yolu.")
+    if full_path.suffix.lower() == ".pdf":
+        return FileResponse(
+            path=str(full_path),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename=\"{full_path.name}\""},
+        )
+    return FileResponse(path=str(full_path))
 
 # 2. Marketplace ve Diğer Statik İçerikler İçin /static Dizini
 # Marketplace rotasında "static/uploads/marketplace" kullandığın için burayı mount ediyoruz
@@ -156,6 +178,7 @@ app.include_router(academic_router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(friendships_router, prefix="/api/v1")
 app.include_router(institutions_router, prefix="/api/v1")
+app.include_router(course_notes_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

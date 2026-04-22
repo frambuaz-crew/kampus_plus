@@ -12,6 +12,7 @@
  * ── AKADEMİK ──
  * 6. 📅 Ders Programım
  * 7. ⏰ Akademik Takvim
+ * 8. 📖 Ders Notları
  */
 
 import React from 'react';
@@ -43,6 +44,7 @@ export const Sidebar: React.FC = () => {
   const academicItems: NavItem[] = [
     { id: 'course-schedule', label: 'Ders Programım', icon: '📅', path: '/dashboard/course-schedule' },
     { id: 'academic-calendar', label: 'Akademik Takvim', icon: '⏰', path: '/dashboard/academic-calendar' },
+    { id: 'course-notes', label: 'Ders Notları', icon: '📖', path: '/dashboard/course-notes' },
   ];
 
   const adminItems: NavItem[] = ['admin', 'university_admin'].includes(user?.role ?? '')
