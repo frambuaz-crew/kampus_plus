@@ -28,11 +28,12 @@ from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.tools import StructuredTool
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.core.config import settings
+from src.models.course_notes import CourseNoteEntry, CourseNoteTopic
 from src.services.vector_service import VectorStoreService
 
 
@@ -48,6 +49,7 @@ class UserContext:
     """Aktif kullanıcıya ait profil bilgileri — AI bağlamı için."""
     user_id: str
     first_name: str
+    university_id: Optional[str]
     university: str
     department: str
     grade: Optional[str]          # "1. Sınıf", "Hazırlık" vb. — None ise belirtilmemiş
@@ -113,6 +115,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - Akademik takvim, şenlik, kampüs kuralı gibi resmi bilgiler için doküman arama aracını kullan.
 - Öğrenciler forum gönderileri, diğer öğrencilerin tartışmaları veya platformdaki konular hakkında soru sorduğunda `search_forum_topics` aracını kullan. "En son neler paylaşıldı", "yeni ne var", "forumda neler oluyor" gibi genel sorularda `query` parametresini BOŞ ("") bırak — bu en yeni gönderileri kronolojik sırayla getirir. Yalnızca "yapay zeka hakkında ne yazıyor" gibi spesifik konu sorulduğunda ilgili kelimeyi `query`'e yaz.
 - Kullanıcı ders programını sorduğunda (örn. "bugün ne dersim var", "salı günkü derslerim") mutlaka `get_user_schedule` aracını kullan.
+- Kullanıcı ders notu havuzları, ders kodu notları veya bir ders konusuyla ilgili not aradığında mutlaka `search_course_notes` aracını kullan.
 - Kullanıcı sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon veya akademik takvim tarihlerini sorduğunda MUTLAKA `get_academic_calendar` aracını kullan.
 - Artık tüm bölümlerin ve sınıfların ders programına, tüm üniversitelerin takvimine erişebilirsin. Kullanıcı başka bir sınıf, bölüm veya üniversite sorarsa ilgili `university`, `department`, `class_year`, `semester` parametrelerini açıkça araçlara geçir.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
@@ -226,6 +229,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             return UserContext(
                 user_id=str(user_id),
                 first_name=user.first_name or "",
+                university_id=user.university_id,
                 university=user.university or "Belirtilmemiş",
                 department=department_name,
                 grade=user.grade,
@@ -367,6 +371,22 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 ),
             )
 
+        class CourseNotesSearchInput(BaseModel):
+            course_code: str = Field(
+                default="",
+                description=(
+                    "Ders kodu filtresi. Örn: 'CENG101', 'MATH'. "
+                    "Belirli bir ders notu aranıyorsa doldur, aksi halde boş bırak."
+                ),
+            )
+            query: str = Field(
+                default="",
+                description=(
+                    "Konu bazlı arama ifadesi. Örn: 'veritabanı normalizasyon'. "
+                    "Topic başlığında ve topic'e bağlı entry içeriklerinde aranır."
+                ),
+            )
+
         # ---- Tool 1: Resmi doküman arama (FAISS) ---------------------- #
 
         async def _search_official_documents(query: str) -> str:
@@ -468,8 +488,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
 
-            # Parametre önceliği: araçtan gelen > kullanıcı profili
-            eff_university = university or (user_ctx.university if user_ctx else None)
+            eff_university_id = user_ctx.university_id if user_ctx else None
+            eff_university_name = user_ctx.university if user_ctx else "Belirtilmemiş"
             eff_department = department or (user_ctx.department if user_ctx else None)
             eff_grade = class_year or (user_ctx.grade if user_ctx else None)
             if not academic_year:
@@ -479,7 +499,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             else:
                 eff_year = academic_year
 
-            if not eff_university or not eff_department:
+            if not eff_university_id or not eff_department:
                 return (
                     "Ders programını görebilmek için üniversite ve bölüm bilgisi gerekiyor. "
                     "Profilinde bu bilgiler eksikse profil ayarlarından tamamlayabilirsin."
@@ -504,7 +524,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             dept_pattern = f"%{dept_words[0]}%" if dept_words else f"%{eff_department}%"
 
             conditions = [
-                CourseSchedule.university.ilike(f"%{eff_university}%"),
+                CourseSchedule.university_id == eff_university_id,
                 CourseSchedule.department.ilike(dept_pattern),
                 CourseSchedule.class_year.ilike(grade_pattern),
                 CourseSchedule.academic_year == eff_year,
@@ -527,7 +547,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 stmt_fb = (
                     select(CourseSchedule)
                     .where(
-                        CourseSchedule.university.ilike(f"%{eff_university}%"),
+                        CourseSchedule.university_id == eff_university_id,
                         CourseSchedule.department.ilike(dept_pattern),
                         CourseSchedule.class_year.ilike(grade_pattern),
                         CourseSchedule.is_approved.is_(True),
@@ -540,7 +560,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             if schedule is None:
                 return (
-                    f"{eff_university} üniversitesi, {eff_department} bölümü, "
+                    f"{eff_university_name} üniversitesi, {eff_department} bölümü, "
                     f"{eff_grade} için sisteme henüz onaylı ders programı yüklenmemiş. "
                     "Akademik sayfasından katkıda bulunabilirsin!"
                 )
@@ -609,7 +629,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             show_all = normalized_day.lower() in ("tümü", "tumü", "hepsi", "tüm hafta", "hafta")
             display_name = user_ctx.display_name if user_ctx else "Öğrenci"
             header = (
-                f"{eff_university} — {eff_department} / {eff_grade} "
+                f"{eff_university_name} — {eff_department} / {eff_grade} "
                 f"({schedule.academic_year}, {schedule.semester})"
             )
 
@@ -713,15 +733,16 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             from src.models.academic import AcademicCalendarEvent  # yerel import
 
-            university_filter = university or (user_ctx.university if user_ctx else None)
+            university_filter_id = user_ctx.university_id if user_ctx else None
+            university_filter_name = user_ctx.university if user_ctx else None
+
+            if not university_filter_id:
+                return "Akademik takvim için üniversite bilgin eksik görünüyor."
 
             stmt = select(AcademicCalendarEvent).where(
-                AcademicCalendarEvent.is_approved == True  # noqa: E712
+                AcademicCalendarEvent.is_approved == True,  # noqa: E712
+                AcademicCalendarEvent.university_id == university_filter_id,
             )
-            if university_filter:
-                stmt = stmt.where(
-                    AcademicCalendarEvent.university.ilike(f"%{university_filter}%")
-                )
 
             kw = (event_type_keyword or "").strip().lower()
             TYPE_MAP = {
@@ -748,7 +769,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             if not events:
                 suffix = f" '{event_type_keyword}' ile ilgili" if kw else ""
-                uni_info = f" ({university_filter})" if university_filter else ""
+                uni_info = f" ({university_filter_name})" if university_filter_name else ""
                 return f"Akademik takvimde{suffix}{uni_info} onaylı etkinlik bulunamadı."
 
             type_labels = {
@@ -768,11 +789,72 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 rows.append(f"- **{ev.title}** [{label}] | 📅 {date_str}{desc}")
 
             header = f"Akademik Takvim Etkinlikleri"
-            if university_filter:
-                header += f" – {university_filter}"
+            if university_filter_name:
+                header += f" – {university_filter_name}"
             if kw:
                 header += f" (filtre: {event_type_keyword})"
             return f"**{header}** ({len(rows)} etkinlik):\n" + "\n".join(rows)
+
+        # ---- Tool 7: Ders notları araması (CourseNoteTopic + Entry) ---- #
+
+        async def _search_course_notes(course_code: str = "", query: str = "") -> str:
+            """Kullanıcının üniversitesindeki ders notu havuzlarında arama yapar."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            if not user_ctx or not user_ctx.university_id:
+                return "Hata: Kullanıcı bağlamı bulunamadı veya üniversite bilgisi eksik."
+
+            try:
+                stmt = select(CourseNoteTopic).where(
+                    CourseNoteTopic.university_id == user_ctx.university_id
+                )
+
+                if course_code:
+                    stmt = stmt.where(CourseNoteTopic.course_code.ilike(f"%{course_code}%"))
+
+                if query:
+                    stmt = stmt.join(CourseNoteEntry, isouter=True).where(
+                        or_(
+                            CourseNoteTopic.title.ilike(f"%{query}%"),
+                            CourseNoteEntry.content.ilike(f"%{query}%"),
+                        )
+                    )
+
+                stmt = stmt.distinct().limit(5)
+                result = await db.execute(stmt)
+                topics = result.scalars().unique().all()
+
+                if not topics:
+                    return (
+                        "Aradığınız kriterlere uygun ders notu bulunamadı. "
+                        "Lütfen farklı kelimelerle tekrar deneyin."
+                    )
+
+                output = "Bulunan Ders Notu Havuzları:\n\n"
+                for topic in topics:
+                    output += f"- Ders: {topic.course_code} | Başlık: {topic.title}\n"
+
+                    entries_stmt = (
+                        select(CourseNoteEntry)
+                        .where(
+                            and_(
+                                CourseNoteEntry.topic_id == topic.id,
+                                CourseNoteEntry.content.is_not(None),
+                            )
+                        )
+                        .limit(2)
+                    )
+                    entries_result = await db.execute(entries_stmt)
+                    entries = entries_result.scalars().all()
+
+                    for entry in entries:
+                        snippet = entry.content[:150] + ("..." if len(entry.content) > 150 else "")
+                        output += f"  * İçerik Özeti: {snippet}\n"
+
+                return output
+            except Exception as exc:
+                return f"Ders notları aranırken bir hata oluştu: {str(exc)}"
 
         # ---- StructuredTool sarmalayıcıları --------------------------- #
 
@@ -835,6 +917,16 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "İsteğe bağlı olarak 'sınav', 'tatil', 'kayıt' gibi bir anahtar kelimeyle filtrelenebilir."
                 ),
                 args_schema=AcademicCalendarInput,
+            ),
+            StructuredTool.from_function(
+                coroutine=_search_course_notes,
+                name="search_course_notes",
+                description=(
+                    "Kullanıcının üniversitesindeki ders notu havuzlarında arama yapar. "
+                    "Ders koduna göre veya konu ifadesine göre topic ve entry içeriklerini bulur. "
+                    "Kullanıcı ders notu, özet not veya belirli konu notu istediğinde bu aracı kullan."
+                ),
+                args_schema=CourseNotesSearchInput,
             ),
         ]
         return tools, retrieved_docs

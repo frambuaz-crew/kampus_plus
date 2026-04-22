@@ -18,7 +18,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select, and_, func
+from sqlalchemy import delete, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
@@ -161,7 +161,7 @@ class SemesterInfoResponse(BaseModel):
 
 # Admin için request modeller
 class AdminCalendarEventRequest(BaseModel):
-    university: str
+    university_id: Optional[str] = None
     academic_year: str
     event_type: str = Field(..., description="exam / registration / holiday / other")
     title: str
@@ -171,7 +171,7 @@ class AdminCalendarEventRequest(BaseModel):
 
 
 class AdminCourseScheduleRequest(BaseModel):
-    university: str
+    university_id: Optional[str] = None
     department: str
     class_year: str
     semester: str
@@ -261,7 +261,7 @@ def parse_schedule_courses(schedule: CourseSchedule) -> list[CourseItem]:
 def build_schedule_response(schedule: CourseSchedule) -> CourseScheduleResponse:
     return CourseScheduleResponse(
         id=schedule.id,
-        university=schedule.university,
+        university=schedule.university_id or "",
         department=schedule.department,
         class_year=schedule.class_year,
         semester=schedule.semester,
@@ -314,21 +314,25 @@ async def get_semester_info():
 async def get_calendar_events(
     academic_year: Optional[str] = Query(None, description="Öğretim yılı, örn: 2025-2026"),
     event_type: Optional[str] = Query(None, description="exam / registration / holiday / other"),
-    university: Optional[str] = Query(None, description="Üniversite adı; belirtilmezse kullanıcının üniversitesi kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """Onaylı akademik takvim etkinliklerini döndürür.
 
-    Üniversite belirtilmezse kullanıcının üniversitesi kullanılır.
+    Kullanıcının kendi üniversitesi (university_id) üzerinden izole çalışır.
     Öğretim yılı belirtilmezse aktif dönem otomatik kullanılır.
     """
+    if not current_user.university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "NO_UNIVERSITY", "message": "Üniversite bilginiz tanımlı değil."}},
+        )
+
     semester_info = get_current_semester_info()
     target_year = academic_year or semester_info["academic_year"]
-    target_university = university or current_user.university
 
     conditions = [
-        AcademicCalendarEvent.university == target_university,
+        AcademicCalendarEvent.university_id == current_user.university_id,
         AcademicCalendarEvent.academic_year == target_year,
         AcademicCalendarEvent.is_approved.is_(True),
     ]
@@ -350,7 +354,7 @@ async def get_calendar_events(
         response.append(
             CalendarEventResponse(
                 id=ev.id,
-                university=ev.university,
+                university=current_user.university,
                 academic_year=ev.academic_year,
                 is_approved=ev.is_approved,
                 event_type=ev.event_type,
@@ -368,21 +372,26 @@ async def get_calendar_events(
 @router.get("/calendar/upcoming", response_model=list[CalendarEventResponse])
 async def get_upcoming_events(
     days: int = Query(30, ge=1, le=90, description="Kaç gün ilerisi gösterilsin"),
-    university: Optional[str] = Query(None, description="Üniversite adı; belirtilmezse kullanıcının üniversitesi kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """Yaklaşan akademik takvim etkinliklerini döndürür (varsayılan: 30 gün)."""
     from datetime import timedelta
+
+    if not current_user.university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "NO_UNIVERSITY", "message": "Üniversite bilginiz tanımlı değil."}},
+        )
+
     today = date.today()
     end_date = today + timedelta(days=days)
-    target_university = university or current_user.university
 
     stmt = (
         select(AcademicCalendarEvent)
         .where(
             and_(
-                AcademicCalendarEvent.university == target_university,
+                AcademicCalendarEvent.university_id == current_user.university_id,
                 AcademicCalendarEvent.is_approved.is_(True),
                 AcademicCalendarEvent.start_date >= today,
                 AcademicCalendarEvent.start_date <= end_date,
@@ -400,7 +409,7 @@ async def get_upcoming_events(
         response.append(
             CalendarEventResponse(
                 id=ev.id,
-                university=ev.university,
+                university=current_user.university,
                 academic_year=ev.academic_year,
                 is_approved=ev.is_approved,
                 event_type=ev.event_type,
@@ -424,31 +433,36 @@ async def get_course_schedule(
     class_year: str = Query(..., description="Sınıf: 1, 2, 3, 4, 5"),
     semester: Optional[str] = Query(None, description="Dönem: guz veya bahar"),
     academic_year: Optional[str] = Query(None, description="Öğretim yılı, örn: 2025-2026"),
-    university: Optional[str] = Query(None, description="Üniversite adı; belirtilmezse kullanıcının üniversitesi kullanılır"),
     department: Optional[str] = Query(None, description="Bölüm adı; belirtilmezse kullanıcının bölümü kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """İstenen üniversite + bölüm + sınıf için onaylı ders programını döndürür.
 
-    Üniversite/bölüm belirtilmezse kullanıcının profil bilgileri kullanılır.
+    Üniversite izolasyonu university_id ile yapılır.
+    Bölüm belirtilmezse kullanıcının profil bilgisi kullanılır.
     Dönem ve öğretim yılı belirtilmezse aktif dönem otomatik kullanılır.
     Veri yoksa null döner (frontend boş durum gösterir).
     """
+    if not current_user.university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "NO_UNIVERSITY", "message": "Üniversite bilginiz tanımlı değil."}},
+        )
+
     semester_info = get_current_semester_info()
     target_semester = semester or semester_info["semester"]
     target_year = academic_year or semester_info["academic_year"]
-    target_university = university or current_user.university
     target_department = department or (
         current_user.department_rel.name if current_user.department_rel else ""
     )
 
     stmt = select(CourseSchedule).where(
         and_(
-            func.lower(CourseSchedule.university) == func.lower(target_university),
-            func.lower(CourseSchedule.department) == func.lower(target_department),
+            CourseSchedule.university_id == current_user.university_id,
+            CourseSchedule.department.ilike(target_department),
             CourseSchedule.class_year.ilike(f"{class_year}%"),
-            func.lower(CourseSchedule.semester) == func.lower(target_semester),
+            CourseSchedule.semester.ilike(target_semester),
             CourseSchedule.academic_year == target_year,
             CourseSchedule.is_approved.is_(True),
         )
@@ -541,7 +555,7 @@ async def get_my_contributions(
 
 @router.get("/admin/calendar/pending", response_model=list[CalendarEventResponse])
 async def admin_list_pending_calendar_events(
-    university: Optional[str] = Query(None, description="Üniversiteye göre filtre"),
+    university_id: Optional[str] = Query(None, description="Üniversite ID'sine göre filtre"),
     academic_year: Optional[str] = Query(None, description="Öğretim yılına göre filtre"),
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
@@ -551,8 +565,8 @@ async def admin_list_pending_calendar_events(
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(AcademicCalendarEvent.university_id == admin.university_id)
-    elif university:
-        conditions.append(AcademicCalendarEvent.university == university)
+    elif university_id:
+        conditions.append(AcademicCalendarEvent.university_id == university_id)
     if academic_year:
         conditions.append(AcademicCalendarEvent.academic_year == academic_year)
 
@@ -568,7 +582,7 @@ async def admin_list_pending_calendar_events(
     return [
         CalendarEventResponse(
             id=ev.id,
-            university=ev.university,
+            university=ev.university_id or "",
             academic_year=ev.academic_year,
             is_approved=ev.is_approved,
             event_type=ev.event_type,
@@ -585,7 +599,7 @@ async def admin_list_pending_calendar_events(
 
 @router.get("/admin/calendar/approved", response_model=list[CalendarEventResponse])
 async def admin_list_approved_calendar_events(
-    university: Optional[str] = Query(None, description="Üniversiteye göre filtre"),
+    university_id: Optional[str] = Query(None, description="Üniversite ID'sine göre filtre"),
     academic_year: Optional[str] = Query(None, description="Öğretim yılına göre filtre"),
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
@@ -595,8 +609,8 @@ async def admin_list_approved_calendar_events(
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(AcademicCalendarEvent.university_id == admin.university_id)
-    elif university:
-        conditions.append(AcademicCalendarEvent.university == university)
+    elif university_id:
+        conditions.append(AcademicCalendarEvent.university_id == university_id)
     if academic_year:
         conditions.append(AcademicCalendarEvent.academic_year == academic_year)
 
@@ -612,7 +626,7 @@ async def admin_list_approved_calendar_events(
     return [
         CalendarEventResponse(
             id=ev.id,
-            university=ev.university,
+            university=ev.university_id or "",
             academic_year=ev.academic_year,
             is_approved=ev.is_approved,
             event_type=ev.event_type,
@@ -653,7 +667,7 @@ async def approve_calendar_event(
     today = date.today()
     return CalendarEventResponse(
         id=event.id,
-        university=event.university,
+        university=event.university_id or "",
         academic_year=event.academic_year,
         is_approved=event.is_approved,
         event_type=event.event_type,
@@ -718,7 +732,7 @@ async def admin_update_calendar_event(
     today = date.today()
     return CalendarEventResponse(
         id=event.id,
-        university=event.university,
+        university=event.university_id or "",
         academic_year=event.academic_year,
         is_approved=event.is_approved,
         event_type=event.event_type,
@@ -768,15 +782,18 @@ async def admin_create_calendar_event(
 
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
-        effective_university = admin.university
         effective_university_id: Optional[str] = admin.university_id
     else:
-        effective_university = data.university
-        effective_university_id = None
+        effective_university_id = data.university_id
+
+    if not effective_university_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "UNIVERSITY_ID_REQUIRED", "message": "university_id zorunludur."}},
+        )
 
     event = AcademicCalendarEvent(
         id=str(uuid4()),
-        university=effective_university,
         university_id=effective_university_id,
         academic_year=data.academic_year,
         event_type=data.event_type,
@@ -795,7 +812,7 @@ async def admin_create_calendar_event(
     days_until = (event.start_date - today).days if event.start_date >= today else None
     return CalendarEventResponse(
         id=event.id,
-        university=event.university,
+        university=event.university_id or "",
         academic_year=event.academic_year,
         is_approved=event.is_approved,
         event_type=event.event_type,
@@ -985,7 +1002,7 @@ class ScheduleUploadResponse(BaseModel):
 )
 async def upload_schedule_pdf(
     file: UploadFile = File(..., description="Ders programı PDF dosyası"),
-    university: str = Form(..., description="Üniversite adı"),
+    university_id: Optional[str] = Form(None, description="Üniversite ID"),
     department: str = Form(..., description="Bölüm adı"),
     class_year: str = Form(..., description="Sınıf (örn: '3. Sınıf')"),
     semester: str = Form(..., description="Dönem (örn: 'Bahar' veya 'Güz')"),
@@ -1013,16 +1030,21 @@ async def upload_schedule_pdf(
     target_academic_year = academic_year or get_current_semester_info()["academic_year"]
 
     # ---- UNIVERSITY_ADMIN: üniversiteyi zorla eziştir ------------- #
-    effective_university_id: Optional[str] = None
+    effective_university_id = university_id
     if current_user.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(current_user)
-        university = current_user.university
         effective_university_id = current_user.university_id
+
+    if not effective_university_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "UNIVERSITY_ID_REQUIRED", "message": "university_id zorunludur."}},
+        )
 
     # ---- PDF'den metin çıkar -------------------------------------- #
     logger.info(
-        "PDF schedule upload başladı. user=%s university=%s department=%s class_year=%s",
-        current_user.id, university, department, class_year,
+        "PDF schedule upload başladı. user=%s university_id=%s department=%s class_year=%s",
+        current_user.id, effective_university_id, department, class_year,
     )
     pdf_text = _extract_pdf_text(file_bytes)
 
@@ -1061,7 +1083,7 @@ async def upload_schedule_pdf(
     await session.execute(
         delete(CourseSchedule).where(
             and_(
-                CourseSchedule.university == university,
+                CourseSchedule.university_id == effective_university_id,
                 CourseSchedule.department == department,
                 CourseSchedule.class_year == class_year,
                 CourseSchedule.semester == semester,
@@ -1075,7 +1097,7 @@ async def upload_schedule_pdf(
     # ---- Veritabanına upsert -------------------------------------- #
     stmt = select(CourseSchedule).where(
         and_(
-            CourseSchedule.university == university,
+            CourseSchedule.university_id == effective_university_id,
             CourseSchedule.department == department,
             CourseSchedule.class_year == class_year,
             CourseSchedule.semester == semester,
@@ -1090,14 +1112,12 @@ async def upload_schedule_pdf(
     if existing:
         existing.schedule_data = schedule_data_str
         existing.is_approved = is_approved_val
-        if effective_university_id is not None:
-            existing.university_id = effective_university_id
+        existing.university_id = effective_university_id
         existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         action = "güncellendi"
     else:
         new_schedule = CourseSchedule(
             id=str(uuid4()),
-            university=university,
             department=department,
             class_year=class_year,
             semester=semester,
@@ -1121,7 +1141,7 @@ async def upload_schedule_pdf(
     return ScheduleUploadResponse(
         success=True,
         message=f"Ders programı başarıyla {action}. {total_lessons} ders, {len(days_parsed)} gün ayrıştırıldı.",
-        university=university,
+        university=effective_university_id,
         department=department,
         class_year=class_year,
         semester=semester,
@@ -1250,7 +1270,7 @@ class CalendarUploadResponse(BaseModel):
 )
 async def upload_calendar_pdf(
     file: UploadFile = File(..., description="Akademik takvim PDF dosyası"),
-    university: str = Form(..., description="Üniversite adı"),
+    university_id: Optional[str] = Form(None, description="Üniversite ID"),
     academic_year: Optional[str] = Form(None, description="Öğretim yılı (örn: '2024-2025')"),
     current_user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
@@ -1275,16 +1295,21 @@ async def upload_calendar_pdf(
     target_academic_year = academic_year or get_current_semester_info()["academic_year"]
 
     # ---- UNIVERSITY_ADMIN: üniversiteyi zorla eziştir ------------- #
-    effective_university_id: Optional[str] = None
+    effective_university_id = university_id
     if current_user.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(current_user)
-        university = current_user.university
         effective_university_id = current_user.university_id
+
+    if not effective_university_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": {"code": "UNIVERSITY_ID_REQUIRED", "message": "university_id zorunludur."}},
+        )
 
     # ---- PDF'den metin çıkar -------------------------------------- #
     logger.info(
-        "PDF calendar upload başladı. user=%s university=%s academic_year=%s",
-        current_user.id, university, target_academic_year,
+        "PDF calendar upload başladı. user=%s university_id=%s academic_year=%s",
+        current_user.id, effective_university_id, target_academic_year,
     )
     pdf_text = _extract_pdf_text(file_bytes)
 
@@ -1315,7 +1340,7 @@ async def upload_calendar_pdf(
     await session.execute(
         delete(AcademicCalendarEvent).where(
             and_(
-                AcademicCalendarEvent.university == university,
+                AcademicCalendarEvent.university_id == effective_university_id,
                 AcademicCalendarEvent.academic_year == target_academic_year,
                 AcademicCalendarEvent.is_approved.is_(False),
             )
@@ -1353,7 +1378,7 @@ async def upload_calendar_pdf(
         # Duplicate check: onaylı kayıtlarda aynı tarih aralığı + tür varsa atla
         # title karşılaştırması kasıtla yok — LLM her okuyuşta ufak farklılıklar üretir
         dup_conditions = [
-            AcademicCalendarEvent.university == university,
+            AcademicCalendarEvent.university_id == effective_university_id,
             AcademicCalendarEvent.academic_year == target_academic_year,
             AcademicCalendarEvent.start_date == start_date_obj,
             AcademicCalendarEvent.is_approved.is_(True),
@@ -1371,7 +1396,6 @@ async def upload_calendar_pdf(
 
         new_event = AcademicCalendarEvent(
             id=str(uuid4()),
-            university=university,
             university_id=effective_university_id,
             academic_year=target_academic_year,
             event_type=event_type,
@@ -1393,7 +1417,7 @@ async def upload_calendar_pdf(
     return CalendarUploadResponse(
         success=True,
         message=f"Akademik takvim başarıyla yüklendi. {saved_count} etkinlik eklendi.",
-        university=university,
+        university=effective_university_id,
         academic_year=target_academic_year,
         events_parsed=saved_count,
     )
@@ -1409,7 +1433,7 @@ class AdminScheduleUpdateRequest(BaseModel):
 
 @router.get("/admin/schedules/pending", response_model=list[CourseScheduleResponse])
 async def admin_list_pending_schedules(
-    university: Optional[str] = Query(None),
+    university_id: Optional[str] = Query(None),
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
@@ -1418,8 +1442,8 @@ async def admin_list_pending_schedules(
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(CourseSchedule.university_id == admin.university_id)
-    elif university:
-        conditions.append(CourseSchedule.university == university)
+    elif university_id:
+        conditions.append(CourseSchedule.university_id == university_id)
     stmt = (
         select(CourseSchedule)
         .where(and_(*conditions))
@@ -1431,7 +1455,7 @@ async def admin_list_pending_schedules(
 
 @router.get("/admin/schedules/approved", response_model=list[CourseScheduleResponse])
 async def admin_list_approved_schedules(
-    university: Optional[str] = Query(None),
+    university_id: Optional[str] = Query(None),
     admin: User = Depends(require_admin),
     session: AsyncSession = Depends(get_db),
 ):
@@ -1440,12 +1464,12 @@ async def admin_list_approved_schedules(
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(CourseSchedule.university_id == admin.university_id)
-    elif university:
-        conditions.append(CourseSchedule.university == university)
+    elif university_id:
+        conditions.append(CourseSchedule.university_id == university_id)
     stmt = (
         select(CourseSchedule)
         .where(and_(*conditions))
-        .order_by(CourseSchedule.university, CourseSchedule.department, CourseSchedule.class_year)
+        .order_by(CourseSchedule.university_id, CourseSchedule.department, CourseSchedule.class_year)
     )
     result = await session.execute(stmt)
     return [build_schedule_response(s) for s in result.scalars().all()]

@@ -46,7 +46,6 @@ class AcademicCalendarEvent(Base):
         default=lambda: str(uuid4()),
     )
     
-    university: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     university_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("universities.id"), nullable=True, index=True
     )
@@ -91,7 +90,6 @@ class CourseSchedule(Base):
         default=lambda: str(uuid4()),
     )
     
-    university: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     university_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("universities.id"), nullable=True, index=True
     )
@@ -126,7 +124,7 @@ class CourseSchedule(Base):
     creator = relationship("User", foreign_keys=[created_by])
     
     __table_args__ = (
-        UniqueConstraint('university', 'department', 'class_year', 'semester', 'academic_year', 
+        UniqueConstraint('university_id', 'department', 'class_year', 'semester', 'academic_year', 
                         name='uq_course_schedules_unique'),
     )
 
