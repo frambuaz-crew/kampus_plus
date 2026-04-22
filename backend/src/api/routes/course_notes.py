@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
 
@@ -14,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from src.core.config import get_settings
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
-from src.models.user import User
+from src.models.user import User, UserRole
 from src.models.course_notes import CourseNoteAttachment, CourseNoteEntry, CourseNoteTopic
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,38 @@ class TopicDetailOut(BaseModel):
 
 
 # ============================================================================
+# HELPERS
+# ============================================================================
+
+def _is_global_admin(user: User) -> bool:
+    """admin rolü: tüm üniversiteleri görebilir / silebilir."""
+    return UserRole(user.role) == UserRole.ADMIN
+
+
+def _is_admin(user: User) -> bool:
+    """admin veya university_admin."""
+    return UserRole(user.role) in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN}
+
+
+def _delete_attachment_file(file_url: str, upload_dir: Path) -> None:
+    """Fiziksel dosyayı siler; dosya yoksa sessizce geçer."""
+    relative = file_url.removeprefix("/uploads/")
+    full_path = upload_dir / relative
+    full_path.unlink(missing_ok=True)
+
+
+def _assert_university_scope(actor: User, target_university_id: Optional[str]) -> None:
+    """university_admin kendi üniversitesi dışındaki kayıtlara erişemez."""
+    if _is_global_admin(actor):
+        return
+    if actor.university_id != target_university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu kaydı görme veya değiştirme yetkiniz yok.",
+        )
+
+
+# ============================================================================
 # ENDPOINTS
 # ============================================================================
 
@@ -113,20 +146,26 @@ async def list_topics(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> List[TopicOut]:
-    """Ders kodu veya üniversiteye göre ders notu başlıklarını listeler."""
+    """Ders kodu veya üniversiteye göre ders notu başlıklarını listeler.
+    Global admin tüm kayıtları görür; diğer kullanıcılar sadece kendi üniversitesini görür."""
     stmt = (
         select(CourseNoteTopic)
         .options(selectinload(CourseNoteTopic.creator))
     )
 
+    # Üniversite izolasyonu: global admin değilse kendi üniversitesini filtrele
+    if not _is_global_admin(current_user):
+        stmt = stmt.where(CourseNoteTopic.university_id == current_user.university_id)
+    elif university_id:
+        # Global admin ise query param ile filtrelemeye izin ver
+        stmt = stmt.where(CourseNoteTopic.university_id == university_id)
+
     if course_code:
         stmt = stmt.where(
             CourseNoteTopic.course_code.ilike(f"%{course_code.strip().upper()}%")
         )
-    if university_id:
-        stmt = stmt.where(CourseNoteTopic.university_id == university_id)
 
     stmt = stmt.order_by(CourseNoteTopic.created_at.desc())
     stmt = stmt.offset((page - 1) * limit).limit(limit)
@@ -173,24 +212,22 @@ async def list_topics(
 async def create_topic(
     course_code: str = Form(..., min_length=2, max_length=20),
     title: str = Form(..., min_length=3, max_length=200),
-    university_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> TopicOut:
-    """Yeni ders notu başlığı oluşturur."""
+    """Yeni ders notu başlığı oluşturur.
+    university_id, isteği gönderen kullanıcının üniversitesinden otomatik alınır."""
     normalized_code = course_code.strip().upper()
 
     topic = CourseNoteTopic(
         course_code=normalized_code,
         title=title.strip(),
-        university_id=university_id or getattr(current_user, "university_id", None),
+        university_id=current_user.university_id,
         created_by=current_user.id,
     )
     db.add(topic)
     await db.flush()
     await db.refresh(topic)
-
-    # creator ilişkisini yükle
     await db.refresh(topic, ["creator"])
     await db.commit()
     await db.refresh(topic)
@@ -217,9 +254,10 @@ async def create_topic(
 async def get_topic_detail(
     topic_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> TopicDetailOut:
-    """Belirtilen başlığın tüm notlarını ve eklerini getirir."""
+    """Belirtilen başlığın tüm notlarını ve eklerini getirir.
+    Global admin herkese ait havuzları görebilir; diğerleri sadece kendi üniversitesini görebilir."""
     stmt = (
         select(CourseNoteTopic)
         .where(CourseNoteTopic.id == topic_id)
@@ -234,6 +272,9 @@ async def get_topic_detail(
 
     if not topic:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Başlık bulunamadı.")
+
+    # Üniversite izolasyonu
+    _assert_university_scope(current_user, topic.university_id)
 
     entries_out = []
     for entry in topic.entries:
@@ -294,7 +335,6 @@ async def create_entry(
     current_user: User = Depends(get_current_user),
 ) -> EntryOut:
     """Seçilen başlığa metin ve/veya dosya ekler (multipart/form-data)."""
-    # Başlık var mı kontrol et
     topic_result = await db.execute(
         select(CourseNoteTopic).where(CourseNoteTopic.id == topic_id)
     )
@@ -302,7 +342,9 @@ async def create_entry(
     if not topic:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Başlık bulunamadı.")
 
-    # En az içerik ya da dosya gerekli
+    # Üniversite izolasyonu
+    _assert_university_scope(current_user, topic.university_id)
+
     has_files = files and any(f.filename for f in files)
     if not content and not has_files:
         raise HTTPException(
@@ -316,7 +358,7 @@ async def create_entry(
         content=content.strip() if content else None,
     )
     db.add(entry)
-    await db.flush()  # entry.id oluşturuluyor
+    await db.flush()
 
     db_attachments: List[CourseNoteAttachment] = []
 
@@ -329,7 +371,6 @@ async def create_entry(
             if not upload.filename:
                 continue
 
-            # MIME tipi kontrolü
             file_type = ALLOWED_MIME_TYPES.get(upload.content_type or "")
             if not file_type:
                 raise HTTPException(
@@ -337,7 +378,6 @@ async def create_entry(
                     detail=f"Desteklenmeyen dosya türü: {upload.content_type}. Sadece PDF ve resim (JPEG/PNG/GIF/WebP) kabul edilir.",
                 )
 
-            # Dosya boyutu kontrolü (stream okuma)
             content_bytes = await upload.read()
             if len(content_bytes) > MAX_FILE_SIZE:
                 raise HTTPException(
@@ -352,10 +392,9 @@ async def create_entry(
             with open(file_path, "wb") as buf:
                 buf.write(content_bytes)
 
-            file_url = f"/uploads/course_notes/{unique_filename}"
             attachment = CourseNoteAttachment(
                 entry_id=entry.id,
-                file_url=file_url,
+                file_url=f"/uploads/course_notes/{unique_filename}",
                 file_type=file_type,
                 file_name=upload.filename,
             )
@@ -366,16 +405,6 @@ async def create_entry(
     await db.refresh(entry)
     for attachment in db_attachments:
         await db.refresh(attachment)
-
-    attachments_out = [
-        AttachmentOut(
-            id=a.id,
-            file_url=a.file_url,
-            file_type=a.file_type,
-            file_name=a.file_name,
-        )
-        for a in db_attachments
-    ]
 
     return EntryOut(
         id=entry.id,
@@ -389,6 +418,94 @@ async def create_entry(
             profile_picture_url=getattr(current_user, "profile_picture_url", None),
         ),
         content=entry.content,
-        attachments=attachments_out,
+        attachments=[
+            AttachmentOut(id=a.id, file_url=a.file_url, file_type=a.file_type, file_name=a.file_name)
+            for a in db_attachments
+        ],
         created_at=entry.created_at,
     )
+
+
+# ============================================================================
+# DELETE ENDPOINTS
+# ============================================================================
+
+@router.delete("/topics/{topic_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_topic(
+    topic_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """Havuzu ve içindeki tüm entry/attachment'ları + fiziksel dosyaları siler.
+    Sadece admin ve university_admin rollerine açıktır.
+    university_admin sadece kendi üniversitesinin havuzlarını silebilir."""
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu işlem için yetkiniz yok.",
+        )
+
+    stmt = (
+        select(CourseNoteTopic)
+        .where(CourseNoteTopic.id == topic_id)
+        .options(
+            selectinload(CourseNoteTopic.entries).selectinload(CourseNoteEntry.attachments)
+        )
+    )
+    result = await db.execute(stmt)
+    topic = result.scalar_one_or_none()
+    if not topic:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Başlık bulunamadı.")
+
+    # Üniversite kapsam kontrolü
+    _assert_university_scope(current_user, topic.university_id)
+
+    upload_dir = get_settings().get_upload_dir_absolute()
+    for entry in topic.entries:
+        for att in entry.attachments:
+            _delete_attachment_file(att.file_url, upload_dir)
+
+    await db.delete(topic)
+    await db.commit()
+
+
+@router.delete("/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_entry(
+    entry_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """Ders notu gönderisini ve eklerini siler.
+    Kullanıcı kendi gönderisini silebilir; adminler her gönderiyi silebilir.
+    university_admin sadece kendi üniversitesine ait havuzlardaki gönderileri silebilir."""
+    stmt = (
+        select(CourseNoteEntry)
+        .where(CourseNoteEntry.id == entry_id)
+        .options(
+            selectinload(CourseNoteEntry.attachments),
+            selectinload(CourseNoteEntry.topic),
+        )
+    )
+    result = await db.execute(stmt)
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gönderi bulunamadı.")
+
+    is_own = entry.user_id == current_user.id
+
+    if not is_own and not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu gönderiyi silme yetkiniz yok.",
+        )
+
+    # Admin ise üniversite kapsam kontrolü yap
+    if not is_own:
+        _assert_university_scope(current_user, entry.topic.university_id)
+
+    upload_dir = get_settings().get_upload_dir_absolute()
+    for att in entry.attachments:
+        _delete_attachment_file(att.file_url, upload_dir)
+
+    await db.delete(entry)
+    await db.commit()

@@ -37,6 +37,8 @@ import { AdminAIPage } from './pages/admin/AdminAIPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminMessagesPage } from './pages/admin/AdminMessagesPage';
 import { AdminSchedulePage } from './pages/admin/AdminSchedulePage';
+import { AdminCourseNotesPage } from './pages/admin/AdminCourseNotesPage';
+import { AdminCourseNoteDetailPage } from './pages/admin/AdminCourseNoteDetailPage';
 import { AdminLayout } from './components/layout/AdminLayout';
 import './App.css';
 
@@ -242,6 +244,9 @@ function App() {
             <Route path="ai/stats" element={<AdminAIPage />} />
             {/* Schedules */}
             <Route path="schedules" element={<AdminSchedulePage />} />
+            {/* Course Notes */}
+            <Route path="course-notes" element={<AdminCourseNotesPage />} />
+            <Route path="course-notes/:id" element={<AdminCourseNoteDetailPage />} />
             {/* Users & Messages */}
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="messages" element={<AdminMessagesPage />} />

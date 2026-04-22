@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, GraduationCap, MessageSquare,
   ShoppingBag, Briefcase, Bot, Users,
-  Mail, LogOut, ShieldAlert, BookOpen, UserCircle
+  Mail, LogOut, ShieldAlert, BookOpen, UserCircle, NotebookText
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -22,6 +22,7 @@ export const AdminLayout: React.FC = () => {
     { path: '/admin/dashboard',                       icon: <LayoutDashboard size={20} />, label: 'Ana Sayfa'        },
     { path: '/admin/academic/pending-contributions',  icon: <GraduationCap size={20} />,   label: 'Akademik Takvim' },
     { path: '/admin/schedules',                       icon: <BookOpen size={20} />,         label: 'Ders Programları' },
+    { path: '/admin/course-notes',                    icon: <NotebookText size={20} />,     label: 'Ders Notları'     },
     { path: '/admin/forum',                           icon: <MessageSquare size={20} />,   label: 'Forum'            },
     { path: '/admin/marketplace',                     icon: <ShoppingBag size={20} />,     label: 'Pazar Yeri'       },
     { path: '/admin/career',                          icon: <Briefcase size={20} />,       label: 'Kariyer'          },

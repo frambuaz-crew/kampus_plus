@@ -77,6 +77,14 @@ export const getCourseNoteTopicDetail = async (topicId: string): Promise<TopicDe
   return response.data;
 };
 
+export const deleteCourseNoteTopic = async (topicId: string): Promise<void> => {
+  await apiClient.delete(`/course-notes/topics/${topicId}`);
+};
+
+export const deleteCourseNoteEntry = async (entryId: string): Promise<void> => {
+  await apiClient.delete(`/course-notes/entries/${entryId}`);
+};
+
 export const createCourseNoteEntry = async (
   topicId: string,
   data: { content?: string; files?: File[] },

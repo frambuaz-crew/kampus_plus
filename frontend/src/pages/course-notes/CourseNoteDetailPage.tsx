@@ -6,8 +6,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MainLayout } from '../../components/layout/MainLayout';
+import { useAuth } from '../../hooks/useAuth';
 import {
   createCourseNoteEntry,
+  deleteCourseNoteEntry,
   getCourseNoteTopicDetail,
   type NoteEntry,
   type TopicDetail,
@@ -21,7 +23,15 @@ function resolveUrl(url: string): string {
   return `${BACKEND_BASE}${url}`;
 }
 
-const EntryCard: React.FC<{ entry: NoteEntry }> = ({ entry }) => {
+interface EntryCardProps {
+  entry: NoteEntry;
+  canDelete: boolean;
+  onDelete: (entryId: string) => void;
+}
+
+const EntryCard: React.FC<EntryCardProps> = ({ entry, canDelete, onDelete }) => {
+  const [deleting, setDeleting] = useState(false);
+
   const authorName = entry.author
     ? `${entry.author.first_name} ${entry.author.last_name}`
     : 'Bilinmeyen';
@@ -33,17 +43,39 @@ const EntryCard: React.FC<{ entry: NoteEntry }> = ({ entry }) => {
     minute: '2-digit',
   });
 
+  const handleDelete = async () => {
+    if (!window.confirm('Bu notu silmek istediğine emin misin?')) return;
+    setDeleting(true);
+    try {
+      await deleteCourseNoteEntry(entry.id);
+      onDelete(entry.id);
+    } catch {
+      alert('Not silinirken bir hata oluştu.');
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-      {/* Meta */}
+      {/* Meta satırı */}
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
           {authorName.charAt(0).toUpperCase()}
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900">{authorName}</p>
           <p className="text-xs text-gray-400">{date}</p>
         </div>
+        {canDelete && (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            title="Notu sil"
+            className="shrink-0 px-2.5 py-1 text-xs font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            {deleting ? '...' : 'Sil'}
+          </button>
+        )}
       </div>
 
       {/* Metin içerik */}
@@ -106,6 +138,7 @@ const EntryCard: React.FC<{ entry: NoteEntry }> = ({ entry }) => {
 export const CourseNoteDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   const [topic, setTopic] = useState<TopicDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +150,8 @@ export const CourseNoteDetailPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'university_admin';
 
   const loadTopic = useCallback(async () => {
     if (!id) return;
@@ -135,6 +170,12 @@ export const CourseNoteDetailPage: React.FC = () => {
   useEffect(() => {
     loadTopic();
   }, [loadTopic]);
+
+  const handleEntryDeleted = (entryId: string) => {
+    setTopic((prev) =>
+      prev ? { ...prev, entries: prev.entries.filter((e) => e.id !== entryId) } : prev,
+    );
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -294,7 +335,12 @@ export const CourseNoteDetailPage: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {topic.entries.map((entry) => (
-              <EntryCard key={entry.id} entry={entry} />
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                canDelete={isAdmin || entry.user_id === currentUser?.id}
+                onDelete={handleEntryDeleted}
+              />
             ))}
           </div>
         )}
