@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import {
   deleteCourseNoteTopic,
   getCourseNoteTopics,
@@ -8,6 +9,7 @@ import {
 
 export const AdminCourseNotesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [topics, setTopics] = useState<TopicItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,13 @@ export const AdminCourseNotesPage: React.FC = () => {
           Tüm ders notu havuzlarını yönet
         </p>
       </div>
+
+      {user?.role !== 'admin' && (
+        <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 text-sm font-medium text-amber-500 bg-amber-500/10 rounded-md">
+          <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+          Sadece <span className="font-bold">{user?.university}</span> verilerini görüntülüyorsunuz
+        </div>
+      )}
 
       {loading && (
         <div className="flex justify-center py-16">

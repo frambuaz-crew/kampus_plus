@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   GraduationCap,
   PencilLine,
-  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -186,13 +185,6 @@ export const AdminAcademicPage: React.FC = () => {
           >
             <Upload size={14} />
             PDF Yükle
-          </button>
-          <button
-            onClick={loadData}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 text-sm font-semibold transition-colors"
-          >
-            <RefreshCw size={14} />
-            Yenile
           </button>
         </div>
       </div>
