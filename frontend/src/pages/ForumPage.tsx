@@ -14,6 +14,7 @@ import {
   getForumTopicDetail,
   getForumTopics,
 } from '../api/forum';
+import { API_BASE_URL } from '../api/config';
 
 type ForumView = 'feed' | 'category-threads' | 'thread-detail' | 'new-thread' | 'search';
 
@@ -47,7 +48,7 @@ export const ForumPage: React.FC = () => {
       setActiveFilter('all');
       const res = await getForumTopics({
         page: 1,
-        limit: 50,
+        limit: 20,
         sort: 'newest',
       });
       setThreads(res.topics || []);
@@ -166,23 +167,10 @@ export const ForumPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await getForumTopics({ page: 1, limit: 100, sort: 'newest' });
-      const normalizedQuery = query.toLocaleLowerCase('tr-TR');
-      const filtered = (res.topics || []).filter((topic) => {
-        const title = topic.title.toLocaleLowerCase('tr-TR');
-        const content = topic.content.toLocaleLowerCase('tr-TR');
-        const author = topic.author
-          ? `${topic.author.first_name} ${topic.author.last_name} ${topic.author.username}`.toLocaleLowerCase('tr-TR')
-          : '';
-        return (
-          title.includes(normalizedQuery) ||
-          content.includes(normalizedQuery) ||
-          author.includes(normalizedQuery)
-        );
-      });
+      const res = await getForumTopics({ page: 1, limit: 20, sort: 'newest', search: query.trim() });
 
       setActiveFilter('all');
-      setThreads(filtered);
+      setThreads(res.topics || []);
       setView('search');
     } catch {
       setError('Arama yapılamadı.');
@@ -270,7 +258,7 @@ export const ForumPage: React.FC = () => {
                     <div className="flex items-center gap-4">
                       {user?.profile_picture_url ? (
                         <img
-                          src={user.profile_picture_url.startsWith('http') ? user.profile_picture_url : `http://localhost:8000${user.profile_picture_url}`}
+                          src={user.profile_picture_url.startsWith('http') ? user.profile_picture_url : `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}${user.profile_picture_url}`}
                           alt="Profil"
                           className="w-10 h-10 rounded-full object-cover shrink-0"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}

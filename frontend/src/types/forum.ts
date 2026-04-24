@@ -24,8 +24,8 @@ export interface ForumTopic {
   title: string;
   content: string;
   topic_type: 'text' | 'event';
-  tags?: string | null;  // JSON stringified array of strings
-  image_urls?: string | null; // JSON stringified array of URLs
+  tags?: string[] | null;       // JSONB native list
+  image_urls?: string[] | null; // JSONB native list
   author: ForumAuthor | null;
   reply_count: number;
   view_count: number;
@@ -47,6 +47,19 @@ export interface ForumReply {
   is_liked_by_me?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ForumReport {
+  id: string;
+  topic_id?: string | null;
+  reply_id?: string | null;
+  reporter_id: string;
+  reason: string;
+  status: string;
+  created_at: string;
+  topic_title?: string | null;
+  reply_content?: string | null;
+  reporter_name?: string | null;
 }
 
 
@@ -84,6 +97,11 @@ export interface CreateReplyPayload {
 export interface CreateReplyResponse {
   success: boolean;
   reply_id: string;
+}
+
+export interface ForumReportsResponse {
+  reports: ForumReport[];
+  total: number;
 }
 
 

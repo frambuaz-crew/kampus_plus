@@ -6,11 +6,13 @@ import type {
   CreateTopicResponse,
   ForumTopicDetailResponse,
   ForumTopicsResponse,
+  ForumReportsResponse,
 } from '../types/forum';
 
 export const getForumTopics = async (params?: {
   category_id?: string;
   topic_type?: string;
+  search?: string;
   page?: number;
   limit?: number;
   sort?: 'newest' | 'oldest' | 'most_replies' | 'most_views';
@@ -60,5 +62,75 @@ export const getTopicLikers = async (topicId: string) => {
 
 export const markReplyHelpful = async (replyId: string) => {
   const response = await apiClient.post(`/forum/replies/${replyId}/helpful`);
+  return response.data;
+};
+
+
+// ============================================================================
+// YENİ: CRUD + RAPORLAMA + ADMİN
+// ============================================================================
+
+export const updateForumTopic = async (
+  topicId: string,
+  payload: { title?: string; content?: string; tags?: string[] },
+): Promise<{ success: boolean }> => {
+  const response = await apiClient.patch<{ success: boolean }>(`/forum/topics/${topicId}`, payload);
+  return response.data;
+};
+
+export const deleteForumTopic = async (topicId: string): Promise<{ success: boolean }> => {
+  const response = await apiClient.delete<{ success: boolean }>(`/forum/topics/${topicId}`);
+  return response.data;
+};
+
+export const updateForumReply = async (
+  replyId: string,
+  payload: { content: string },
+): Promise<{ success: boolean }> => {
+  const response = await apiClient.patch<{ success: boolean }>(`/forum/replies/${replyId}`, payload);
+  return response.data;
+};
+
+export const deleteForumReply = async (replyId: string): Promise<{ success: boolean }> => {
+  const response = await apiClient.delete<{ success: boolean }>(`/forum/replies/${replyId}`);
+  return response.data;
+};
+
+export const reportForumTopic = async (
+  topicId: string,
+  reason: string,
+): Promise<{ success: boolean; report_id: string }> => {
+  const response = await apiClient.post<{ success: boolean; report_id: string }>(`/forum/topics/${topicId}/report`, { reason });
+  return response.data;
+};
+
+export const reportForumReply = async (
+  replyId: string,
+  reason: string,
+): Promise<{ success: boolean; report_id: string }> => {
+  const response = await apiClient.post<{ success: boolean; report_id: string }>(`/forum/replies/${replyId}/report`, { reason });
+  return response.data;
+};
+
+export const getForumReports = async (
+  reportStatus: string = 'pending',
+): Promise<ForumReportsResponse> => {
+  const response = await apiClient.get<ForumReportsResponse>('/forum/admin/reports', { params: { report_status: reportStatus } });
+  return response.data;
+};
+
+export const resolveForumReport = async (
+  reportId: string,
+  action: 'delete_content' | 'reject',
+): Promise<{ success: boolean; status: string }> => {
+  const response = await apiClient.post<{ success: boolean; status: string }>(`/forum/admin/reports/${reportId}/resolve`, null, { params: { action } });
+  return response.data;
+};
+
+export const getAdminForumTopics = async (params?: {
+  page?: number;
+  limit?: number;
+}): Promise<ForumTopicsResponse> => {
+  const response = await apiClient.get<ForumTopicsResponse>('/forum/topics', { params: { ...params, sort: 'newest' } });
   return response.data;
 };

@@ -686,6 +686,15 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 .order_by(ForumTopic.created_at.desc())
             )
 
+            # Multi-tenant: AI sadece kullanıcının üniversitesinin verilerini görsün
+            if user_ctx and user_ctx.university_id:
+                base_stmt = base_stmt.where(
+                    or_(
+                        ForumTopic.university_id == user_ctx.university_id,
+                        ForumTopic.university_id.is_(None),
+                    )
+                )
+
             if is_generic:
                 stmt = base_stmt.limit(5)
                 header = "Forum'daki en yeni 5 gönderi"

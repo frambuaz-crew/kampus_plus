@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import { Heart, MessageSquare, MoreHorizontal, Calendar, X } from 'lucide-react';
+import { Heart, MessageSquare, MoreHorizontal, Calendar, X, Edit3, Trash2, Flag } from 'lucide-react';
 import type { ThreadListItem } from '../../types/forum';
 import { ImageLightbox } from './ImageLightbox';
-import { markTopicHelpful, getTopicLikers } from '../../api/forum';
+import { markTopicHelpful, getTopicLikers, deleteForumTopic, updateForumTopic, reportForumTopic } from '../../api/forum';
 import { Link } from 'react-router-dom';
 import { InlineComments } from './InlineComments';
 import { parseUtcDate } from '../../utils/dateUtils';
+import { useAuth } from '../../hooks/useAuth';
+import { API_BASE_URL } from '../../api/config';
+
+// API base URL'den /api/v1 kısmını çıkar → asset base URL
+const assetBaseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 interface PostCardProps {
     post: ThreadListItem;
     onClick: (id: string) => void;
     onCommentClick?: (id: string) => void;
+    onDeleted?: (id: string) => void;
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClick }) => {
-    const baseUrl = 'http://localhost:8000';
+export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClick, onDeleted }) => {
+    const { user } = useAuth();
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [helpfulCount, setHelpfulCount] = useState(post.helpful_count);
     const [isLikedByMe, setIsLikedByMe] = useState(post.is_liked_by_me || false);
@@ -30,11 +36,36 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
     const [replyCount, setReplyCount] = useState(post.reply_count);
     const likersPopupRef = useRef<HTMLDivElement>(null);
 
+    // Menü ve düzenleme state'leri
+    const [showMenu, setShowMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState(post.title);
+    const [editContent, setEditContent] = useState(post.content);
+    const [saving, setSaving] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reporting, setReporting] = useState(false);
+
+    const isOwner = user?.id === post.author?.id;
+
     const authorInitials = post.author?.first_name
         ? post.author.first_name[0] + (post.author.last_name?.[0] || '')
         : post.author?.username?.[0] || 'U';
 
     const timeAgo = formatDistanceToNow(parseUtcDate(post.created_at), { addSuffix: true, locale: tr });
+
+    // Menü dışına tıklayınca kapat
+    useEffect(() => {
+        if (!showMenu) return;
+        const handleOutsideClick = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setShowMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [showMenu]);
 
     useEffect(() => {
         if (!showLikers) return;
@@ -47,8 +78,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
         return () => document.removeEventListener('mousedown', handleOutsideClick);
     }, [showLikers]);
 
-    const tags: string[] = post.tags ? JSON.parse(post.tags) : [];
-    const images: string[] = post.image_urls ? JSON.parse(post.image_urls) : [];
+    // JSONB native list — artık JSON.parse gerekmiyor
+    const tags: string[] = Array.isArray(post.tags) ? post.tags : [];
+    const images: string[] = Array.isArray(post.image_urls) ? post.image_urls : [];
 
 
     const handleLike = async (e: React.MouseEvent) => {
@@ -83,17 +115,58 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm('Bu gönderiyi silmek istediğinize emin misiniz?')) return;
+        try {
+            await deleteForumTopic(post.id);
+            onDeleted?.(post.id);
+        } catch {
+            alert('Gönderi silinemedi.');
+        }
+        setShowMenu(false);
+    };
+
+    const handleEditSave = async () => {
+        if (!editTitle.trim() || !editContent.trim()) return;
+        try {
+            setSaving(true);
+            await updateForumTopic(post.id, { title: editTitle, content: editContent });
+            post.title = editTitle;
+            post.content = editContent;
+            setIsEditing(false);
+        } catch {
+            alert('Düzenleme kaydedilemedi.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleReport = async () => {
+        if (!reportReason.trim() || reportReason.trim().length < 5) return;
+        try {
+            setReporting(true);
+            await reportForumTopic(post.id, reportReason.trim());
+            setShowReportModal(false);
+            setReportReason('');
+            alert('Rapor gönderildi. Teşekkürler!');
+        } catch {
+            alert('Rapor gönderilemedi.');
+        } finally {
+            setReporting(false);
+        }
+    };
+
     return (
         <div
             className="bg-white rounded-3xl p-5 mb-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => onClick(post.id)}
+            onClick={() => !isEditing && onClick(post.id)}
         >
             {/* HEADER: Author & Time */}
             <div className="flex items-center justify-between mb-4">
                 <Link to={`/dashboard/profile/${post.author?.username || ''}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 group">
                     {post.author?.profile_picture_url ? (
                         <img
-                            src={post.author.profile_picture_url.startsWith('http') ? post.author.profile_picture_url : `${baseUrl}${post.author.profile_picture_url}`}
+                            src={post.author.profile_picture_url.startsWith('http') ? post.author.profile_picture_url : `${assetBaseUrl}${post.author.profile_picture_url}`}
                             alt={post.author.username}
                             className="w-12 h-12 rounded-full object-cover shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
                             onError={(e) => {
@@ -121,30 +194,93 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                     </div>
                 </Link>
 
-                <button className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors" onClick={(e) => e.stopPropagation()}>
-                    <MoreHorizontal size={20} />
-                </button>
+                {/* Üç nokta menüsü */}
+                <div className="relative" ref={menuRef}>
+                    <button
+                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                        onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                    >
+                        <MoreHorizontal size={20} />
+                    </button>
+                    {showMenu && (
+                        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 w-44 py-1 z-50" onClick={(e) => e.stopPropagation()}>
+                            {isOwner ? (
+                                <>
+                                    <button
+                                        onClick={() => { setIsEditing(true); setShowMenu(false); }}
+                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                    >
+                                        <Edit3 size={14} /> Düzenle
+                                    </button>
+                                    <button
+                                        onClick={handleDelete}
+                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                                    >
+                                        <Trash2 size={14} /> Sil
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => { setShowReportModal(true); setShowMenu(false); }}
+                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-orange-600 hover:bg-orange-50 transition-colors"
+                                >
+                                    <Flag size={14} /> Rapor Et
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* CONTENT: Tags, Title, Text */}
-            <div className="mb-4">
-                {tags.length > 0 && (
-                    <div className="flex gap-2 mb-3 flex-wrap">
-                        {tags.map((tag, idx) => (
-                            <span key={idx} className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-full">
-                                {tag.startsWith('#') ? tag : `#${tag}`}
-                            </span>
-                        ))}
+            {isEditing ? (
+                <div className="mb-4" onClick={(e) => e.stopPropagation()}>
+                    <input
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="w-full mb-2 px-3 py-2 border border-gray-200 rounded-xl text-lg font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-xl min-h-[80px] resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <div className="flex gap-2 mt-2">
+                        <button
+                            onClick={handleEditSave}
+                            disabled={saving}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                        </button>
+                        <button
+                            onClick={() => { setIsEditing(false); setEditTitle(post.title); setEditContent(post.content); }}
+                            className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200"
+                        >
+                            İptal
+                        </button>
                     </div>
-                )}
+                </div>
+            ) : (
+                <div className="mb-4">
+                    {tags.length > 0 && (
+                        <div className="flex gap-2 mb-3 flex-wrap">
+                            {tags.map((tag, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-full">
+                                    {tag.startsWith('#') ? tag : `#${tag}`}
+                                </span>
+                            ))}
+                        </div>
+                    )}
 
-                <h2 className="text-xl font-black text-gray-900 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">
-                    {post.title}
-                </h2>
-                <p className="text-gray-600 line-clamp-3 leading-relaxed">
-                    {post.content}
-                </p>
-            </div>
+                    <h2 className="text-xl font-black text-gray-900 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">
+                        {post.title}
+                    </h2>
+                    <p className="text-gray-600 line-clamp-3 leading-relaxed">
+                        {post.content}
+                    </p>
+                </div>
+            )}
 
             {images.length > 0 && (
                 <>
@@ -155,7 +291,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                                 className="w-32 h-32 sm:w-48 sm:h-48 bg-gray-100 rounded-2xl overflow-hidden relative cursor-zoom-in group shrink-0"
                                 onClick={(e) => { e.stopPropagation(); setLightboxIndex(idx); }}
                             >
-                                <img src={img.startsWith('http') ? img : `${baseUrl}${img}`} alt="Gönderi görseli" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
+                                <img src={img.startsWith('http') ? img : `${assetBaseUrl}${img}`} alt="Gönderi görseli" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
                             </div>
                         ))}
                     </div>
@@ -239,7 +375,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                                         <Link to={`/dashboard/profile/${liker.username}`} className="flex items-center gap-2 hover:bg-gray-50 p-1.5 rounded-lg transition-colors group">
                                             {liker.profile_picture_url ? (
                                                 <img
-                                                    src={liker.profile_picture_url.startsWith('http') ? liker.profile_picture_url : `${baseUrl}${liker.profile_picture_url}`}
+                                                    src={liker.profile_picture_url.startsWith('http') ? liker.profile_picture_url : `${assetBaseUrl}${liker.profile_picture_url}`}
                                                     className="w-6 h-6 rounded-full object-cover shadow-sm group-hover:ring-2 group-hover:ring-indigo-500"
                                                     alt={liker.username}
                                                     onError={(e) => {
@@ -267,6 +403,29 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                     topicId={post.id}
                     onCommentAdded={() => setReplyCount(prev => prev + 1)}
                 />
+            )}
+
+            {/* Rapor Et Modal */}
+            {showReportModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={(e) => { e.stopPropagation(); setShowReportModal(false); }}>
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-lg font-black text-gray-900 mb-3 flex items-center gap-2">
+                            <Flag size={18} className="text-orange-500" /> Gönderiyi Rapor Et
+                        </h3>
+                        <textarea
+                            value={reportReason}
+                            onChange={(e) => setReportReason(e.target.value)}
+                            placeholder="Şikayet sebebinizi yazın (en az 5 karakter)..."
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                        />
+                        <div className="flex gap-2 mt-3 justify-end">
+                            <button onClick={() => setShowReportModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl">İptal</button>
+                            <button onClick={handleReport} disabled={reporting || reportReason.trim().length < 5} className="px-4 py-2 text-sm font-bold bg-orange-500 text-white rounded-xl hover:bg-orange-600 disabled:opacity-50">
+                                {reporting ? 'Gönderiliyor...' : 'Rapor Gönder'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

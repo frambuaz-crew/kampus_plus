@@ -32,6 +32,11 @@ class ForumCategory(Base):
     order_index: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False)
     
+    # Multi-tenant: üniversiteye ait kategoriler (nullable → global kategori)
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("universities.id"), nullable=True, index=True,
+    )
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
@@ -66,13 +71,18 @@ class ForumTopic(Base):
         index=True,
     )
     
+    # Multi-tenant: üniversiteye ait konular
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("universities.id"), nullable=True, index=True,
+    )
+    
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     
     # SARI YENİ EKLENTİLER
     topic_type: Mapped[str] = mapped_column(String(20), server_default=text("'text'"), nullable=False)
-    tags: Mapped[Optional[str]] = mapped_column(JSONB, nullable=True) # JSON array tutulacak
-    image_urls: Mapped[Optional[str]] = mapped_column(JSONB, nullable=True) # JSON array tutulacak
+    tags: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)  # Native list — JSONB
+    image_urls: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)  # Native list — JSONB
     event_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
     is_pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
@@ -156,3 +166,49 @@ class ForumReply(Base):
     replies = relationship("ForumReply", back_populates="parent", cascade="all, delete-orphan")
     parent = relationship("ForumReply", back_populates="replies", remote_side=[id])
 
+
+class ForumReport(Base):
+    """Forum şikayet/rapor modeli — moderasyon desteği."""
+
+    __tablename__ = "forum_reports"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid4()),
+    )
+
+    topic_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("forum_topics.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    reply_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("forum_replies.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    reporter_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), server_default=text("'pending'"), nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    # İlişkiler
+    topic = relationship("ForumTopic", foreign_keys=[topic_id])
+    reply = relationship("ForumReply", foreign_keys=[reply_id])
+    reporter = relationship("User", foreign_keys=[reporter_id])

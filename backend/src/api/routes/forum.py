@@ -4,7 +4,7 @@ Spec: specs/SYSTEM_OVERVIEW.md - Forum Endpoints
 Spec: specs/005-forum-page/spec.md
 """
 
-import json
+
 import logging
 import os
 import uuid
@@ -21,8 +21,8 @@ from sqlalchemy.orm import selectinload
 
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
-from src.models.user import User
-from src.models.forum import ForumCategory, ForumTopic, ForumReply
+from src.models.user import User, UserRole
+from src.models.forum import ForumCategory, ForumTopic, ForumReply, ForumReport
 from src.models.favorite import UserFavorite
 
 logger = logging.getLogger(__name__)
@@ -76,8 +76,8 @@ class TopicResponse(BaseModel):
     category_id: Optional[str] = None
     category_name: Optional[str] = None
     topic_type: str = "text"
-    tags: Optional[str] = None
-    image_urls: Optional[str] = None
+    tags: Optional[list] = None
+    image_urls: Optional[list] = None
     event_date: Optional[datetime] = None
     reply_count: int
     view_count: int
@@ -139,6 +139,39 @@ class CreateReplyRequest(BaseModel):
     parent_id: Optional[str] = Field(None, description="Üst yorum ID'si (threaded reply)")
 
 
+class UpdateTopicRequest(BaseModel):
+    """Konu düzenleme request."""
+    title: Optional[str] = None
+    content: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class UpdateReplyRequest(BaseModel):
+    """Cevap düzenleme request."""
+    content: str = Field(..., description="Güncellenmiş içerik")
+
+
+class ReportRequest(BaseModel):
+    """Şikayet request."""
+    reason: str = Field(..., min_length=5, max_length=500, description="Şikayet sebebi")
+
+
+class ReportResponse(BaseModel):
+    """Rapor response."""
+    id: str
+    topic_id: Optional[str] = None
+    reply_id: Optional[str] = None
+    reporter_id: str
+    reason: str
+    status: str
+    created_at: datetime
+    topic_title: Optional[str] = None
+    reply_content: Optional[str] = None
+    reporter_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 # ============================================================================
 # ENDPOINTS
 # ============================================================================
@@ -152,11 +185,18 @@ async def get_categories(
 
     Spec: GET /api/v1/forum/categories
     """
-    result = await session.execute(
-        select(ForumCategory)
-        .where(ForumCategory.is_active == True)
-        .order_by(ForumCategory.order_index, ForumCategory.name)
-    )
+    # Multi-tenant filtre: ADMIN tümünü görür, diğerleri kendi üniversitesi + global
+    cat_query = select(ForumCategory).where(ForumCategory.is_active == True)
+    if UserRole(current_user.role) != UserRole.ADMIN:
+        cat_query = cat_query.where(
+            or_(
+                ForumCategory.university_id == current_user.university_id,
+                ForumCategory.university_id.is_(None),
+            )
+        )
+    cat_query = cat_query.order_by(ForumCategory.order_index, ForumCategory.name)
+
+    result = await session.execute(cat_query)
     categories = result.scalars().all()
 
     categories_with_counts = []
@@ -187,6 +227,7 @@ async def get_categories(
 async def get_topics(
     category_id: Optional[str] = Query(None, description="Kategori ID ile filtrele"),
     topic_type: Optional[str] = Query(None, description="Konu tipi (text, event)"),
+    search: Optional[str] = Query(None, description="Başlık veya içerikte arama"),
     page: int = Query(1, ge=1, description="Sayfa numarası"),
     limit: int = Query(20, ge=1, le=100, description="Sayfa başına kayıt"),
     sort: str = Query("newest", description="Sıralama: newest, oldest, most_replies, most_views"),
@@ -199,11 +240,30 @@ async def get_topics(
     """
     query = select(ForumTopic).where(ForumTopic.is_deleted == False)
 
+    # Multi-tenant filtre
+    if UserRole(current_user.role) != UserRole.ADMIN:
+        query = query.where(
+            or_(
+                ForumTopic.university_id == current_user.university_id,
+                ForumTopic.university_id.is_(None),
+            )
+        )
+
     if category_id:
         query = query.where(ForumTopic.category_id == category_id)
 
     if topic_type:
         query = query.where(ForumTopic.topic_type == topic_type)
+
+    # Server-side arama
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                ForumTopic.title.ilike(pattern),
+                ForumTopic.content.ilike(pattern),
+            )
+        )
 
     if sort == "newest":
         query = query.order_by(ForumTopic.created_at.desc())
@@ -406,7 +466,7 @@ async def create_topic(
     Spec: POST /api/v1/forum/topics
     Rate Limit: 10 konu / 1 saat / user
     """
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.utcnow().timestamp()
     user_attempts = topic_creation_attempts[current_user.id]
     user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
 
@@ -437,19 +497,20 @@ async def create_topic(
         id=str(uuid4()),
         category_id=request.category_id,
         author_id=current_user.id,
+        university_id=current_user.university_id,
         title=request.title,
         content=request.content,
         topic_type=request.topic_type,
-        tags=json.dumps(request.tags, ensure_ascii=False) if request.tags else None,
-        image_urls=json.dumps(request.image_urls, ensure_ascii=False) if request.image_urls else None,
+        tags=request.tags,
+        image_urls=request.image_urls,
         event_date=request.event_date,
         is_pinned=False,
         is_deleted=False,
         view_count=0,
         reply_count=0,
         helpful_count=0,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
 
     session.add(topic)
@@ -473,7 +534,7 @@ async def create_reply(
     Spec: POST /api/v1/forum/topics/{topic_id}/replies
     Rate Limit: 30 cevap / 1 saat / user
     """
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.utcnow().timestamp()
     user_attempts = reply_creation_attempts[current_user.id]
     user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
 
@@ -520,15 +581,15 @@ async def create_reply(
         parent_id=request.parent_id,
         helpful_count=0,
         is_deleted=False,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
 
     session.add(reply)
 
     topic.reply_count += 1
-    topic.last_reply_at = datetime.now(timezone.utc)
-    topic.updated_at = datetime.now(timezone.utc)
+    topic.last_reply_at = datetime.utcnow()
+    topic.updated_at = datetime.utcnow()
 
     await session.commit()
     await session.refresh(reply)
@@ -549,7 +610,7 @@ async def toggle_topic_helpful(
     Spec: POST /api/v1/forum/topics/{topic_id}/helpful
     Rate Limit: 50 beğeni / 1 saat / user
     """
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.utcnow().timestamp()
     user_attempts = helpful_attempts[current_user.id]
     user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
 
@@ -596,7 +657,7 @@ async def toggle_topic_helpful(
         topic.helpful_count += 1
         action = "liked"
 
-    topic.updated_at = datetime.now(timezone.utc)
+    topic.updated_at = datetime.utcnow()
     await session.commit()
     await session.refresh(topic)
 
@@ -660,7 +721,7 @@ async def toggle_reply_helpful(
     Spec: POST /api/v1/forum/replies/{reply_id}/helpful
     Rate Limit: 50 beğeni / 1 saat / user
     """
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.utcnow().timestamp()
     user_attempts = helpful_attempts[current_user.id]
     user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
 
@@ -707,7 +768,7 @@ async def toggle_reply_helpful(
         reply.helpful_count += 1
         action = "liked"
 
-    reply.updated_at = datetime.now(timezone.utc)
+    reply.updated_at = datetime.utcnow()
     await session.commit()
     await session.refresh(reply)
 
@@ -741,3 +802,258 @@ async def upload_forum_images(
         saved_urls.append(f"/uploads/forum/{unique_filename}")
 
     return {"success": True, "urls": saved_urls}
+
+
+# ============================================================================
+# CRUD: DÜZENLE / SİL
+# ============================================================================
+
+def _is_admin_user(user: User) -> bool:
+    """Kullanıcının admin veya university_admin olup olmadığını kontrol et."""
+    return UserRole(user.role) in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN}
+
+
+@router.patch("/topics/{topic_id}", response_model=dict)
+async def update_topic(
+    topic_id: str,
+    request: UpdateTopicRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Konuyu düzenle (sahip veya admin)."""
+    result = await session.execute(
+        select(ForumTopic).where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
+    )
+    topic = result.scalar_one_or_none()
+    if not topic:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "Konu bulunamadı"}})
+
+    if topic.author_id != current_user.id and not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Bu konuyu düzenleme yetkiniz yok"}})
+
+    if request.title is not None:
+        topic.title = request.title
+    if request.content is not None:
+        topic.content = request.content
+    if request.tags is not None:
+        topic.tags = request.tags
+
+    topic.updated_at = datetime.utcnow()
+    await session.commit()
+    return {"success": True}
+
+
+@router.delete("/topics/{topic_id}", response_model=dict)
+async def delete_topic(
+    topic_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Konuyu sil — soft delete (sahip veya admin)."""
+    result = await session.execute(
+        select(ForumTopic).where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
+    )
+    topic = result.scalar_one_or_none()
+    if not topic:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "Konu bulunamadı"}})
+
+    if topic.author_id != current_user.id and not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Bu konuyu silme yetkiniz yok"}})
+
+    topic.is_deleted = True
+    topic.updated_at = datetime.utcnow()
+    await session.commit()
+    return {"success": True}
+
+
+@router.patch("/replies/{reply_id}", response_model=dict)
+async def update_reply(
+    reply_id: str,
+    request: UpdateReplyRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Cevabı düzenle (sahip veya admin)."""
+    result = await session.execute(
+        select(ForumReply).where(and_(ForumReply.id == reply_id, ForumReply.is_deleted == False))
+    )
+    reply = result.scalar_one_or_none()
+    if not reply:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "Cevap bulunamadı"}})
+
+    if reply.author_id != current_user.id and not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Bu cevabı düzenleme yetkiniz yok"}})
+
+    reply.content = request.content
+    reply.updated_at = datetime.utcnow()
+    await session.commit()
+    return {"success": True}
+
+
+@router.delete("/replies/{reply_id}", response_model=dict)
+async def delete_reply(
+    reply_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Cevabı sil — soft delete (sahip veya admin)."""
+    result = await session.execute(
+        select(ForumReply).where(and_(ForumReply.id == reply_id, ForumReply.is_deleted == False))
+    )
+    reply = result.scalar_one_or_none()
+    if not reply:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "Cevap bulunamadı"}})
+
+    if reply.author_id != current_user.id and not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Bu cevabı silme yetkiniz yok"}})
+
+    reply.is_deleted = True
+    reply.updated_at = datetime.utcnow()
+
+    # Reply count güncelle
+    topic_result = await session.execute(select(ForumTopic).where(ForumTopic.id == reply.topic_id))
+    topic = topic_result.scalar_one_or_none()
+    if topic:
+        topic.reply_count = max(0, topic.reply_count - 1)
+
+    await session.commit()
+    return {"success": True}
+
+
+# ============================================================================
+# RAPORLAMA (ŞİKAYET)
+# ============================================================================
+
+@router.post("/topics/{topic_id}/report", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def report_topic(
+    topic_id: str,
+    request: ReportRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Konuyu şikayet et."""
+    topic_result = await session.execute(
+        select(ForumTopic).where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
+    )
+    if not topic_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "Konu bulunamadı"}})
+
+    report = ForumReport(
+        id=str(uuid4()),
+        topic_id=topic_id,
+        reporter_id=current_user.id,
+        reason=request.reason,
+    )
+    session.add(report)
+    await session.commit()
+    return {"success": True, "report_id": report.id}
+
+
+@router.post("/replies/{reply_id}/report", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def report_reply(
+    reply_id: str,
+    request: ReportRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Cevabı şikayet et."""
+    reply_result = await session.execute(
+        select(ForumReply).where(and_(ForumReply.id == reply_id, ForumReply.is_deleted == False))
+    )
+    if not reply_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "Cevap bulunamadı"}})
+
+    report = ForumReport(
+        id=str(uuid4()),
+        reply_id=reply_id,
+        reporter_id=current_user.id,
+        reason=request.reason,
+    )
+    session.add(report)
+    await session.commit()
+    return {"success": True, "report_id": report.id}
+
+
+# ============================================================================
+# ADMİN: MODERASYON
+# ============================================================================
+
+@router.get("/admin/reports", response_model=dict)
+async def get_reports(
+    report_status: str = Query("pending", description="Rapor durumu: pending, resolved, rejected"),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Bekleyen raporları listele (admin yetkisi gerekli)."""
+    if not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Admin yetkisi gerekli"}})
+
+    stmt = (
+        select(ForumReport)
+        .where(ForumReport.status == report_status)
+        .options(
+            selectinload(ForumReport.topic),
+            selectinload(ForumReport.reply),
+            selectinload(ForumReport.reporter),
+        )
+        .order_by(ForumReport.created_at.desc())
+        .limit(100)
+    )
+    result = await session.execute(stmt)
+    reports = result.scalars().all()
+
+    reports_list = []
+    for r in reports:
+        reports_list.append({
+            "id": r.id,
+            "topic_id": r.topic_id,
+            "reply_id": r.reply_id,
+            "reporter_id": r.reporter_id,
+            "reason": r.reason,
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+            "topic_title": r.topic.title if r.topic else None,
+            "reply_content": r.reply.content[:200] if r.reply else None,
+            "reporter_name": f"{r.reporter.first_name} {r.reporter.last_name}" if r.reporter else None,
+        })
+
+    return {"reports": reports_list, "total": len(reports_list)}
+
+
+@router.post("/admin/reports/{report_id}/resolve", response_model=dict)
+async def resolve_report(
+    report_id: str,
+    action: str = Query(..., description="İşlem: delete_content, reject"),
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Raporu kapat. action=delete_content ise ilgili içerik soft-delete edilir."""
+    if not _is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Admin yetkisi gerekli"}})
+
+    result = await session.execute(select(ForumReport).where(ForumReport.id == report_id))
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "Rapor bulunamadı"}})
+
+    if action == "delete_content":
+        # İlgili içeriği sil
+        if report.topic_id:
+            topic_res = await session.execute(select(ForumTopic).where(ForumTopic.id == report.topic_id))
+            topic = topic_res.scalar_one_or_none()
+            if topic:
+                topic.is_deleted = True
+        if report.reply_id:
+            reply_res = await session.execute(select(ForumReply).where(ForumReply.id == report.reply_id))
+            reply = reply_res.scalar_one_or_none()
+            if reply:
+                reply.is_deleted = True
+        report.status = "resolved"
+    elif action == "reject":
+        report.status = "rejected"
+    else:
+        raise HTTPException(status_code=400, detail={"error": {"code": "BAD_REQUEST", "message": "Geçersiz işlem. 'delete_content' veya 'reject' kullanın."}})
+
+    await session.commit()
+    return {"success": True, "status": report.status}
+

@@ -1,5 +1,12 @@
-import React, { useState } from 'react';
-import { MessageSquare, Flag, Pin, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { MessageSquare, Flag, Pin, Trash2, Check, X, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  getForumReports,
+  resolveForumReport,
+  getAdminForumTopics,
+  deleteForumTopic,
+} from '../../api/forum';
+import type { ForumReport, ForumTopic } from '../../types/forum';
 
 type Tab = 'reports' | 'topics' | 'categories';
 
@@ -21,6 +28,245 @@ const ComingSoon: React.FC<{ title: string; description: string; icon: React.Rea
   </div>
 );
 
+// ============================================================================
+// RAPORLAR SEKMESİ
+// ============================================================================
+const ReportsTab: React.FC = () => {
+  const [reports, setReports] = useState<ForumReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  const fetchReports = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await getForumReports('pending');
+      setReports(res.reports || []);
+    } catch {
+      setError('Raporlar yüklenemedi.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchReports(); }, [fetchReports]);
+
+  const handleResolve = async (reportId: string, action: 'delete_content' | 'reject') => {
+    try {
+      setProcessing(reportId);
+      await resolveForumReport(reportId, action);
+      setReports(prev => prev.filter(r => r.id !== reportId));
+    } catch {
+      setError('İşlem başarısız oldu.');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-8 h-8 border-2 border-red-200 border-t-red-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Flag size={16} className="text-red-400" />
+          <span className="text-sm font-semibold text-gray-300">Raporlanan İçerikler</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full font-semibold">
+            {reports.length} rapor
+          </span>
+          <button onClick={fetchReports} className="p-1.5 text-gray-500 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
+            <RefreshCw size={14} />
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mx-6 mt-4 text-sm text-red-400 flex items-center gap-2 bg-red-500/10 p-3 rounded-lg">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      {reports.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Check size={40} className="text-green-500 mb-3" />
+          <h3 className="text-base font-bold text-gray-300 mb-1">Temiz!</h3>
+          <p className="text-sm text-gray-600">Bekleyen rapor bulunmuyor.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-800">
+          {reports.map(report => (
+            <div key={report.id} className="px-6 py-4 hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    {report.topic_id && (
+                      <span className="text-[10px] font-bold bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full uppercase">Konu</span>
+                    )}
+                    {report.reply_id && (
+                      <span className="text-[10px] font-bold bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full uppercase">Yorum</span>
+                    )}
+                    <span className="text-[10px] text-gray-600">
+                      {new Date(report.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+
+                  {report.topic_title && (
+                    <p className="text-sm font-semibold text-gray-200 mb-1 truncate">📄 {report.topic_title}</p>
+                  )}
+                  {report.reply_content && (
+                    <p className="text-xs text-gray-400 mb-1 truncate">💬 {report.reply_content}</p>
+                  )}
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    <span className="font-semibold text-gray-400">Sebep:</span> {report.reason}
+                  </p>
+                  {report.reporter_name && (
+                    <p className="text-[10px] text-gray-600 mt-0.5">Raporlayan: {report.reporter_name}</p>
+                  )}
+                </div>
+
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => handleResolve(report.id, 'delete_content')}
+                    disabled={processing === report.id}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 size={12} /> İçeriği Sil
+                  </button>
+                  <button
+                    onClick={() => handleResolve(report.id, 'reject')}
+                    disabled={processing === report.id}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+                  >
+                    <X size={12} /> Reddet
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// KONULAR SEKMESİ
+// ============================================================================
+const TopicsTab: React.FC = () => {
+  const [topics, setTopics] = useState<ForumTopic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const fetchTopics = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await getAdminForumTopics({ page: 1, limit: 50 });
+      setTopics(res.topics || []);
+    } catch {
+      setError('Konular yüklenemedi.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchTopics(); }, [fetchTopics]);
+
+  const handleDelete = async (topicId: string) => {
+    if (!confirm('Bu konuyu silmek istediğinize emin misiniz?')) return;
+    try {
+      setDeleting(topicId);
+      await deleteForumTopic(topicId);
+      setTopics(prev => prev.filter(t => t.id !== topicId));
+    } catch {
+      setError('Konu silinemedi.');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-8 h-8 border-2 border-red-200 border-t-red-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MessageSquare size={16} className="text-blue-400" />
+          <span className="text-sm font-semibold text-gray-300">Forum Konuları</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-semibold">
+            {topics.length} konu
+          </span>
+          <button onClick={fetchTopics} className="p-1.5 text-gray-500 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
+            <RefreshCw size={14} />
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mx-6 mt-4 text-sm text-red-400 flex items-center gap-2 bg-red-500/10 p-3 rounded-lg">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      {topics.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <MessageSquare size={40} className="text-gray-600 mb-3" />
+          <p className="text-sm text-gray-600">Henüz forum konusu bulunmuyor.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-800">
+          {topics.map(topic => (
+            <div key={topic.id} className="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-gray-800/50 transition-colors">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-200 truncate">{topic.title}</p>
+                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
+                  <span>{topic.author ? `${topic.author.first_name} ${topic.author.last_name}` : 'Anonim'}</span>
+                  <span>•</span>
+                  <span>{topic.reply_count} yorum</span>
+                  <span>•</span>
+                  <span>{topic.view_count} görüntülenme</span>
+                  <span>•</span>
+                  <span>{new Date(topic.created_at).toLocaleDateString('tr-TR')}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => handleDelete(topic.id)}
+                disabled={deleting === topic.id}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50 shrink-0"
+              >
+                <Trash2 size={12} /> {deleting === topic.id ? '...' : 'Sil'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// ============================================================================
+// ANA SAYFA
+// ============================================================================
 export const AdminForumPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('reports');
 
@@ -52,29 +298,8 @@ export const AdminForumPage: React.FC = () => {
       </div>
 
       <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-        {activeTab === 'reports' && (
-          <div>
-            <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flag size={16} className="text-red-400" />
-                <span className="text-sm font-semibold text-gray-300">Raporlanan İçerikler</span>
-              </div>
-              <span className="text-xs bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full font-semibold">7 rapor</span>
-            </div>
-            <ComingSoon
-              icon={<Flag size={32} />}
-              title="İçerik Moderasyonu"
-              description="Kullanıcıların raporladığı konu ve yanıtları buradan inceleyip işlem yapabilirsiniz."
-            />
-          </div>
-        )}
-        {activeTab === 'topics' && (
-          <ComingSoon
-            icon={<MessageSquare size={32} />}
-            title="Konu Yönetimi"
-            description="Tüm forum konularını listeleyin, sabitleyin veya silin."
-          />
-        )}
+        {activeTab === 'reports' && <ReportsTab />}
+        {activeTab === 'topics' && <TopicsTab />}
         {activeTab === 'categories' && (
           <ComingSoon
             icon={<Pin size={32} />}

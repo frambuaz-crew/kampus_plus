@@ -1,19 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getForumTopicDetail, createForumReply } from '../../api/forum';
+import { getForumTopicDetail, createForumReply, deleteForumReply, updateForumReply, reportForumReply } from '../../api/forum';
 import type { ForumReply } from '../../types/forum';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { Send, AlertCircle, MessageSquare, CornerDownRight, Heart } from 'lucide-react';
+import { Send, AlertCircle, MessageSquare, CornerDownRight, Heart, Edit3, Trash2, Flag, X } from 'lucide-react';
 import { markReplyHelpful } from '../../api/forum';
 import { parseUtcDate } from '../../utils/dateUtils';
+import { useAuth } from '../../hooks/useAuth';
+import { API_BASE_URL } from '../../api/config';
 
-interface InlineCommentsProps {
-    topicId: string;
-    onCommentAdded: () => void;
-}
-
-const baseUrl = 'http://localhost:8000';
+const assetBaseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 // Single comment + its children thread
 const CommentItem: React.FC<{
@@ -21,14 +18,28 @@ const CommentItem: React.FC<{
     children?: ForumReply[];
     allReplies: ForumReply[];
     onReplySubmit: (content: string, parentId: string) => Promise<void>;
+    onRefresh: () => void;
     depth?: number;
-}> = ({ reply, children = [], allReplies, onReplySubmit, depth = 0 }) => {
+}> = ({ reply, children = [], allReplies, onReplySubmit, onRefresh, depth = 0 }) => {
+    const { user } = useAuth();
     const [showReplyForm, setShowReplyForm] = useState(false);
     const [replyText, setReplyText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [helpfulCount, setHelpfulCount] = useState(reply.helpful_count);
     const [isLiked, setIsLiked] = useState(reply.is_liked_by_me || false);
     const [liking, setLiking] = useState(false);
+
+    // Düzenleme
+    const [isEditing, setIsEditing] = useState(false);
+    const [editContent, setEditContent] = useState(reply.content);
+    const [saving, setSaving] = useState(false);
+
+    // Rapor
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportReason, setReportReason] = useState('');
+    const [reporting, setReporting] = useState(false);
+
+    const isOwner = user?.id === reply.author?.id;
 
     const authorInitials = reply.author?.first_name
         ? reply.author.first_name[0] + (reply.author.last_name?.[0] || '')
@@ -67,13 +78,52 @@ const CommentItem: React.FC<{
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm('Bu yorumu silmek istediğinize emin misiniz?')) return;
+        try {
+            await deleteForumReply(reply.id);
+            onRefresh();
+        } catch {
+            alert('Yorum silinemedi.');
+        }
+    };
+
+    const handleEditSave = async () => {
+        if (!editContent.trim()) return;
+        try {
+            setSaving(true);
+            await updateForumReply(reply.id, { content: editContent });
+            setIsEditing(false);
+            onRefresh();
+        } catch {
+            alert('Düzenleme kaydedilemedi.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleReport = async () => {
+        if (!reportReason.trim() || reportReason.trim().length < 5) return;
+        try {
+            setReporting(true);
+            await reportForumReply(reply.id, reportReason.trim());
+            setShowReportModal(false);
+            setReportReason('');
+            alert('Rapor gönderildi. Teşekkürler!');
+        } catch {
+            alert('Rapor gönderilemedi.');
+        } finally {
+            setReporting(false);
+        }
+    };
+
     return (
         <div className="border-b border-gray-50 last:border-b-0 py-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex gap-3">
                 <Link to={`/dashboard/profile/${reply.author?.username || ''}`} onClick={(e) => e.stopPropagation()} className="shrink-0 group">
                     {reply.author?.profile_picture_url ? (
                         <img
-                            src={reply.author.profile_picture_url.startsWith('http') ? reply.author.profile_picture_url : `${baseUrl}${reply.author.profile_picture_url}`}
+                            src={reply.author.profile_picture_url.startsWith('http') ? reply.author.profile_picture_url : `${assetBaseUrl}${reply.author.profile_picture_url}`}
                             alt={reply.author.username}
                             className="w-8 h-8 rounded-full object-cover group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
                             onError={(e) => {
@@ -97,7 +147,25 @@ const CommentItem: React.FC<{
                             {timeAgo}
                         </span>
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap mb-1">{reply.content}</p>
+
+                    {isEditing ? (
+                        <div className="mb-1">
+                            <textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[60px]"
+                            />
+                            <div className="flex gap-2 mt-1">
+                                <button onClick={handleEditSave} disabled={saving} className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">
+                                    {saving ? '...' : 'Kaydet'}
+                                </button>
+                                <button onClick={() => { setIsEditing(false); setEditContent(reply.content); }} className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-bold">İptal</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap mb-1">{reply.content}</p>
+                    )}
+
                     <div className="flex items-center gap-3">
                         <button
                             onClick={handleLike}
@@ -115,6 +183,20 @@ const CommentItem: React.FC<{
                                 <MessageSquare size={12} /> Yanıtla
                             </button>
                         )}
+                        {isOwner ? (
+                            <>
+                                <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-indigo-600 transition-colors">
+                                    <Edit3 size={11} /> Düzenle
+                                </button>
+                                <button onClick={handleDelete} className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-red-500 transition-colors">
+                                    <Trash2 size={11} /> Sil
+                                </button>
+                            </>
+                        ) : (
+                            <button onClick={() => setShowReportModal(true)} className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-orange-500 transition-colors">
+                                <Flag size={11} /> Rapor
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -129,6 +211,7 @@ const CommentItem: React.FC<{
                             children={allReplies.filter(r => r.parent_id === child.id)}
                             allReplies={allReplies}
                             onReplySubmit={onReplySubmit}
+                            onRefresh={onRefresh}
                             depth={depth + 1}
                         />
                     ))}
@@ -161,9 +244,37 @@ const CommentItem: React.FC<{
                     </form>
                 </div>
             )}
+
+            {/* Rapor Modal */}
+            {showReportModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={(e) => { e.stopPropagation(); setShowReportModal(false); }}>
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-lg font-black text-gray-900 mb-3 flex items-center gap-2">
+                            <Flag size={18} className="text-orange-500" /> Yorumu Rapor Et
+                        </h3>
+                        <textarea
+                            value={reportReason}
+                            onChange={(e) => setReportReason(e.target.value)}
+                            placeholder="Şikayet sebebinizi yazın (en az 5 karakter)..."
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                        />
+                        <div className="flex gap-2 mt-3 justify-end">
+                            <button onClick={() => setShowReportModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl">İptal</button>
+                            <button onClick={handleReport} disabled={reporting || reportReason.trim().length < 5} className="px-4 py-2 text-sm font-bold bg-orange-500 text-white rounded-xl hover:bg-orange-600 disabled:opacity-50">
+                                {reporting ? 'Gönderiliyor...' : 'Rapor Gönder'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+
+interface InlineCommentsProps {
+    topicId: string;
+    onCommentAdded: () => void;
+}
 
 export const InlineComments: React.FC<InlineCommentsProps> = ({ topicId, onCommentAdded }) => {
     const [replies, setReplies] = useState<ForumReply[]>([]);
@@ -172,9 +283,21 @@ export const InlineComments: React.FC<InlineCommentsProps> = ({ topicId, onComme
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const fetchReplies = async () => {
+        try {
+            setLoading(true);
+            const res = await getForumTopicDetail(topicId);
+            setReplies(res.replies);
+        } catch {
+            setError('Yorumlar yüklenemedi.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         let isMounted = true;
-        const fetchReplies = async () => {
+        const load = async () => {
             try {
                 setLoading(true);
                 const res = await getForumTopicDetail(topicId);
@@ -185,7 +308,7 @@ export const InlineComments: React.FC<InlineCommentsProps> = ({ topicId, onComme
                 if (isMounted) setLoading(false);
             }
         };
-        void fetchReplies();
+        void load();
         return () => { isMounted = false; };
     }, [topicId]);
 
@@ -247,6 +370,7 @@ export const InlineComments: React.FC<InlineCommentsProps> = ({ topicId, onComme
                             children={replies.filter(r => r.parent_id === reply.id)}
                             allReplies={replies}
                             onReplySubmit={handleReplySubmit}
+                            onRefresh={fetchReplies}
                         />
                     ))
                 )}

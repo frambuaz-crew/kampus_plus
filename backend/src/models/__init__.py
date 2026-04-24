@@ -8,7 +8,7 @@ from .base import Base
 from .user import User, RefreshToken
 from .faculty import Faculty
 from .department import Department
-from .forum import ForumCategory, ForumTopic, ForumReply
+from .forum import ForumCategory, ForumTopic, ForumReply, ForumReport
 from .marketplace import MarketplaceListing, MarketplaceReport, MarketplaceMessage
 from .career import CareerListing, CareerApplication, CareerReport, CareerMessage
 from .academic import AcademicCalendarEvent, CourseSchedule, AcademicContribution
@@ -33,6 +33,7 @@ __all__ = [
     "ForumCategory",
     "ForumTopic",
     "ForumReply",
+    "ForumReport",
     # Marketplace
     "MarketplaceListing",
     "MarketplaceReport",
