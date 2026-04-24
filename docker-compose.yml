@@ -1,7 +1,29 @@
-# KAMPÜS+ - Ekip ortamı: Backend + Frontend (Remote DB: 161.97.88.140)
-# Lokal PostgreSQL yok; backend/.env içindeki Almanya DB URL'si kullanılır.
+# KAMPÜS+ - Ekip ortamı: Backend + Frontend + Local PostgreSQL
+# Veritabani baglantisi backend/.env icinden db servisine yonlendirilir.
 
 services:
+  # PostgreSQL Database (Local Docker)
+  db:
+    image: postgres:15-alpine
+    container_name: kampus-db
+    environment:
+      - POSTGRES_USER=kampus
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=kampus_plus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kampus -d kampus_plus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - kampus-network
+    restart: unless-stopped
+
   # Backend API (FastAPI)
   backend:
     build:
@@ -11,6 +33,9 @@ services:
     container_name: kampus-backend
     env_file:
       - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       - ENVIRONMENT=development
       - DEBUG=true
@@ -79,6 +104,8 @@ services:
 # Volumes (Veri kalıcılığı)
 volumes:
   frontend_node_modules:
+    driver: local
+  postgres_data:
     driver: local
 
 # Networks

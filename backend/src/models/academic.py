@@ -9,6 +9,7 @@ from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -98,7 +99,7 @@ class CourseSchedule(Base):
     semester: Mapped[str] = mapped_column(String(20), nullable=False)
     academic_year: Mapped[str] = mapped_column(String(20), nullable=False)
     
-    schedule_data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string
+    schedule_data: Mapped[str] = mapped_column(JSONB, nullable=False)  # JSON object
 
     is_approved: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false"), nullable=False, index=True
@@ -156,7 +157,7 @@ class AcademicContribution(Base):
     academic_year: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     
     file_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    manual_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string
+    manual_data: Mapped[Optional[str]] = mapped_column(JSONB, nullable=True)  # JSON object
     
     status: Mapped[str] = mapped_column(String(20), server_default="pending", nullable=False, index=True)
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

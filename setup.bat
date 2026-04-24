@@ -15,6 +15,9 @@ if not exist frontend\.env (
 docker compose up --build -d
 if errorlevel 1 exit /b %errorlevel%
 
+echo [SETUP] PostgreSQL servisinin saglikli sekilde ayaga kalkmasi bekleniyor...
+timeout /t 5 /nobreak >nul
+
 docker compose logs -f backend
 
 pause
