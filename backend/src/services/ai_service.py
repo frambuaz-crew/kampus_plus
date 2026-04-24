@@ -1016,8 +1016,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             # ---- 1. Pre-flight: akademik engel ----------------------- #
             if self._should_block_academic_request(question):
                 logger.info(
-                    "Academic guardrail triggered. user_id=%s session_id=%s question_len=%s",
-                    user_id, session_id, len(question or ""),
+                    "Akademik engel tetiklendi (kullanıcı: %s, soru uzunluğu: %s)",
+                    user_id, len(question or ""),
                 )
                 return {
                     "answer": self.ACADEMIC_GUARDRAIL_RESPONSE,
@@ -1031,8 +1031,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 user_ctx = await self._fetch_user_context(user_id, db)
                 if user_ctx:
                     logger.debug(
-                        "User context loaded. user_id=%s university=%s department=%s grade=%s",
-                        user_id, user_ctx.university, user_ctx.department, user_ctx.grade,
+                        "Kullanıcı bağlamı yüklendi (üniversite: %s, bölüm: %s, sınıf: %s)",
+                        user_ctx.university, user_ctx.department, user_ctx.grade,
                     )
 
             # ---- 3. Agent kurulumu ----------------------------------- #
@@ -1060,8 +1060,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             except asyncio.TimeoutError:
                 logger.error(
-                    "AI agent timed out after %ss. user_id=%s model=%s question_len=%s",
-                    self.QUERY_TOTAL_TIMEOUT, user_id, self._active_model, len(question or ""),
+                    "AI agent zaman aşımına uğradı (%ss, model: %s, soru: %s karakter)",
+                    self.QUERY_TOTAL_TIMEOUT, self._active_model, len(question or ""),
                 )
                 raise
 
@@ -1069,7 +1069,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 fallback = "gemini-2.5-flash"
                 if self._is_model_not_found_error(model_error) and self._active_model != fallback:
                     logger.warning(
-                        "Model error, falling back. current=%s fallback=%s error=%s",
+                        "Model hatası, yedek modele geçildi (%s → %s): %s",
                         self._active_model, fallback, repr(model_error),
                     )
                     self._active_model = fallback
@@ -1092,8 +1092,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     raise
 
             logger.info(
-                "AI agent query succeeded. user_id=%s model=%s question_len=%s answer_len=%s",
-                user_id, self._active_model, len(question or ""), len(answer or ""),
+                "AI sorgusu tamamlandı (model: %s, cevap: %s karakter)",
+                self._active_model, len(answer or ""),
             )
 
             # ---- 5. Kaynak filtreleme & biçimlendirme ---------------- #
@@ -1109,8 +1109,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
         except Exception as e:
             logger.exception(
-                "AI agent query failed. user_id=%s session_id=%s model=%s error_type=%s error=%s",
-                user_id, session_id, self._active_model, type(e).__name__, repr(e),
+                "AI sorgusu başarısız (hata: %s — %s)",
+                type(e).__name__, repr(e),
             )
             if self._is_api_key_error(e):
                 msg = (
@@ -1284,7 +1284,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
         genişleme noktası sağlar.
         """
         logger.info(
-            "AI conversation reset requested. user_id=%s session_id=%s",
+            "Konuşma sıfırlama isteği alındı (kullanıcı: %s, oturum: %s)",
             user_id,
             session_id,
         )
@@ -1293,7 +1293,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
         """Prompt dilini değiştir (şu anda agent tek dil promptu kullanıyor)."""
         if language in ("tr", "en"):
             self.current_language = language
-            logger.info("Language switched to %s", language)
+            logger.info("Dil değiştirildi: %s", language)
             return True
-        logger.warning("Unsupported language: %s", language)
+        logger.warning("Desteklenmeyen dil: %s", language)
         return False

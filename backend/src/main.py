@@ -3,8 +3,11 @@
 NOT: Bu proje LOCAL STORAGE kullanır (backend/uploads/).
 S3, MinIO veya cloud storage kullanılmaz.
 """
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -35,12 +38,16 @@ from src.api.routes.course_notes import router as course_notes_router
 async def lifespan(app: FastAPI):
     """Uygulama başlatma/kapatma olaylarını yönetir."""
     settings = get_settings()
-    setup_logging(level=settings.log_level)
+    setup_logging(level=settings.log_level, log_style=settings.log_style)
     await init_db()
     
     vector_service = get_vector_service()
     stats = vector_service.get_official_stats()
-    print(f"✅ Vector stores initialized: {stats['total_vectors']} vectors, {stats['metadata_count']} metadata")
+    logger.info(
+        "Vektör depoları hazır: %s vektör, %s metadata",
+        stats["total_vectors"],
+        stats["metadata_count"],
+    )
     
     yield
     

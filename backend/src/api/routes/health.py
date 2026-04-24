@@ -69,7 +69,7 @@ async def health_check() -> Dict[str, Any]:
             "checks": checks
         }
     
-    logger.warning(f"Health check failed: {errors}")
+    logger.warning("Sağlık kontrolü başarısız: %s", errors)
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail={
@@ -116,7 +116,7 @@ async def readiness_probe() -> Dict[str, Any]:
             "checks": checks
         }
     
-    logger.warning(f"Readiness check failed: {errors}")
+    logger.warning("Hazırlık kontrolü başarısız: %s", errors)
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail={

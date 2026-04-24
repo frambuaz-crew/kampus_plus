@@ -261,9 +261,8 @@ async def register(
 
         if not email_sent:
             logger.error(
-                "Verification email could not be sent after registration. user_id=%s email=%s",
+                "Doğrulama e-postası gönderilemedi (kullanıcı: %s)",
                 user.id,
-                user.email,
             )
 
         return RegisterResponse(
@@ -283,7 +282,7 @@ async def register(
             detail={"error": {"code": "VALIDATION_ERROR", "message": str(e)}}
         )
     except Exception as e:
-        logger.error(f"Registration error: {e}", exc_info=True)
+        logger.error("Kayıt hatası", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": {"code": "INTERNAL_ERROR", "message": "Kayıt işlemi başarısız oldu."}}
@@ -381,7 +380,7 @@ async def login(
             detail={"error": {"code": "INVALID_CREDENTIALS", "message": "Email veya şifre hatalı."}}
         )
     except Exception as e:
-        logger.error(f"Login error: {e}", exc_info=True)
+        logger.error("Giriş hatası", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": {"code": "INTERNAL_ERROR", "message": "Giriş işlemi başarısız oldu."}}
@@ -426,7 +425,7 @@ async def validate_reset_token(
         )
     except Exception as e:
         # Beklenmedik sistem hataları için log tutulur.
-        logger.error(f"Şifre sıfırlama token doğrulama hatası: {e}", exc_info=True)
+        logger.error("Şifre sıfırlama token doğrulama hatası", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -530,7 +529,7 @@ async def admin_login(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Admin login error: {e}", exc_info=True)
+        logger.error("Admin giriş hatası", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": {"code": "INTERNAL_ERROR", "message": "Giriş işlemi başarısız oldu."}}
@@ -590,7 +589,7 @@ async def refresh(
             detail={"error": {"code": "UNAUTHORIZED", "message": str(e)}}
         )
     except Exception as e:
-        logger.error(f"Token refresh error: {e}", exc_info=True)
+        logger.error("Token yenileme hatası", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": {"code": "INTERNAL_ERROR", "message": "Token yenileme başarısız oldu."}}
@@ -619,7 +618,7 @@ async def logout(
         return
     
     except Exception as e:
-        logger.error(f"Logout error: {e}", exc_info=True)
+        logger.error("Çıkış hatası", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": {"code": "INTERNAL_ERROR", "message": "Çıkış işlemi başarısız oldu."}}
@@ -662,7 +661,7 @@ async def verify_email(
             detail={"error": {"code": "INVALID_TOKEN", "message": "Doğrulama linki geçersiz veya süresi dolmuş."}}
         )
     except Exception as e:
-        logger.error(f"Email verification error: {e}", exc_info=True)
+        logger.error("E-posta doğrulama hatası", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": {"code": "INTERNAL_ERROR", "message": "Email doğrulama başarısız oldu."}}
@@ -726,7 +725,7 @@ async def resend_verification(
             "message": "Doğrulama email'i tekrar gönderildi. Lütfen email'inizi kontrol edin."
         }
     except Exception as e:
-        logger.error(f"Resend verification error: {e}", exc_info=True)
+        logger.error("Doğrulama e-postası yeniden gönderme hatası", exc_info=True)
         return {
             "success": True,
             "message": "Eğer email adresiniz kayıtlı ve doğrulanmamışsa, size yeni bir doğrulama linki gönderildi."
@@ -763,7 +762,7 @@ async def forgot_password(
         }
     
     except Exception as e:
-        logger.error(f"Forgot password error: {e}", exc_info=True)
+        logger.error("Şifre sıfırlama isteği hatası", exc_info=True)
         return {
             "success": True,
             "message": "Eğer email adresiniz kayıtlıysa, şifre sıfırlama linki gönderildi."

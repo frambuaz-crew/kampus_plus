@@ -143,6 +143,8 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"
+    log_style: str = "console"    # "console" = renkli terminal | "json" = yapısal JSON
+    log_sql_echo: bool = False     # True yapılırsa SQL sorguları terminale basılır
     enable_metrics: bool = True
     metrics_port: int = 9090
     

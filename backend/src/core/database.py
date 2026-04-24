@@ -4,7 +4,10 @@ Bu modül uygulama genelinde veritabanı işlemleri için
 async SQLAlchemy engine ve session factory sağlar.
 """
 
+import logging
 from typing import AsyncGenerator
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
@@ -40,7 +43,7 @@ def get_engine() -> AsyncEngine:
             connect_args = {"check_same_thread": False, "timeout": 20.0}
         
         engine_kw: dict = {
-            "echo": settings.debug,
+            "echo": settings.log_sql_echo,
             "pool_pre_ping": True,
         }
         if connect_args:
@@ -124,7 +127,7 @@ async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(lambda _: None)
     
-    print(f"✅ Veritabanı bağlantı havuzu başlatıldı: {engine.url.database}")
+    logger.info("Veritabanı bağlantı havuzu başlatıldı: %s", engine.url.database)
 
 
 async def close_db() -> None:
@@ -139,7 +142,7 @@ async def close_db() -> None:
         await engine.dispose()
         engine = None
         async_session_factory = None
-        print("✅ Veritabanı bağlantı havuzu kapatıldı")
+        logger.info("Veritabanı bağlantı havuzu kapatıldı")
 
 
 def get_test_engine(database_url: str) -> AsyncEngine:

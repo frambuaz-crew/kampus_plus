@@ -49,8 +49,9 @@ class VectorStoreService:
         self._load_metadata_from_file()
         
         logger.info(
-            f"VectorStoreService initialized. "
-            f"Official: {self.vdb_official.ntotal} vectors ({len(self.official_metadata)} metadata)"
+            "VectorStoreService başlatıldı (resmi: %s vektör, %s metadata).",
+            self.vdb_official.ntotal,
+            len(self.official_metadata),
         )
     
     def _load_or_create_index(self, path: Path, name: str) -> faiss.IndexFlatL2:
@@ -60,24 +61,25 @@ class VectorStoreService:
                 index = faiss.read_index(str(path))
                 if index.d != self.EMBEDDING_DIMENSION:
                     logger.warning(
-                        f"{name} dimension uyumsuz: index={index.d}, expected={self.EMBEDDING_DIMENSION}. "
-                        "Index sıfırdan oluşturuluyor."
+                        "%s boyutu uyumsuz: indeks=%s, beklenen=%s. "
+                        "Index sıfırdan oluşturuluyor.",
+                        name, index.d, self.EMBEDDING_DIMENSION,
                     )
                     return faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
-                logger.info(f"{name} yüklendi: {path} ({index.ntotal} vektör)")
+                logger.info("%s yüklendi: %s vektör.", name, index.ntotal)
                 return index
             except Exception as e:
-                logger.warning(f"{name} yüklenemedi: {e}. Yeni index oluşturuluyor.")
+                logger.warning("%s yüklenemedi: %s. Yeni index oluşturuluyor.", name, e)
         
         index = faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
-        logger.info(f"Yeni {name} index'i oluşturuldu")
+        logger.info("Yeni %s indeşi oluşturuldu.", name)
         return index
     
     def _load_metadata_from_file(self) -> None:
         """Metadata'yı pickle dosyasından yükle."""
         if not self.metadata_path.exists():
             self.official_metadata = {}
-            logger.info("Metadata dosyasi bulunamadi, bos metadata ile baslanacak")
+            logger.info("Metadata dosyası bulunamadı, boş başlanıyor.")
             return
 
         try:
@@ -86,12 +88,12 @@ class VectorStoreService:
                 if isinstance(loaded, dict):
                     self.official_metadata = loaded
                 else:
-                    logger.warning("Metadata dosyasi dict formatinda degil, bos metadata kullaniliyor")
+                    logger.warning("Metadata dosyası geçersiz format, boş kullanılıyor.")
                     self.official_metadata = {}
 
-            logger.info(f"Metadata yuklendi: {len(self.official_metadata)} kayit")
+            logger.info("Metadata yüklendi: %s kayıt.", len(self.official_metadata))
         except Exception as e:
-            logger.warning(f"Metadata dosyasi yuklenemedi: {e}. Bos metadata kullaniliyor")
+            logger.warning("Metadata yüklenemedi: %s. Boş başlanıyor.", e)
             self.official_metadata = {}
     
     def save_indexes(self) -> None:
@@ -100,9 +102,9 @@ class VectorStoreService:
             faiss.write_index(self.vdb_official, str(self.official_index_path))
             with self.metadata_path.open("wb") as metadata_file:
                 pickle.dump(self.official_metadata, metadata_file)
-            logger.info("Vector index'leri diske kaydedildi")
+            logger.info("Vektör indeksleri diske kaydedildi.")
         except Exception as e:
-            logger.error(f"Index kaydetme hatası: {e}")
+            logger.error("Index kaydetme hatası: %s", e)
             raise
     
     async def generate_embedding(self, text: str) -> List[float]:
@@ -114,7 +116,7 @@ class VectorStoreService:
             )
             return result.embeddings[0].values
         except Exception as e:
-            logger.error(f"Embedding oluşturma hatası: {e}")
+            logger.error("Embedding oluşturma hatası: %s", e)
             raise
     
     async def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
@@ -132,7 +134,7 @@ class VectorStoreService:
                 embeddings.append(result.embeddings[0].values)
             return embeddings
         except Exception as e:
-            logger.error(f"Batch embedding oluşturma hatası: {e}")
+            logger.error("Toplu embedding oluşturma hatası: %s", e)
             raise
     
     async def add_to_official(
@@ -157,9 +159,6 @@ class VectorStoreService:
 
         if vectors_np.ndim == 1:
             vectors_np = vectors_np.reshape(1, -1)
-
-        print(f"DEBUG - FAISS Index Dimension: {self.vdb_official.d}")
-        print(f"DEBUG - Incoming Vectors Shape: {vectors_np.shape}")
         
         current_size = self.vdb_official.ntotal
         
@@ -177,7 +176,7 @@ class VectorStoreService:
         
         self.save_indexes()
         
-        logger.info(f"{len(texts)} vektör VDB_Official'e eklendi (ID'ler: {assigned_ids[0]}-{assigned_ids[-1]})")
+        logger.info("%s vektör resmi depoya eklendi (ID aralığı: %s-%s).", len(texts), assigned_ids[0], assigned_ids[-1])
         
         return assigned_ids
     
@@ -204,7 +203,7 @@ class VectorStoreService:
             
             distances, indices = self.vdb_official.search(query_vector, k)
         except Exception as e:
-            logger.warning(f"Embedding oluşturma hatası: {e}. MOCK MODE kullanılıyor")
+            logger.warning("Embedding hatası, mock mod kullanılıyor: %s", e)
             results = [(i, float(i) * 0.1) for i in range(min(k, self.vdb_official.ntotal))]
             return results
         
