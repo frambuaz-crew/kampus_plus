@@ -1,55 +1,97 @@
-/**
- * Login Page - Giriş Sayfası
- * 
- * Spec: 003-login-page/spec.md
- * 
- * Public giriş sayfası - kimlik doğrulaması gerektirmez
- * 
- * Modüler yapı:
- * - LoginForm: Form component
- * - EmailNotVerifiedError: Email doğrulanmamış hatası (LoginForm içinde gösterilir)
- */
-
 import React from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { LoginForm } from '../components/auth/LoginForm';
+import { Bot, ShoppingBag, Briefcase, MessageSquare } from 'lucide-react';
+
+const FEATURES = [
+  { icon: Bot, text: 'AI destekli akademik asistan' },
+  { icon: MessageSquare, text: 'Binlerce öğrenciyle forum' },
+  { icon: ShoppingBag, text: 'İkinci el pazar yeri' },
+  { icon: Briefcase, text: 'Staj ve kariyer fırsatları' },
+];
 
 export const LoginPage: React.FC = () => {
-  return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
-      {/* Animated Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 animate-gradient-shift bg-[length:200%_200%] opacity-90"></div>
-      
-      {/* Decorative Circles */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-      <div className="absolute top-0 right-0 w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-      <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+  const navigate = useNavigate();
 
-      <div className="relative z-10 max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-6 animate-fade-in-down">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl mb-4 shadow-lg">
-            <span className="text-3xl">🎓</span>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-2 tracking-tight">
-            KAMPÜS+
-          </h1>
-          <p className="text-base md:text-lg text-white/90 font-medium">
-            AI Destekli Öğrenme Platformu
-          </p>
+  return (
+    <div className="min-h-screen flex">
+
+      {/* ─── Left panel ─── */}
+      <div className="hidden lg:flex lg:w-[45%] bg-slate-900 flex-col justify-between p-12 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#0ea5e9]/10 rounded-full" />
+          <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#0ea5e9]/5 rounded-full" />
         </div>
 
-        {/* Form Container - Glassmorphism */}
-        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-10 border border-white/20 animate-fade-in-up">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">
-              Tekrar Hoş Geldin
+        {/* Logo */}
+        <div className="relative">
+          <button onClick={() => navigate('/')} className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-[#0ea5e9] rounded-xl flex items-center justify-center">
+              <span className="text-white font-black text-sm">K+</span>
+            </div>
+            <span className="text-white font-bold text-xl tracking-tight">KAMPUS+</span>
+          </button>
+        </div>
+
+        {/* Center content */}
+        <div className="relative space-y-8">
+          <div>
+            <h2 className="text-3xl font-extrabold text-white leading-tight mb-3">
+              Kampüs hayatın<br />tek platformda.
             </h2>
-            <p className="text-sm text-gray-600 text-center">
-              Hesabına giriş yap ve öğrenmeye devam et
+            <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
+              Türkiye'nin en kapsamlı üniversite öğrenci platformuna giriş yap.
             </p>
           </div>
-          
-          {/* Login Form */}
+
+          <div className="space-y-3">
+            {FEATURES.map((f) => (
+              <div key={f.text} className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-[#0ea5e9]/15 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <f.icon className="w-4 h-4 text-[#0ea5e9]" />
+                </div>
+                <span className="text-slate-300 text-sm">{f.text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Stats */}
+          <div className="flex gap-8 pt-2">
+            {[{ v: '12K+', l: 'Öğrenci' }, { v: '350+', l: 'Üniversite' }].map((s) => (
+              <div key={s.l}>
+                <p className="text-[#0ea5e9] text-2xl font-extrabold">{s.v}</p>
+                <p className="text-slate-500 text-xs mt-0.5">{s.l}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom */}
+        <p className="relative text-slate-600 text-xs">
+          © 2026 Kampus+. Tüm hakları saklıdır.
+        </p>
+      </div>
+
+      {/* ─── Right panel ─── */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-white">
+
+        {/* Mobile logo */}
+        <div className="lg:hidden mb-8">
+          <button onClick={() => navigate('/')} className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#0ea5e9] rounded-lg flex items-center justify-center">
+              <span className="text-white font-black text-sm">K+</span>
+            </div>
+            <span className="font-bold text-slate-900 text-lg">KAMPUS+</span>
+          </button>
+        </div>
+
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-slate-900 mb-1">Tekrar hoş geldin</h1>
+            <p className="text-slate-500 text-sm">Hesabına giriş yap ve devam et</p>
+          </div>
+
           <LoginForm
             onSuccess={(user) => {
               const redirectTarget =
@@ -59,73 +101,15 @@ export const LoginPage: React.FC = () => {
               window.location.href = redirectTarget;
             }}
           />
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Hesabın yok mu?{' '}
+            <Link to="/register" className="text-[#0ea5e9] font-semibold hover:underline">
+              Kayıt ol
+            </Link>
+          </p>
         </div>
       </div>
-
-      {/* CSS Animations */}
-      <style>{`
-        @keyframes gradient-shift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .animate-gradient-shift {
-          animation: gradient-shift 15s ease infinite;
-        }
-        
-        @keyframes blob {
-          0%, 100% {
-            transform: translate(0, 0) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-        .animation-delay-300 {
-          animation-delay: 0.3s;
-        }
-        
-        @keyframes fade-in-down {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in-down {
-          animation: fade-in-down 0.6s ease-out;
-        }
-        
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 0.6s ease-out;
-        }
-      `}</style>
     </div>
   );
 };
-

@@ -27,7 +27,7 @@ interface OtherUser {
 
 interface Conversation {
   id: string;
-  type: 'career' | 'marketplace';
+  type: 'career' | 'marketplace' | 'direct';
   listing_title: string;
   reference: { id: string; title: string; image_url?: string | null; company_name?: string | null };
   other_user: OtherUser;
@@ -68,13 +68,38 @@ export const MessagesPage: React.FC = () => {
     load();
   }, []);
 
-  const filtered = conversations.filter((c) => {
+  // Aynı kişiyle birden fazla konuşma varsa → direct tipi her zaman öncelikli,
+  // yoksa en güncel olanı göster
+  const deduplicatedMap = new Map<string, Conversation>();
+  for (const conv of conversations) {
+    const uid = conv.other_user?.id;
+    if (!uid) continue;
+    const existing = deduplicatedMap.get(uid);
+    if (!existing) {
+      deduplicatedMap.set(uid, conv);
+    } else {
+      const newIsDirect = conv.type === 'direct';
+      const existingIsDirect = existing.type === 'direct';
+      if (newIsDirect && !existingIsDirect) {
+        deduplicatedMap.set(uid, conv);
+      } else if (!existingIsDirect && !newIsDirect) {
+        if (new Date(conv.last_message_at || 0) > new Date(existing.last_message_at || 0)) {
+          deduplicatedMap.set(uid, conv);
+        }
+      }
+    }
+  }
+  const deduplicated = Array.from(deduplicatedMap.values()).sort(
+    (a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime(),
+  );
+
+  const filtered = deduplicated.filter((c) => {
     const q = search.toLowerCase();
     return (
       !q ||
       c.other_user.username.toLowerCase().includes(q) ||
       c.other_user.full_name.toLowerCase().includes(q) ||
-      c.listing_title.toLowerCase().includes(q)
+      (c.listing_title || '').toLowerCase().includes(q)
     );
   });
 
@@ -176,13 +201,15 @@ export const MessagesPage: React.FC = () => {
                             </div>
                           )}
                           {/* Type badge */}
-                          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow ${conv.type === 'career' ? 'bg-blue-500' : 'bg-emerald-500'}`}>
-                            {conv.type === 'career' ? (
-                              <Briefcase className="w-2.5 h-2.5 text-white" />
-                            ) : (
-                              <ShoppingBag className="w-2.5 h-2.5 text-white" />
-                            )}
-                          </div>
+                          {conv.type !== 'direct' && (
+                            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center shadow ${conv.type === 'career' ? 'bg-blue-500' : 'bg-emerald-500'}`}>
+                              {conv.type === 'career' ? (
+                                <Briefcase className="w-2.5 h-2.5 text-white" />
+                              ) : (
+                                <ShoppingBag className="w-2.5 h-2.5 text-white" />
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Content */}

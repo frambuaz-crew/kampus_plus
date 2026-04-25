@@ -2,48 +2,78 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/config';
 import { MainLayout } from '../components/layout/MainLayout';
-import { ListingCard } from '../components/marketplace/ListingCard';
 import { NewListingForm } from '../components/marketplace/NewListingForm';
 import { ListingDetailView } from '../components/marketplace/ListingDetailView';
 import type { MarketplaceListing } from '../types/marketplace';
+import { Card } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Search, Plus, ShoppingBag, Bookmark, ArrowLeft } from 'lucide-react';
+import { getImageUrl } from '../utils/imageUrl';
 
 interface BackState {
   from?: string;
   tab?: string;
 }
 
-// --- GÜNCEL TİP TANIMI (SARI YENİ) ---
-export interface Listing {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  category: string;
-  condition: string;
-  status: string;
-  image_urls: string | null;
-  created_at: string;
-  creator?: {
-    id: string;
-    username: string;
-    first_name: string;
-    last_name: string;
-    university: string;
-  };
+function getFirstImageUrl(imageUrls: string[] | string | null | undefined): string | undefined {
+  if (!imageUrls) return undefined;
+  if (Array.isArray(imageUrls)) return getImageUrl(imageUrls[0]);
+  try {
+    const parsed = JSON.parse(imageUrls) as string[];
+    if (Array.isArray(parsed) && parsed.length > 0) return getImageUrl(parsed[0]);
+  } catch {
+    // not JSON, treat as single URL
+  }
+  return getImageUrl(imageUrls);
 }
+
+function timeAgo(dateStr: string | undefined): string {
+  if (!dateStr) return '';
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return 'Az önce';
+  if (diff < 3600) return `${Math.floor(diff / 60)} dak önce`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`;
+  return `${Math.floor(diff / 86400)} gün önce`;
+}
+
+const conditionColors: Record<string, string> = {
+  'Sıfır': 'bg-green-100 text-green-700',
+  'Az Kullanılmış': 'bg-sky-100 text-sky-700',
+  'Kullanılmış': 'bg-amber-100 text-amber-700',
+};
+
+const categoryColors: Record<string, string> = {
+  'Kitap': 'bg-blue-100 text-blue-700',
+  'Elektronik': 'bg-purple-100 text-purple-700',
+  'Giyim': 'bg-pink-100 text-pink-700',
+  'Spor': 'bg-green-100 text-green-700',
+  'Eşya': 'bg-orange-100 text-orange-700',
+  'Hobi': 'bg-rose-100 text-rose-700',
+  'Diğer': 'bg-slate-100 text-slate-600',
+};
+
+const CATEGORIES = ['Kitap', 'Elektronik', 'Eşya', 'Giyim', 'Hobi', 'Diğer'];
 
 export const MarketplacePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
+  const [view, setView] = useState<'list' | 'detail'>('list');
+  const [isNewOpen, setIsNewOpen] = useState(false);
+  const [contactListing, setContactListing] = useState<MarketplaceListing | null>(null);
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [selectedListing, setSelectedListing] = useState<MarketplaceListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const getCurrentUserId = () => {
     try {
@@ -82,10 +112,7 @@ export const MarketplacePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!id || listings.length === 0) {
-      return;
-    }
-
+    if (!id || listings.length === 0) return;
     const found = listings.find((listing) => listing.id === id);
     if (found) {
       setSelectedListing(found);
@@ -98,9 +125,7 @@ export const MarketplacePage: React.FC = () => {
       await apiClient.delete(`/marketplace/${listingId}`);
       setView('list');
       await loadListings();
-      if (id) {
-        navigate('/dashboard/marketplace', { replace: true });
-      }
+      if (id) navigate('/dashboard/marketplace', { replace: true });
     } catch {
       setError('İlan silinirken bir hata oluştu.');
     }
@@ -112,7 +137,7 @@ export const MarketplacePage: React.FC = () => {
       await apiClient.post('/marketplace/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setView('list');
+      setIsNewOpen(false);
       await loadListings();
     } catch {
       setError('İlan oluşturulamadı.');
@@ -133,100 +158,344 @@ export const MarketplacePage: React.FC = () => {
       navigate(state.from, { state: state.tab ? { tab: state.tab } : undefined });
       return;
     }
-
     setView('list');
     setSelectedListing(null);
-    if (id) {
-      navigate('/dashboard/marketplace', { replace: true });
-    }
+    if (id) navigate('/dashboard/marketplace', { replace: true });
   };
 
-  const filteredListings = categoryFilter
-    ? listings.filter((listing) => listing.category === categoryFilter)
-    : listings;
+  const filteredListings = listings.filter((listing) => {
+    const matchesCategory = categoryFilter === 'all' || listing.category === categoryFilter;
+    const matchesSearch =
+      !searchQuery ||
+      listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (listing.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <MainLayout>
-      <div className="w-full px-8 py-8 xl:px-16">
-        <div className="mx-auto max-w-[1920px]">
-          <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <h1 className="flex items-center text-3xl font-bold text-gray-900">
-              <span className="mr-3">🛒</span> Kampüs Pazar
-            </h1>
-            <div className="flex items-center gap-3">
-              <select
-                value={categoryFilter}
-                onChange={(event) => setCategoryFilter(event.target.value)}
-                className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm"
+      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            {view === 'detail' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={goBackFromDetail}
               >
-                <option value="">Tüm Kategoriler</option>
-                <option value="Kitap">Kitap</option>
-                <option value="Elektronik">Elektronik</option>
-                <option value="Eşya">Eşya</option>
-                <option value="Giyim">Giyim</option>
-                <option value="Hobi">Hobi</option>
-                <option value="Diğer">Diğer</option>
-              </select>
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Geri
+              </Button>
+            )}
+            <div>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5 text-[#0ea5e9]" />
+                {view === 'detail' ? 'İlan Detayı' : 'Pazar'}
+              </h1>
               {view === 'list' && (
-                <button
-                  onClick={() => setView('new')}
-                  className="rounded-lg bg-indigo-600 px-6 py-2.5 font-bold text-white shadow-md"
-                >
-                  + İlan Ver
-                </button>
+                <p className="text-xs text-muted-foreground mt-0.5">Kampüsten al-sat yeri</p>
               )}
             </div>
           </div>
-
-          {error && (
-            <div className="mb-6 animate-pulse rounded-lg bg-red-50 p-4 text-red-700">⚠️ {error}</div>
-          )}
-
-          {view === 'new' ? (
-            <div className="animate-in slide-in-from-bottom-4 fade-in">
-              <button
-                onClick={() => setView('list')}
-                className="mb-4 flex items-center font-bold text-indigo-600 underline"
-              >
-                ← Geri Dön
-              </button>
-              <NewListingForm
-                onSubmit={handleCreateListing}
-                onCancel={() => setView('list')}
-                isSubmitting={isSubmitting}
-              />
-            </div>
-          ) : view === 'detail' && selectedListing ? (
-            <div className="animate-in fade-in zoom-in-95">
-              <button
-                onClick={goBackFromDetail}
-                className="mb-6 flex items-center font-bold text-indigo-600 underline"
-              >
-                ← Geri Dön
-              </button>
-              <ListingDetailView
-                listing={selectedListing}
-                onBack={goBackFromDetail}
-                onDelete={handleDeleteListing}
-                currentUserId={currentUserId || undefined}
-                onContact={(creator) => {
-                  console.log('İletişim kurulacak kişi:', creator);
-                }}
-              />
-            </div>
-          ) : loading ? (
-            <div className="py-20 text-center text-gray-500">İlanlar yükleniyor...</div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredListings.map((item) => (
-                <div key={item.id} onClick={() => handleListingClick(item)} className="cursor-pointer">
-                  <ListingCard listing={item} />
-                </div>
-              ))}
-            </div>
+          {view === 'list' && (
+            <Button
+              onClick={() => setIsNewOpen(true)}
+              size="sm"
+              className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Yeni İlan
+            </Button>
           )}
         </div>
+
+        {/* Contact Dialog */}
+        <ContactDialog
+          listing={contactListing}
+          onClose={() => setContactListing(null)}
+          onSent={(convId) => { setContactListing(null); navigate(`/dashboard/messages/${convId}`); }}
+          onError={(msg) => setError(msg)}
+        />
+
+        {/* New Listing Dialog */}
+        <Dialog open={isNewOpen} onOpenChange={setIsNewOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-slate-900">Yeni İlan Oluştur</DialogTitle>
+              <DialogDescription className="sr-only">Pazar ilanı oluşturma formu</DialogDescription>
+            </DialogHeader>
+            <NewListingForm
+              onSubmit={handleCreateListing}
+              onCancel={() => setIsNewOpen(false)}
+              isSubmitting={isSubmitting}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Detail View */}
+        {view === 'detail' && selectedListing && (
+          <ListingDetailView
+            listing={selectedListing}
+            onBack={goBackFromDetail}
+            onDelete={handleDeleteListing}
+            currentUserId={currentUserId || undefined}
+            onContact={(creator) => {
+              if (selectedListing) setContactListing(selectedListing);
+            }}
+          />
+        )}
+
+        {/* List View */}
+        {view === 'list' && (
+          <>
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="İlan ara..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Tüm Kategoriler" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tüm Kategoriler</SelectItem>
+                  {CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Grid */}
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="rounded-xl border border-border bg-card animate-pulse">
+                    <div className="aspect-square bg-muted rounded-t-xl" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-4 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                      <div className="h-3 bg-muted rounded w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredListings.length === 0 ? (
+              <div className="text-center py-20">
+                <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">İlan bulunamadı</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  {searchQuery || categoryFilter !== 'all'
+                    ? 'Farklı filtreler deneyin veya aramayı temizleyin.'
+                    : 'Henüz ilan yok. İlk ilanı sen ver!'}
+                </p>
+                <Button
+                  onClick={() => setIsNewOpen(true)}
+                  size="sm"
+                  className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Yeni İlan
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredListings.map((listing) => {
+                  const imageUrl = getFirstImageUrl(listing.image_urls);
+                  const sellerName = listing.creator
+                    ? `${listing.creator.first_name} ${listing.creator.last_name}`.trim()
+                    : listing.seller_name || 'Satıcı';
+                  const sellerInitial = sellerName[0]?.toUpperCase() || 'S';
+                  const price =
+                    typeof listing.price === 'number'
+                      ? listing.price.toLocaleString('tr-TR')
+                      : String(listing.price);
+
+                  return (
+                    <Card
+                      key={listing.id}
+                      className="overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group border border-slate-200"
+                      onClick={() => handleListingClick(listing)}
+                    >
+                      {/* Image */}
+                      <div className="relative aspect-square bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={listing.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                            <ShoppingBag className="h-10 w-10 text-slate-300" />
+                            <span className="text-xs text-slate-400">Fotoğraf yok</span>
+                          </div>
+                        )}
+                        {/* Price badge */}
+                        <div className="absolute top-3 right-0 bg-[#0ea5e9] text-white px-3 py-1.5 rounded-l-lg font-bold text-sm shadow-md">
+                          ₺{price}
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <div className="p-4">
+                        <h4 className="font-semibold text-sm text-slate-900 mb-2.5 line-clamp-2 leading-snug group-hover:text-[#0ea5e9] transition-colors">
+                          {listing.title}
+                        </h4>
+
+                        {/* Category + Condition badges */}
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {listing.category && (
+                            <Badge className={`text-xs border-0 font-medium ${categoryColors[listing.category] || categoryColors['Diğer']}`}>
+                              {listing.category}
+                            </Badge>
+                          )}
+                          {listing.condition && (
+                            <Badge className={`text-xs border-0 font-medium ${conditionColors[listing.condition] || 'bg-slate-100 text-slate-600'}`}>
+                              {listing.condition}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Seller */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage
+                              src={
+                                listing.creator?.profile_picture_url
+                                  ? getImageUrl(listing.creator.profile_picture_url)
+                                  : undefined
+                              }
+                            />
+                            <AvatarFallback className="text-[10px] bg-sky-100 text-sky-700 font-semibold">{sellerInitial}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-slate-700 truncate">{sellerName}</p>
+                            {listing.creator?.university && (
+                              <p className="text-[10px] text-slate-400 truncate">{listing.creator.university}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
+                          <span className="text-[11px] text-slate-400">
+                            {timeAgo(listing.created_at)}
+                          </span>
+                          <button
+                            className="text-slate-300 hover:text-[#0ea5e9] hover:bg-sky-50 p-1 rounded-md transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Bookmark className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </MainLayout>
+  );
+};
+
+// ─── Contact Dialog ───────────────────────────────────────────────────────────
+
+const ContactDialog: React.FC<{
+  listing: MarketplaceListing | null;
+  onClose: () => void;
+  onSent: (convId: string) => void;
+  onError: (msg: string) => void;
+}> = ({ listing, onClose, onSent, onError }) => {
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const userRaw = localStorage.getItem('user');
+  const me = userRaw ? (JSON.parse(userRaw) as { first_name?: string; last_name?: string }) : null;
+  const myName = me ? `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim() : 'Biri';
+
+  const handleSend = async () => {
+    if (!message.trim() || !listing) return;
+    const sellerId = listing.creator?.id ?? listing.seller_id;
+    if (!sellerId) { onError('Satıcı bilgisi bulunamadı.'); return; }
+    try {
+      setLoading(true);
+      const res = await apiClient.post<{ conversation_id: string; created: boolean }>(
+        '/messages/direct',
+        { receiver_id: sellerId },
+      );
+      const { conversation_id: convId } = res.data;
+      await apiClient.post(`/messages/conversations/${convId}/messages`, {
+        content: `📦 ${myName}, pazar kısmındaki "${listing.title}" adlı ilanınıza mesaj gönderdi.`,
+      });
+      await apiClient.post(`/messages/conversations/${convId}/messages`, {
+        content: message.trim(),
+      });
+      onSent(convId);
+    } catch {
+      onError('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!listing} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md bg-white">
+        <DialogHeader>
+          <DialogTitle className="text-base font-semibold text-slate-900">
+            Satıcıyla İletişime Geç
+          </DialogTitle>
+          <DialogDescription className="text-sm text-slate-500">
+            {listing?.title}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 mt-1">
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Mesajınızı yazın..."
+            rows={4}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/15 transition-all resize-none"
+            autoFocus
+          />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              İptal
+            </button>
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!message.trim() || loading}
+              className="flex-1 py-2.5 bg-[#0ea5e9] hover:bg-[#0284c7] text-white rounded-lg text-sm font-semibold transition-colors disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Gönderiliyor...' : 'Gönder'}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

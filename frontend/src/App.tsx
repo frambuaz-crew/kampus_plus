@@ -6,6 +6,7 @@ import { ForumPage } from './pages/ForumPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { LandingPage } from './pages/LandingPage';
+import { AuthPage } from './pages/AuthPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -49,8 +50,8 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<AuthPage initialMode="login" />} />
+          <Route path="/register" element={<AuthPage initialMode="register" />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />

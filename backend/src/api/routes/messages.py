@@ -19,6 +19,7 @@ from src.models.career import CareerListing, CareerMessage
 from src.models.direct import DirectMessage
 from src.models.marketplace import MarketplaceListing, MarketplaceMessage
 from src.models.messages import Conversation
+from src.models.notifications import Notification
 from src.models.user import User
 
 
@@ -520,6 +521,23 @@ async def send_conv_message(
         conv.user2_unread_count = (conv.user2_unread_count or 0) + 1
     else:
         conv.user1_unread_count = (conv.user1_unread_count or 0) + 1
+
+    # Her yeni mesaj için alıcıya bildirim oluştur
+    content = body.content.strip()
+    sender_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.username
+    is_context = content.startswith("📦") or content.startswith("💼")
+    notif_message = content.replace("📦 ", "").replace("💼 ", "") if is_context else content
+    notif = Notification(
+        id=str(uuid4()),
+        user_id=other_id,
+        type="new_message",
+        title=f"{sender_name} size mesaj gönderdi",
+        message=notif_message[:200],
+        actor_id=current_user.id,
+        link=f"/dashboard/messages/{conv_id}",
+        is_read=False,
+    )
+    session.add(notif)
 
     try:
         await session.commit()

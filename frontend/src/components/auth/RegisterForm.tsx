@@ -212,224 +212,109 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
     return <RegisterSuccessMessage email={registeredEmail} />;
   }
 
+  const inp = (err: boolean) =>
+    `w-full px-3.5 py-2.5 text-sm border rounded-xl bg-slate-50 text-slate-900 placeholder:text-slate-400 outline-none transition-all ${err ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100' : 'border-slate-200 focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/15 focus:bg-white'}`;
+  const errTxt = (msg: string) => <p className="mt-1 text-xs text-red-500">{msg}</p>;
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md">
+    <form onSubmit={handleSubmit} className="space-y-3.5 w-full">
       {/* Email */}
       <div>
-        <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleChange}
-          placeholder="ornek: ali@selcuk.edu.tr"
-          className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-          disabled={isLoading}
-          autoComplete="email"
-        />
-        {errors.email && (
-          <p className="mt-2 text-sm text-red-600 font-medium">{errors.email}</p>
-        )}
+        <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+        <input id="email" name="email" type="email" value={formData.email} onChange={handleChange}
+          placeholder="ali@uni.edu.tr" className={inp(!!errors.email)} disabled={isLoading} autoComplete="email" />
+        {errors.email && errTxt(errors.email)}
       </div>
 
-      {/* Ad ve Soyad */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Ad & Soyad */}
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="first_name" className="block text-sm font-semibold text-gray-700 mb-2">
-            Ad
-          </label>
-          <input
-            id="first_name"
-            name="first_name"
-            type="text"
-            value={formData.first_name}
-            onChange={handleChange}
-            placeholder="Adınız"
-            className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-            disabled={isLoading}
-            autoComplete="given-name"
-          />
-          {errors.first_name && (
-            <p className="mt-2 text-sm text-red-600 font-medium">{errors.first_name}</p>
-          )}
+          <label htmlFor="first_name" className="block text-sm font-medium text-slate-700 mb-1.5">Ad</label>
+          <input id="first_name" name="first_name" type="text" value={formData.first_name} onChange={handleChange}
+            placeholder="Adınız" className={inp(!!errors.first_name)} disabled={isLoading} autoComplete="given-name" />
+          {errors.first_name && errTxt(errors.first_name)}
         </div>
-
         <div>
-          <label htmlFor="last_name" className="block text-sm font-semibold text-gray-700 mb-2">
-            Soyad
-          </label>
-          <input
-            id="last_name"
-            name="last_name"
-            type="text"
-            value={formData.last_name}
-            onChange={handleChange}
-            placeholder="Soyadınız"
-            className="mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-            disabled={isLoading}
-            autoComplete="family-name"
-          />
-          {errors.last_name && (
-            <p className="mt-2 text-sm text-red-600 font-medium">{errors.last_name}</p>
-          )}
+          <label htmlFor="last_name" className="block text-sm font-medium text-slate-700 mb-1.5">Soyad</label>
+          <input id="last_name" name="last_name" type="text" value={formData.last_name} onChange={handleChange}
+            placeholder="Soyadınız" className={inp(!!errors.last_name)} disabled={isLoading} autoComplete="family-name" />
+          {errors.last_name && errTxt(errors.last_name)}
         </div>
       </div>
 
-      {/* Üniversite / Fakülte / Bölüm Seçimi */}
+      {/* Üniversite / Bölüm */}
       <div>
-        <CascadingInstitutionSelect
-          showDepartment={true}
-          onChange={handleInstitutionChange}
-        />
-        {(errors.university || errors.department_id) && (
-          <p className="mt-2 text-sm text-red-600 font-medium">
-            {errors.university ?? errors.department_id}
-          </p>
-        )}
+        <CascadingInstitutionSelect showDepartment={true} onChange={handleInstitutionChange} />
+        {(errors.university || errors.department_id) && errTxt(errors.university ?? errors.department_id ?? '')}
       </div>
-      
+
       {/* Şifre */}
       <div>
-        <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-          Şifre
-        </label>
+        <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">Şifre</label>
         <div className="relative">
-          <input
-            id="password"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="En az 8 karakter"
-            className="mt-1 block w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-            disabled={isLoading}
-            autoComplete="new-password"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200 focus:outline-none"
-            tabIndex={-1}
-            aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
-          >
-            {showPassword ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            )}
+          <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={formData.password}
+            onChange={handleChange} placeholder="En az 8 karakter" className={`${inp(!!errors.password)} pr-10`}
+            disabled={isLoading} autoComplete="new-password" />
+          <button type="button" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+            {showPassword
+              ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+              : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+            }
           </button>
         </div>
-        {errors.password && (
-          <p className="mt-2 text-sm text-red-600 font-medium">{errors.password}</p>
-        )}
+        {errors.password && errTxt(errors.password)}
       </div>
 
       {/* Şifre Tekrar */}
       <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
-          Şifre Tekrar
-        </label>
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1.5">Şifre Tekrar</label>
         <div className="relative">
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type={showConfirmPassword ? 'text' : 'password'}
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            placeholder="Şifrenizi tekrar girin"
-            className="mt-1 block w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-            disabled={isLoading}
-            autoComplete="new-password"
-          />
-          <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200 focus:outline-none"
-            tabIndex={-1}
-            aria-label={showConfirmPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
-          >
-            {showConfirmPassword ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            )}
+          <input id="confirmPassword" name="confirmPassword" type={showConfirmPassword ? 'text' : 'password'}
+            value={formData.confirmPassword} onChange={handleChange} placeholder="Şifrenizi tekrar girin"
+            className={`${inp(!!errors.confirmPassword)} pr-10`} disabled={isLoading} autoComplete="new-password" />
+          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} tabIndex={-1}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+            {showConfirmPassword
+              ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+              : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+            }
           </button>
         </div>
-        {errors.confirmPassword && (
-          <p className="mt-2 text-sm text-red-600 font-medium">{errors.confirmPassword}</p>
-        )}
+        {errors.confirmPassword && errTxt(errors.confirmPassword)}
       </div>
 
       {/* Kullanım Koşulları */}
       <div>
-        <div className="flex items-start">
-          <input
-            id="terms_accepted"
-            name="terms_accepted"
-            type="checkbox"
-            checked={formData.terms_accepted}
-            onChange={handleChange}
-            className="h-5 w-5 text-indigo-600 focus:ring-2 focus:ring-indigo-500 border-gray-300 rounded mt-1 cursor-pointer transition-all duration-200"
-            disabled={isLoading}
-          />
-          <label htmlFor="terms_accepted" className="ml-3 block text-sm font-medium text-gray-700 cursor-pointer">
-            <Link to="/terms" className="text-indigo-600 hover:text-indigo-700 transition-colors duration-200 hover:underline">
-              Kullanım koşullarını
-            </Link>{' '}
+        <div className="flex items-start gap-2">
+          <input id="terms_accepted" name="terms_accepted" type="checkbox" checked={formData.terms_accepted}
+            onChange={handleChange} className="w-4 h-4 mt-0.5 accent-[#0ea5e9] cursor-pointer rounded flex-shrink-0" disabled={isLoading} />
+          <label htmlFor="terms_accepted" className="text-xs text-slate-600 cursor-pointer leading-relaxed">
+            <Link to="/terms" className="text-[#0ea5e9] hover:underline">Kullanım koşullarını</Link>{' '}
             ve gizlilik politikasını okudum, kabul ediyorum
           </label>
         </div>
-        {errors.terms_accepted && (
-          <p className="mt-2 text-sm text-red-600 font-medium">{errors.terms_accepted}</p>
-        )}
+        {errors.terms_accepted && errTxt(errors.terms_accepted)}
       </div>
 
       {/* General Error */}
       {errors.general && (
-        <div className="rounded-md bg-red-50 p-4">
-          <p className="text-sm text-red-800">{errors.general}</p>
+        <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3">
+          <p className="text-sm text-red-600">{errors.general}</p>
         </div>
       )}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-base font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-      >
+      {/* Submit */}
+      <button type="submit" disabled={isLoading}
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0ea5e9] hover:bg-[#0284c7] text-white text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-sky-200">
         {isLoading ? (
-          <>
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Kaydediliyor...
-          </>
-        ) : (
-          'Kayıt Ol'
-        )}
+          <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>Kaydediliyor...</>
+        ) : 'Kayıt Ol'}
       </button>
 
-      {/* Login Link */}
-      <div className="text-center text-sm text-gray-600 pt-2">
-        Zaten hesabın var mı?{' '}
-        <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold transition-colors duration-200 hover:underline">
-          Giriş yap
-        </Link>
-      </div>
     </form>
   );
 };

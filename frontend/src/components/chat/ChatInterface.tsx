@@ -233,8 +233,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
         <div
           className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ring-1 ${
             isUser
-              ? 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white ring-indigo-500/30'
-              : 'border border-slate-100 bg-white/95 text-slate-800 ring-slate-200/70'
+              ? 'bg-[#0ea5e9] text-white ring-[#0ea5e9]/30 rounded-br-sm'
+              : 'border border-slate-100 bg-white text-slate-800 ring-slate-200/70 rounded-bl-sm'
           }`}
         >
           <div className="break-words text-sm leading-6">
@@ -243,11 +243,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
               components={{
                 p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
                 strong: ({ children }) => <strong className="font-semibold tracking-tight">{children}</strong>,
-                ul: ({ children }) => <ul className="mb-3 list-disc space-y-1 pl-6 marker:text-indigo-400 last:mb-0">{children}</ul>,
-                ol: ({ children }) => <ol className="mb-3 list-decimal space-y-1 pl-6 marker:font-semibold marker:text-indigo-400 last:mb-0">{children}</ol>,
+                ul: ({ children }) => <ul className="mb-3 list-disc space-y-1 pl-6 marker:text-sky-400 last:mb-0">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-3 list-decimal space-y-1 pl-6 marker:font-semibold marker:text-sky-400 last:mb-0">{children}</ol>,
                 li: ({ children }) => <li className="pl-1">{children}</li>,
                 blockquote: ({ children }) => (
-                  <blockquote className={`mb-3 rounded-r-xl border-l-4 px-3 py-2 text-[13px] italic ${isUser ? 'border-indigo-200 bg-indigo-500/20 text-indigo-50' : 'border-indigo-300 bg-indigo-50 text-slate-700'}`}>
+                  <blockquote className={`mb-3 rounded-r-xl border-l-4 px-3 py-2 text-[13px] italic ${isUser ? 'border-primary/20 bg-accent0/20 text-indigo-50' : 'border-indigo-300 bg-accent text-slate-700'}`}>
                     {children}
                   </blockquote>
                 ),
@@ -271,7 +271,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
 
                   return (
                     <code
-                      className={`rounded px-1.5 py-0.5 font-mono text-xs ${isUser ? 'bg-indigo-500/30 text-indigo-50' : 'bg-slate-100 text-slate-800'}`}
+                      className={`rounded px-1.5 py-0.5 font-mono text-xs ${isUser ? 'bg-accent0/30 text-indigo-50' : 'bg-slate-100 text-slate-800'}`}
                       {...props}
                     >
                       {children}
@@ -291,7 +291,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={isUser ? 'font-medium underline decoration-indigo-100 underline-offset-2' : 'font-medium text-indigo-600 underline underline-offset-2'}
+                    className={isUser ? 'font-medium underline decoration-white/50 underline-offset-2' : 'font-medium text-[#0ea5e9] underline underline-offset-2'}
                   >
                     {children}
                   </a>
@@ -302,7 +302,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
             </ReactMarkdown>
           </div>
 
-          <div className={`mt-2 text-[11px] ${isUser ? 'text-indigo-100' : 'text-slate-500'}`}>
+          <div className={`mt-2 text-[11px] ${isUser ? 'text-white/70' : 'text-slate-400'}`}>
             {formatTimestamp(message.created_at)}
           </div>
           
@@ -312,9 +312,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
                 href={buildDocumentUrl(primaryReference.sourceFileName)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                className="inline-flex items-center rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-[#0ea5e9] transition-colors hover:bg-sky-100"
               >
-                Dosyayi Goruntule
+                📄 Dosyayı Görüntüle
               </a>
             </div>
           )}
@@ -327,7 +327,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
     return (
       <div className="flex h-full items-center justify-center bg-slate-50">
         <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-600 shadow-sm">
-          <LoaderCircle className="h-4 w-4 animate-spin text-indigo-500" />
+          <LoaderCircle className="h-4 w-4 animate-spin text-[#0ea5e9]" />
           <span className="text-sm font-medium">Sohbet hazırlanıyor...</span>
         </div>
       </div>
@@ -335,24 +335,42 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-50">
-      <div className="border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm sm:px-6">
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span className="font-medium text-slate-600">Kampüs AI Asistan</span>
-          {remainingMessages !== null && <span>{remainingMessages}/50 mesaj hakkın kaldı</span>}
+    <div className="flex h-full min-h-0 flex-col bg-white">
+      <div className="border-b border-slate-100 bg-white px-4 py-2 sm:px-6">
+        <div className="flex items-center justify-end text-xs text-slate-400">
+          {remainingMessages !== null && (
+            <span>Bugün {remainingMessages}/50 mesaj hakkın kaldı</span>
+          )}
         </div>
       </div>
 
       <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6">
         {messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-slate-400">
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">
-                <Bot className="h-3.5 w-3.5" />
-                Kampüs AI
-              </div>
-              <p className="mb-2 text-lg font-semibold text-slate-700">Merhaba! Kampüs asistanın burada.</p>
-              <p className="text-sm">Ders, akademik takvim, forum, pazar ve kariyer konularında sorularını sorabilirsin.</p>
+          <div className="flex h-full flex-col items-center justify-center text-center px-8">
+            <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center mb-4">
+              <Bot className="h-8 w-8 text-[#0ea5e9]" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-800 mb-2">
+              Merhaba! Sana nasıl yardımcı olabilirim?
+            </h3>
+            <p className="text-sm text-slate-500 max-w-sm">
+              Forum konularını, akademik takvimi, ders programını veya kampüs ilanlarını sorabilirsin.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-5 justify-center">
+              {[
+                'Yaklaşan sınavlarım ne zaman?',
+                'Bu haftaki ders programım nedir?',
+                'Staj ilanları var mı?',
+                'Popüler forum konuları neler?',
+              ].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setInputValue(q)}
+                  className="px-3 py-1.5 text-xs rounded-full border border-slate-200 text-slate-600 bg-slate-50 hover:border-[#0ea5e9] hover:text-[#0ea5e9] hover:bg-sky-50 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
             </div>
           </div>
         ) : (
@@ -362,8 +380,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
               <div data-role="assistant" className="mb-5 flex justify-start">
                 <div className="max-w-[85%] rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm shadow-slate-200/70">
                   <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />
-                    <Sparkles className="h-4 w-4 animate-pulse text-cyan-500" />
+                    <LoaderCircle className="h-4 w-4 animate-spin text-[#0ea5e9]" />
+                    <Sparkles className="h-4 w-4 animate-pulse text-sky-400" />
                     <span className="font-semibold">Yapay Zeka düşünüyor...</span>
                   </div>
                   <div className="mt-3 space-y-2">
@@ -399,7 +417,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
             }}
             onKeyDown={handleKeyDown}
             disabled={isSending}
-            className="min-h-[52px] flex-1 resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100"
+            className="min-h-[52px] flex-1 resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/20 disabled:cursor-not-allowed disabled:bg-slate-100"
             rows={3}
             maxLength={500}
           />
@@ -407,7 +425,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
             aria-label="Gönder"
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isSending}
-            className="self-end rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="self-end rounded-xl bg-[#0ea5e9] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#0284c7] disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             Gönder
           </button>

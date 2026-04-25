@@ -51,6 +51,7 @@ class CareerListingResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     creator: Optional[CreatorInfo] = None
+    posted_by: Optional[str] = None  # creator user_id always included as fallback
 
     model_config = {"from_attributes": True}
 
@@ -142,6 +143,7 @@ def _listing_to_response(listing: CareerListing, user: Optional[User] = None) ->
         created_at=listing.created_at,
         updated_at=listing.updated_at,
         creator=creator,
+        posted_by=listing.posted_by,
     )
 
 

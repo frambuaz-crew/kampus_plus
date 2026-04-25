@@ -1,31 +1,35 @@
-/**
- * Header Component
- * 
- * Spec: 004-dashboard/spec.md
- * 
- * Dashboard header:
- * - Logo (sol)
- * - Arama çubuğu (orta) - Global arama
- * - Bildirimler dropdown (🔔) - Son 3 bildirim
- * - Mesajlar dropdown (💬) - Son 3 konuşma
- * - Profil dropdown (👤) - Profilim, Ayarlar, Çıkış Yap
- * 
- * Profil avatar: Profil resmi varsa göster, yoksa baş harfler (tutarlı renk)
- */
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { apiClient } from '../../api/config';
 import { getImageUrl } from '../../utils/imageUrl';
+import { Bell, MessageSquare, Search, Settings, LogOut, User, Shield, ChevronDown } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+} from '../ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../ui/popover';
 
 interface Notification {
   id: string;
-  type: 'forum_reply' | 'forum_mention' | 'academic_approval' | 'academic_rejection' | 'listing_expiring';
+  type: 'forum_reply' | 'forum_mention' | 'academic_approval' | 'academic_rejection' | 'listing_expiring' | 'new_message' | string;
   title: string;
   message: string;
   created_at: string;
   read: boolean;
+  is_read?: boolean;
   link?: string;
 }
 
@@ -38,158 +42,84 @@ interface Conversation {
     last_name: string;
     profile_picture_url?: string;
   };
-  source: 'marketplace' | 'career';
+  source: 'marketplace' | 'career' | 'direct';
   listing_title: string;
-  last_message: {
-    content: string;
-    created_at: string;
-  };
+  last_message: { content: string; created_at: string };
+  last_message_at?: string;
   unread_count: number;
 }
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  // State for dropdowns
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [messagesOpen, setMessagesOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // State for data
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-  // Refs for click outside
-  const notificationsRef = useRef<HTMLDivElement>(null);
-  const messagesRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
-
-  // Load notifications and messages
   useEffect(() => {
     loadNotifications();
     loadConversations();
-
-    // Polling: 30 saniyede bir güncelle
     const interval = setInterval(() => {
       loadNotifications();
       loadConversations();
-    }, 30000);
-
+    }, 10000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Click outside to close dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setNotificationsOpen(false);
-      }
-      if (messagesRef.current && !messagesRef.current.contains(event.target as Node)) {
-        setMessagesOpen(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setProfileOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const loadNotifications = async () => {
     try {
-      setIsLoadingNotifications(true);
-      const response = await apiClient.get('/notifications?limit=3');
+      const response = await apiClient.get('/notifications?limit=5');
       setNotifications(response.data.notifications || []);
       setUnreadNotificationsCount(response.data.unread_count || 0);
     } catch (err) {
       console.error('Bildirimler yüklenemedi:', err);
-    } finally {
-      setIsLoadingNotifications(false);
     }
   };
 
   const loadConversations = async () => {
     try {
-      setIsLoadingMessages(true);
-      const response = await apiClient.get('/messages/conversations?limit=3');
-      const raw = response.data.conversations || [];
-      setConversations(raw.map((c: Record<string, unknown>) => ({
-        ...c,
-        source: c.type ?? c.source,
-        last_message: c.last_message_obj ?? { content: c.last_message ?? '', created_at: c.last_message_at ?? '' },
-      })));
+      const response = await apiClient.get('/messages/conversations?limit=50');
+      const raw: Record<string, unknown>[] = response.data.conversations || [];
+      const mapped: Conversation[] = raw.map((c) => ({
+        ...(c as Conversation),
+        source: (c.type ?? c.source) as Conversation['source'],
+        last_message: (c.last_message_obj as { content: string; created_at: string }) ?? {
+          content: (c.last_message as string) ?? '',
+          created_at: (c.last_message_at as string) ?? '',
+        },
+        last_message_at: (c.last_message_at as string) ?? '',
+      }));
+
+      // Aynı kişiyle birden fazla konuşma varsa → direct tipi her zaman öncelikli
+      const dedupMap = new Map<string, Conversation>();
+      for (const conv of mapped) {
+        const uid = conv.other_user?.id;
+        if (!uid) continue;
+        const existing = dedupMap.get(uid);
+        if (!existing) {
+          dedupMap.set(uid, conv);
+        } else {
+          const newIsDirect = conv.source === 'direct';
+          const existingIsDirect = existing.source === 'direct';
+          if (newIsDirect && !existingIsDirect) {
+            dedupMap.set(uid, conv);
+          } else if (!existingIsDirect && !newIsDirect) {
+            if (new Date(conv.last_message_at || 0) > new Date(existing.last_message_at || 0)) {
+              dedupMap.set(uid, conv);
+            }
+          }
+        }
+      }
+      const deduped = Array.from(dedupMap.values())
+        .sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime())
+        .slice(0, 5);
+
+      setConversations(deduped);
       setUnreadMessagesCount(response.data.unread_count ?? response.data.total_unread ?? 0);
     } catch (err) {
       console.error('Mesajlar yüklenemedi:', err);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
-
-  // Generate consistent color from user ID
-  const getUserColor = (userId: string): string => {
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
-      '#98D8C8', '#FFD93D', '#6BCB77', '#A8DADC'
-    ];
-    const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
-
-  const getProfileAvatar = () => {
-    const initials = `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`.toUpperCase();
-    const bgColor = user?.id ? getUserColor(user.id) : '#4ECDC4';
-
-    if (user?.profile_picture_url) {
-      return (
-        <>
-          <img
-            src={getImageUrl(user.profile_picture_url)}
-            alt={`${user.first_name} ${user.last_name}`}
-            className="w-10 h-10 rounded-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              if (e.currentTarget.nextElementSibling) {
-                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-              }
-            }}
-          />
-          <div
-            className="w-10 h-10 rounded-full items-center justify-center text-white font-semibold flex-shrink-0"
-            style={{ backgroundColor: bgColor, display: 'none' }}
-          >
-            {initials}
-          </div>
-        </>
-      );
-    }
-
-
-    return (
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0"
-        style={{ backgroundColor: bgColor }}
-      >
-        {initials}
-      </div>
-    );
-  };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'forum_reply': return '💬';
-      case 'forum_mention': return '📌';
-      case 'academic_approval': return '✅';
-      case 'academic_rejection': return '❌';
-      case 'listing_expiring': return '⏰';
-      default: return '📬';
     }
   };
 
@@ -200,13 +130,11 @@ export const Header: React.FC = () => {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMins < 1) return 'az önce';
-    if (diffMins < 60) return `${diffMins} dakika önce`;
-    if (diffHours < 24) return `${diffHours} saat önce`;
+    if (diffMins < 60) return `${diffMins}dk önce`;
+    if (diffHours < 24) return `${diffHours}sa önce`;
     if (diffDays === 1) return 'Dün';
-    if (diffDays < 7) return `${diffDays} gün önce`;
-    return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+    return `${diffDays}g önce`;
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -217,373 +145,227 @@ export const Header: React.FC = () => {
   };
 
   const handleLogout = () => {
-    setProfileOpen(false);
     logout();
-    setTimeout(() => {
-      navigate('/login');
-    }, 100);
+    setTimeout(() => navigate('/login'), 100);
   };
 
+  const userInitials = `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`.toUpperCase();
+  const isAdmin = (['admin', 'university_admin'] as const).includes(user?.role as 'admin' | 'university_admin');
+
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="w-full px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 max-w-[1920px] mx-auto">
+    <header className="h-16 bg-white border-b border-border sticky top-0 z-50 flex items-center px-6 gap-4">
+      {/* Left: Logo */}
+      <div
+        className="flex items-center gap-2 shrink-0 cursor-pointer"
+        onClick={() => navigate('/dashboard')}
+      >
+        <div className="w-8 h-8 rounded-lg bg-[#0ea5e9] flex items-center justify-center shrink-0">
+          <span className="text-white font-bold text-sm">K+</span>
+        </div>
+        <span className="font-bold text-xl text-[#0ea5e9] hidden sm:inline">KAMPUS+</span>
+      </div>
 
-          {/* Logo - Left */}
-          <div
-            className="flex items-center space-x-3 cursor-pointer group"
-            onClick={() => navigate('/dashboard')}
-          >
-            <span className="text-2xl lg:text-3xl group-hover:scale-110 transition-transform">📚</span>
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
-              KAMPÜS+
-            </h1>
-          </div>
+      {/* Center: Search Bar */}
+      <div className="flex-1 flex justify-center px-4">
+        <form onSubmit={handleSearch} className="w-full max-w-xl relative hidden md:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Kampüste ara..."
+            className="pl-9 pr-16 h-10 bg-white"
+            onFocus={() => {
+              if (!searchQuery) navigate('/dashboard/search');
+            }}
+          />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
+            ⌘K
+          </kbd>
+        </form>
+      </div>
 
-          {/* Search Bar - Center */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
-            <form onSubmit={handleSearch} className="w-full relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Konu, kullanıcı veya içerik ara..."
-                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </form>
-          </div>
-
-          {/* Actions - Right */}
-          <div className="flex items-center space-x-1">
-
-            {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <button
-                onClick={() => {
-                  setNotificationsOpen(!notificationsOpen);
-                  setMessagesOpen(false);
-                  setProfileOpen(false);
-                }}
-                className="p-2.5 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors relative"
-              >
-                <span className="text-xl">🔔</span>
+      {/* Right: Icons */}
+      <div className="flex items-center gap-1 shrink-0">
+        {/* Notifications */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0 bg-white border border-slate-200 shadow-xl rounded-xl" align="end">
+            <div className="p-4 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-sm">Bildirimler</h4>
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
-                  </span>
+                  <Badge variant="secondary" className="text-xs">{unreadNotificationsCount} yeni</Badge>
                 )}
-              </button>
+              </div>
+            </div>
+            <div className="max-h-80 overflow-y-auto divide-y divide-border">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p>Bildirim yok</p>
+                </div>
+              ) : (
+                notifications.map((notif) => (
+                  <button
+                    key={notif.id}
+                    onClick={() => { if (notif.link) navigate(notif.link); }}
+                    className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${!(notif.read || notif.is_read) ? 'bg-sky-50 border-l-2 border-l-[#0ea5e9]' : ''}`}
+                  >
+                    <p className={`text-sm ${!(notif.read || notif.is_read) ? 'font-medium' : ''}`}>{notif.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{notif.message}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{formatTime(notif.created_at)}</p>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="p-3 border-t border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-[#0ea5e9] text-xs"
+                onClick={() => navigate('/dashboard/notifications')}
+              >
+                Tümünü Gör →
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
-              {/* Notifications Dropdown */}
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  {/* Header */}
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-900 flex items-center space-x-2">
-                      <span>🔔</span>
-                      <span>Bildirimler</span>
-                      {unreadNotificationsCount > 0 && (
-                        <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
-                          {unreadNotificationsCount} yeni
-                        </span>
-                      )}
-                    </h3>
-                  </div>
-
-                  {/* Notifications List */}
-                  <div className="max-h-96 overflow-y-auto">
-                    {isLoadingNotifications ? (
-                      <div className="px-4 py-8 text-center text-gray-500">
-                        <p className="text-sm">Yükleniyor...</p>
-                      </div>
-                    ) : notifications.length === 0 ? (
-                      <div className="px-4 py-8 text-center text-gray-500">
-                        <span className="text-3xl block mb-2">📭</span>
-                        <p className="text-sm">Bildirim yok</p>
-                      </div>
-                    ) : (
-                      notifications.map((notif) => (
-                        <button
-                          key={notif.id}
-                          onClick={() => {
-                            if (notif.link) {
-                              navigate(notif.link);
-                            }
-                            setNotificationsOpen(false);
-                          }}
-                          className={`w-full px-4 py-3 hover:bg-gray-50 text-left border-b border-gray-50 ${!notif.read ? 'bg-blue-50' : ''
-                            }`}
-                        >
-                          <div className="flex items-start space-x-3">
-                            <span className="text-xl">{getNotificationIcon(notif.type)}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">{notif.title}</p>
-                              <p className="text-xs text-gray-600 truncate">{notif.message}</p>
-                              <p className="text-xs text-gray-400 mt-1">{formatTime(notif.created_at)}</p>
-                            </div>
-                            {!notif.read && (
-                              <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></span>
+        {/* Messages */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <MessageSquare className="h-5 w-5" />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white">
+                  {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0 bg-white border border-slate-200 shadow-xl rounded-xl" align="end">
+            <div className="p-4 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-sm">Mesajlar</h4>
+                {unreadMessagesCount > 0 && (
+                  <Badge variant="secondary" className="text-xs">{unreadMessagesCount} okunmamış</Badge>
+                )}
+              </div>
+            </div>
+            <div className="max-h-80 overflow-y-auto divide-y divide-border">
+              {conversations.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p>Mesaj yok</p>
+                </div>
+              ) : (
+                conversations.map((conv) => {
+                  const { other_user: ou } = conv;
+                  const initials = `${ou.first_name.charAt(0)}${ou.last_name.charAt(0)}`.toUpperCase();
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => navigate(`/dashboard/messages/${conv.id}`)}
+                      className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${conv.unread_count > 0 ? 'bg-sky-50 border-l-2 border-l-[#0ea5e9]' : ''}`}
+                    >
+                      <div className="flex gap-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          {ou.profile_picture_url && (
+                            <AvatarImage src={getImageUrl(ou.profile_picture_url)} />
+                          )}
+                          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-2 justify-between">
+                            <p className="text-sm font-medium truncate">{ou.first_name} {ou.last_name}</p>
+                            {conv.unread_count > 0 && (
+                              <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-[#0ea5e9] shrink-0">
+                                {conv.unread_count}
+                              </Badge>
                             )}
                           </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-4 py-2 border-t border-gray-100">
-                    <button
-                      onClick={() => {
-                        navigate('/dashboard/notifications');
-                        setNotificationsOpen(false);
-                      }}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium w-full text-center"
-                    >
-                      Tümünü Gör →
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.last_message.content}</p>
+                        </div>
+                      </div>
                     </button>
-                  </div>
-                </div>
+                  );
+                })
               )}
             </div>
-
-            {/* Messages */}
-            <div className="relative" ref={messagesRef}>
-              <button
-                onClick={() => {
-                  setMessagesOpen(!messagesOpen);
-                  setNotificationsOpen(false);
-                  setProfileOpen(false);
-                }}
-                className="p-2.5 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors relative"
+            <div className="p-3 border-t border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-[#0ea5e9] text-xs"
+                onClick={() => navigate('/dashboard/messages')}
               >
-                <span className="text-xl">💬</span>
-                {unreadMessagesCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
-                  </span>
+                Tüm Mesajlar →
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* User Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2 px-2 h-10">
+              <Avatar className="h-8 w-8">
+                {user?.profile_picture_url && (
+                  <AvatarImage src={getImageUrl(user.profile_picture_url)} />
                 )}
-              </button>
-
-              {/* Messages Dropdown */}
-              {messagesOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  {/* Header */}
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-900 flex items-center space-x-2">
-                      <span>💬</span>
-                      <span>Mesajlar</span>
-                      {unreadMessagesCount > 0 && (
-                        <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
-                          {unreadMessagesCount} okunmamış
-                        </span>
-                      )}
-                    </h3>
-                  </div>
-
-                  {/* Conversations List */}
-                  <div className="max-h-96 overflow-y-auto">
-                    {isLoadingMessages ? (
-                      <div className="px-4 py-8 text-center text-gray-500">
-                        <p className="text-sm">Yükleniyor...</p>
-                      </div>
-                    ) : conversations.length === 0 ? (
-                      <div className="px-4 py-8 text-center text-gray-500">
-                        <span className="text-3xl block mb-2">✉️</span>
-                        <p className="text-sm">Mesaj yok</p>
-                      </div>
-                    ) : (
-                      conversations.map((conv) => {
-                        const otherUser = conv.other_user;
-                        const avatarBgColor = getUserColor(otherUser.id);
-                        const initials = `${otherUser.first_name.charAt(0)}${otherUser.last_name.charAt(0)}`.toUpperCase();
-                        const hasUnread = conv.unread_count > 0;
-
-                        return (
-                          <button
-                            key={conv.id}
-                            onClick={() => {
-                              navigate(`/dashboard/messages/${conv.id}`);
-                              setMessagesOpen(false);
-                            }}
-                            className={`w-full px-4 py-3 hover:bg-gray-50 text-left border-b border-gray-50 ${hasUnread ? 'bg-blue-50' : ''
-                              }`}
-                          >
-                            <div className="flex items-start space-x-3">
-                              {otherUser.profile_picture_url ? (
-                                <>
-                                  <img
-                                    src={getImageUrl(otherUser.profile_picture_url)}
-                                    alt={`${otherUser.first_name} ${otherUser.last_name}`}
-                                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                      if (e.currentTarget.nextElementSibling) {
-                                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                                      }
-                                    }}
-                                  />
-                                  <div
-                                    className="w-10 h-10 rounded-full items-center justify-center text-white text-sm font-semibold flex-shrink-0"
-                                    style={{ backgroundColor: avatarBgColor, display: 'none' }}
-                                  >
-                                    {initials}
-                                  </div>
-                                </>
-                              ) : (
-                                <div
-                                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0"
-                                  style={{ backgroundColor: avatarBgColor }}
-                                >
-                                  {initials}
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                    {hasUnread ? '🟢' : '⚪'} {otherUser.first_name} {otherUser.last_name}
-                                  </p>
-                                  {hasUnread && (
-                                    <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-600 mb-1">
-                                  {conv.source === 'marketplace' ? '📦 Pazar' : '💼 Kariyer'}: {conv.listing_title}
-                                </p>
-                                <p className="text-xs text-gray-600 truncate">{conv.last_message.content}</p>
-                                <p className="text-xs text-gray-400 mt-1">{formatTime(conv.last_message.created_at)}</p>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-4 py-2 border-t border-gray-100">
-                    <button
-                      onClick={() => {
-                        navigate('/dashboard/messages');
-                        setMessagesOpen(false);
-                      }}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium w-full text-center"
-                    >
-                      Tüm Mesajları Gör →
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Profile Dropdown */}
-            <div className="relative" ref={profileRef}>
-              <button
-                onClick={() => {
-                  setProfileOpen(!profileOpen);
-                  setNotificationsOpen(false);
-                  setMessagesOpen(false);
-                }}
-                className="flex items-center space-x-2 lg:space-x-3 p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                {getProfileAvatar()}
-                <span className="text-sm font-medium hidden lg:block">
-                  {user?.first_name} {user?.last_name}
-                </span>
-                <svg
-                  className="w-4 h-4 text-gray-500 hidden lg:block"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* Profile Dropdown */}
-              {profileOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  {/* User Info */}
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <div className="flex items-center space-x-3">
-                      {getProfileAvatar()}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">
-                          {user?.first_name} {user?.last_name}
-                        </p>
-                        <p className="text-xs text-gray-600 truncate">{user?.email}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Menu Items */}
-                  <div className="py-2">
-                    <button
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3"
-                      onClick={() => {
-                        navigate('/dashboard/profile');
-                        setProfileOpen(false);
-                      }}
-                    >
-                      <span>👤</span>
-                      <span>Profilim</span>
-                    </button>
-                    <button
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-3"
-                      onClick={() => {
-                        navigate('/dashboard/settings');
-                        setProfileOpen(false);
-                      }}
-                    >
-                      <span>⚙️</span>
-                      <span>Ayarlar</span>
-                    </button>
-                  </div>
-
-                  {/* Admin Geçiş — admin ve university_admin rolleri için */}
-                  {(['admin', 'university_admin'] as const).includes(user?.role as 'admin' | 'university_admin') && (
-                    <>
-                      <div className="border-t border-gray-100 my-2"></div>
-                      <div className="py-2">
-                        <button
-                          className="w-full px-4 py-2 text-left text-sm text-indigo-700 hover:bg-indigo-50 flex items-center space-x-3 font-semibold"
-                          onClick={() => {
-                            navigate('/admin');
-                            setProfileOpen(false);
-                          }}
-                        >
-                          <span>🛡️</span>
-                          <span>Admin Panele Geç</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Divider */}
-                  <div className="border-t border-gray-100 my-2"></div>
-
-                  {/* Logout */}
-                  <div className="py-2">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-3 font-medium"
-                    >
-                      <span>🚪</span>
-                      <span>Çıkış Yap</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-          </div>
-        </div>
+                <AvatarFallback className="text-xs font-semibold bg-[#0ea5e9] text-white">
+                  {userInitials || 'KU'}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium hidden lg:block max-w-[120px] truncate">
+                {user?.first_name} {user?.last_name}
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground hidden lg:block shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-white border border-slate-200 shadow-xl rounded-xl">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col gap-0.5">
+                <p className="text-sm font-medium">{user?.first_name} {user?.last_name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/dashboard/profile')}>
+              <User className="mr-2 h-4 w-4" />
+              Profilim
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/dashboard/settings')}>
+              <Settings className="mr-2 h-4 w-4" />
+              Ayarlar
+            </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/admin')} className="text-[#0ea5e9]">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin Paneli
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} variant="destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              Çıkış Yap
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
 };
-

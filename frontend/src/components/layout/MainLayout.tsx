@@ -1,18 +1,4 @@
-/**
- * Main Layout Component
- * 
- * Spec: 004-dashboard/spec.md
- * 
- * Dashboard sayfalarının ortak layout yapısı:
- * - Header (üst bar): Logo, Arama, Bildirimler, Mesajlar, Profil
- * - Sidebar (sol menü): Navigation items
- * - Main Content (sağ alan): Sayfa içeriği
- * 
- * Kullanım: Tüm authenticated dashboard sayfalarında kullanılır
- * - Dashboard, AI Assistant, Forum, Marketplace, Career, vb.
- */
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
@@ -21,16 +7,20 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen w-screen flex flex-col bg-muted/30 overflow-hidden">
       <Header />
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto">
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+        />
+        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           {children}
         </main>
       </div>
     </div>
   );
 };
-
