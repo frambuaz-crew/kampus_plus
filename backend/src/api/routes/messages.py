@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from uuid import uuid4
@@ -553,6 +553,25 @@ async def send_conv_message(
         "is_read": msg.is_read,
         "created_at": msg.created_at.isoformat() + "Z",
     }
+
+
+@router.delete("/conversations/{conv_id}", status_code=200)
+async def delete_conversation(
+    conv_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Konuşmayı ve tüm mesajlarını siler (sadece katılımcılar yapabilir)."""
+    conv = await _get_authorized_conversation(conv_id, current_user.id, session)
+
+    # Tüm mesajları sil
+    await session.execute(delete(DirectMessage).where(DirectMessage.conversation_id == conv_id))
+    await session.execute(delete(MarketplaceMessage).where(MarketplaceMessage.conversation_id == conv_id))
+    await session.execute(delete(CareerMessage).where(CareerMessage.conversation_id == conv_id))
+
+    await session.delete(conv)
+    await session.commit()
+    return {"success": True}
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────

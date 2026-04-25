@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Search,
   UserCircle,
+  Trash2,
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
@@ -53,6 +54,21 @@ export const MessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (convId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm('Bu konuşmayı silmek istediğinize emin misiniz? Tüm mesajlar silinecek.')) return;
+    try {
+      setDeletingId(convId);
+      await apiClient.delete(`/messages/conversations/${convId}`);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+    } catch {
+      alert('Konuşma silinemedi.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -243,10 +259,20 @@ export const MessagesPage: React.FC = () => {
                           navigate(`/dashboard/profile/${conv.other_user.username}`);
                         }}
                         title="Profili Gör"
-                        className="flex-shrink-0 flex items-center gap-1.5 mr-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-[#0ea5e9] hover:bg-sky-50 transition-colors border border-transparent hover:border-sky-100"
+                        className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-[#0ea5e9] hover:bg-sky-50 transition-colors border border-transparent hover:border-sky-100"
                       >
                         <UserCircle className="w-4 h-4" />
                         <span className="hidden sm:inline">Profil</span>
+                      </button>
+
+                      {/* Konuşmayı Sil */}
+                      <button
+                        onClick={(e) => handleDelete(conv.id, e)}
+                        title="Konuşmayı Sil"
+                        disabled={deletingId === conv.id}
+                        className="flex-shrink-0 mr-3 p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </li>
                   );

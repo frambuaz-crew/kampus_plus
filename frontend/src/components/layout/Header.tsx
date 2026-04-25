@@ -1,9 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { apiClient } from '../../api/config';
 import { getImageUrl } from '../../utils/imageUrl';
-import { Bell, MessageSquare, Search, Settings, LogOut, User, Shield, ChevronDown } from 'lucide-react';
+import {
+  Bell,
+  MessageSquare,
+  Search,
+  Settings,
+  LogOut,
+  User,
+  Shield,
+  ChevronDown,
+  LayoutDashboard,
+  ShoppingBag,
+  Briefcase,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
@@ -52,11 +65,65 @@ interface Conversation {
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+  const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestRows, setSuggestRows] = useState<
+    { id: string; title: string; href: string; type: string; group: string }[]
+  >([]);
+
+  const loadSuggest = useCallback(async (q: string) => {
+    if (!q || q.length < 1) {
+      setSuggestRows([]);
+      return;
+    }
+    setSuggestLoading(true);
+    try {
+      const res = await apiClient.get<{
+        pages?: { id: string; title: string; href: string; type: string }[];
+        forum?: { id: string; title: string; href: string; type: string }[];
+        marketplace?: { id: string; title: string; href: string; type: string }[];
+        career?: { id: string; title: string; href: string; type: string }[];
+        users?: { id: string; title: string; href: string; type: string }[];
+      }>('/search/suggest', { params: { q, limit: 5 } });
+      const d = res.data;
+      const rows: { id: string; title: string; href: string; type: string; group: string }[] = [];
+      const add = (arr: typeof d.forum, group: string) => {
+        (arr || []).forEach((h) =>
+          rows.push({ id: h.id, title: h.title, href: h.href, type: h.type, group })
+        );
+      };
+      add(d.pages, 'Sayfalar');
+      add(d.forum, 'Forum');
+      add(d.marketplace, 'Pazar');
+      add(d.career, 'Kariyer');
+      add(d.users, 'Kullanıcı');
+      setSuggestRows(rows.slice(0, 12));
+    } catch {
+      setSuggestRows([]);
+    } finally {
+      setSuggestLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node)) {
+        setSuggestOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
 
   useEffect(() => {
     loadNotifications();
@@ -72,6 +139,26 @@ export const Header: React.FC = () => {
       window.removeEventListener('kampus-notifications-updated', onUpdated);
     };
   }, []);
+
+  // Arama sayfasındayken veya ?q= ile URL, üst çubuk metnini senkronize et
+  useEffect(() => {
+    if (location.pathname === '/dashboard/search') {
+      const q = searchParams.get('q') || '';
+      setSearchQuery(q);
+    }
+  }, [location.pathname, searchParams]);
+
+  // ⌘K / Ctrl+K → arama sayfası
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        navigate('/dashboard/search');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navigate]);
 
   const loadNotifications = async () => {
     try {
@@ -144,9 +231,25 @@ export const Header: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim().length >= 2) {
-      navigate(`/dashboard/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    const q = searchQuery.trim();
+    setSuggestOpen(false);
+    if (q.length < 2) return;
+    navigate(`/dashboard/search?q=${encodeURIComponent(q)}`);
+  };
+
+  const onSearchInputChange = (v: string) => {
+    setSearchQuery(v);
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+    const t = v.trim();
+    if (t.length < 1) {
+      setSuggestRows([]);
+      setSuggestOpen(false);
+      return;
     }
+    suggestDebounceRef.current = setTimeout(() => {
+      void loadSuggest(t);
+      setSuggestOpen(true);
+    }, 200);
   };
 
   const handleLogout = () => {
@@ -170,24 +273,75 @@ export const Header: React.FC = () => {
         <span className="font-bold text-xl text-[#0ea5e9] hidden sm:inline">KAMPUS+</span>
       </div>
 
-      {/* Center: Search Bar */}
+      {/* Center: Search Bar + öneriler */}
       <div className="flex-1 flex justify-center px-4">
-        <form onSubmit={handleSearch} className="w-full max-w-xl relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Kampüste ara..."
-            className="pl-9 pr-16 h-10 bg-white"
-            onFocus={() => {
-              if (!searchQuery) navigate('/dashboard/search');
-            }}
-          />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
-            ⌘K
-          </kbd>
-        </form>
+        <div ref={searchWrapRef} className="w-full max-w-xl relative hidden md:block">
+          <form onSubmit={handleSearch}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchInputChange(e.target.value)}
+              onFocus={() => {
+                const t = searchQuery.trim();
+                if (t.length >= 1) void loadSuggest(t);
+                if (t.length >= 1) setSuggestOpen(true);
+              }}
+              placeholder="Kampüste ara… (ör. kariyer, pazar)"
+              className="pl-9 pr-16 h-10 bg-white"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim().length < 2) {
+                  e.preventDefault();
+                  setSuggestOpen(false);
+                  navigate('/dashboard/search');
+                }
+              }}
+              autoComplete="off"
+            />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] text-muted-foreground">
+              ⌘K
+            </kbd>
+          </form>
+
+          {suggestOpen && (suggestLoading || suggestRows.length > 0) && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-[60] bg-white border border-slate-200 rounded-xl shadow-lg max-h-80 overflow-y-auto py-1 text-left">
+              {suggestLoading && (
+                <div className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Aranıyor…
+                </div>
+              )}
+              {!suggestLoading &&
+                suggestRows.map((row) => {
+                  const Icon =
+                    row.type === 'page'
+                      ? LayoutDashboard
+                      : row.type === 'forum'
+                        ? MessageSquare
+                        : row.type === 'marketplace'
+                          ? ShoppingBag
+                          : row.type === 'career'
+                            ? Briefcase
+                            : User;
+                  return (
+                    <Link
+                      key={`${row.group}-${row.type}-${row.id}`}
+                      to={row.href}
+                      onClick={() => setSuggestOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-slate-50"
+                    >
+                      <Icon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+                          {row.group}
+                        </p>
+                        <p className="text-slate-800 truncate font-medium">{row.title}</p>
+                      </div>
+                    </Link>
+                  );
+                })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right: Icons */}

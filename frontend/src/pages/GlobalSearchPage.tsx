@@ -1,86 +1,225 @@
-/**
- * Global Search Page
- * 
- * Spec: 019-global-search/spec.md
- * 
- * Platform geneli arama sayfası
- */
-
-import React, { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
+import { apiClient } from '../api/config';
+import {
+  Search,
+  MessageSquare,
+  ShoppingBag,
+  Briefcase,
+  User,
+  Loader2,
+  ChevronRight,
+  LayoutDashboard,
+} from 'lucide-react';
+
+interface Hit {
+  id: string;
+  title: string;
+  snippet: string;
+  type: string;
+  href: string;
+}
+
+interface SearchResponse {
+  query: string;
+  total: number;
+  pages: Hit[];
+  forum: Hit[];
+  marketplace: Hit[];
+  career: Hit[];
+  users: Hit[];
+}
+
+const labels: Record<string, string> = {
+  pages: 'Sayfalar',
+  forum: 'Forum',
+  marketplace: 'Pazar',
+  career: 'Kariyer',
+  user: 'Kullanıcı',
+  page: 'Sayfa',
+};
+
+const icons: Record<string, React.FC<{ className?: string }>> = {
+  forum: MessageSquare,
+  marketplace: ShoppingBag,
+  career: Briefcase,
+  user: User,
+  page: LayoutDashboard,
+  pages: LayoutDashboard,
+};
+
+const sectionOrder: (keyof SearchResponse)[] = [
+  'pages',
+  'forum',
+  'marketplace',
+  'career',
+  'users',
+];
 
 export const GlobalSearchPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const paramQuery = useMemo(() => searchParams.get('q') || '', [searchParams]);
-  const [query, setQuery] = useState(paramQuery);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paramQuery = useMemo(() => searchParams.get('q')?.trim() || '', [searchParams]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim().length >= 2) {
-      navigate(`/dashboard/search?q=${encodeURIComponent(query.trim())}`);
+  const [input, setInput] = useState(paramQuery);
+  const [data, setData] = useState<SearchResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    setInput(paramQuery);
+  }, [paramQuery]);
+
+  const fetchSearch = useCallback(async (q: string) => {
+    if (q.length < 2) {
+      setData(null);
+      setErr(null);
+      return;
     }
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await apiClient.get<SearchResponse>('/search', { params: { q, limit: 10 } });
+      setData(res.data);
+    } catch (e) {
+      console.error('Search error:', e);
+      setData(null);
+      setErr('Arama yapılamadı. Giriş yaptığınızdan emin olun ve tekrar deneyin.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSearch(paramQuery);
+  }, [paramQuery, fetchSearch]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = input.trim();
+    if (t.length < 2) {
+      setErr('En az 2 karakter girin.');
+      return;
+    }
+    setErr(null);
+    setSearchParams({ q: t });
   };
 
   return (
     <MainLayout>
-      <div className="w-full px-8 xl:px-16 py-8">
-        <div className="max-w-[1920px] mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
-            <span className="mr-3">🔍</span>
+      <div className="w-full min-h-screen bg-slate-50 pb-12">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+          <h1 className="text-2xl font-bold text-slate-900 mb-1 flex items-center gap-2">
+            <Search className="w-6 h-6 text-slate-500" />
             Arama
           </h1>
-          
-          {/* Search Form */}
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-            <form onSubmit={handleSearch} className="flex gap-4">
+          <p className="text-sm text-slate-500 mb-6">
+            Sayfalara hızlı git, forum / pazar / kariyer ve kullanıcılar içinde arayın.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mb-8">
+            <div className="bg-white border border-slate-200 rounded-xl p-1 flex gap-1 shadow-sm">
               <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Konu, kullanıcı veya içerik ara..."
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                type="search"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Örn. kariyer, pazar, ders notu, @kullanıcı…"
+                className="flex-1 min-w-0 px-4 py-2.5 text-sm border-0 rounded-lg focus:ring-0 focus:outline-none bg-transparent"
+                autoFocus
               />
               <button
                 type="submit"
-                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors"
               >
                 Ara
               </button>
-            </form>
-          </div>
+            </div>
+            {err && <p className="text-sm text-red-500 mt-2">{err}</p>}
+          </form>
 
-          {/* Results */}
-          <div className="bg-white rounded-xl shadow-sm p-8">
-            {(query || paramQuery) ? (
-              <div className="text-center py-16">
-                <span className="text-6xl block mb-4">🔍</span>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                  Arama Özelliği Yakında
-                </h2>
-                <p className="text-gray-600 mb-4">
-                  Arama sorgusu: <strong>"{query || paramQuery}"</strong>
-                </p>
-                <p className="text-sm text-gray-500">
-                  Platform geneli arama özelliği şu anda geliştirilme aşamasında.
-                </p>
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <span className="text-6xl block mb-4">🔍</span>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                  Ne Aramak İstersiniz?
-                </h2>
-                <p className="text-gray-600">
-                  Yukarıdaki arama kutusuna sorgunuzu girin.
-                </p>
-              </div>
-            )}
-          </div>
+          {paramQuery && paramQuery.length < 2 && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2">
+              Aramak için en az 2 karakter gerekir.
+            </p>
+          )}
+
+          {loading && (
+            <div className="flex items-center justify-center py-20 text-slate-500">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              Aranıyor…
+            </div>
+          )}
+
+          {!loading && data && paramQuery.length >= 2 && (
+            <>
+              <p className="text-sm text-slate-500 mb-4">
+                <strong className="text-slate-800">{data.total}</strong> sonuç: &ldquo;{data.query}&rdquo;
+              </p>
+
+              {data.total === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+                  <Search className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p className="text-slate-600 font-medium">Sonuç bulunamadı</p>
+                  <p className="text-sm text-slate-400 mt-1">Farklı kelimeler veya kısayol adları deneyin (ör. kariyer, pazar).</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {sectionOrder.map((key) => {
+                    const raw = data[key];
+                    const hits: Hit[] = Array.isArray(raw) ? (raw as Hit[]) : [];
+                    if (hits.length === 0) return null;
+                    return (
+                      <div key={key as string}>
+                        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                          {labels[key] ?? (key as string)}
+                        </h2>
+                        <ul className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
+                          {hits.map((hit) => {
+                            const iconKey = hit.type === 'page' ? 'page' : hit.type;
+                            const Icon = icons[iconKey] || Search;
+                            return (
+                              <li key={`${hit.type}-${hit.id}`}>
+                                <Link
+                                  to={hit.href}
+                                  className="flex items-start gap-3 p-4 hover:bg-slate-50 transition-colors group"
+                                >
+                                  <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-500 group-hover:bg-sky-50 group-hover:text-[#0ea5e9]">
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900 group-hover:text-[#0ea5e9] truncate">
+                                      {hit.title}
+                                    </p>
+                                    {hit.snippet && (
+                                      <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{hit.snippet}</p>
+                                    )}
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0 mt-1" />
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {!paramQuery && !loading && (
+            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
+              <Search className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p className="text-slate-700 font-medium">Ne aramak istersiniz?</p>
+              <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
+                <strong className="text-slate-600">kariyer</strong>, <strong className="text-slate-600">pazar</strong>, <strong className="text-slate-600">mesaj</strong> gibi kısa kelimelerle
+                sayfalara gidebilir; ilan ve konu aramak için 2+ karakter yazın.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>
   );
 };
-

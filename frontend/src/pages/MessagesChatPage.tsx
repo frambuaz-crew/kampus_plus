@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   ExternalLink,
   UserCircle,
+  Trash2,
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
@@ -69,6 +70,19 @@ export const MessagesChatPage: React.FC = () => {
   const [loadingMsgs, setLoadingMsgs] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteConversation = async () => {
+    if (!window.confirm('Bu konuşmayı silmek istediğinize emin misiniz? Tüm mesajlar kalıcı olarak silinecek.')) return;
+    try {
+      setDeleting(true);
+      await apiClient.delete(`/messages/conversations/${convId}`);
+      navigate('/dashboard/messages');
+    } catch {
+      alert('Konuşma silinemedi.');
+      setDeleting(false);
+    }
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -254,6 +268,16 @@ export const MessagesChatPage: React.FC = () => {
                 <ExternalLink className="w-4 h-4" />
               </button>
             )}
+
+            {/* Konuşmayı Sil */}
+            <button
+              onClick={handleDeleteConversation}
+              disabled={deleting}
+              className="flex-shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+              title="Konuşmayı Sil"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
 

@@ -10,8 +10,9 @@ from src.models.forum import ForumTopic
 from src.models.marketplace import MarketplaceListing
 from src.models.career import CareerListing
 from src.models.academic import AcademicContribution
+from src.core.security import hash_password, verify_password
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import desc
 import os
 import uuid
@@ -246,3 +247,69 @@ async def get_user_favorites(
                 detailed_favorites.append(item_data)
 
     return {"favorites": detailed_favorites}
+
+
+# ── Şifre Değiştirme ──────────────────────────────────────────────────────────
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Mevcut şifreniz hatalı.")
+    if data.current_password == data.new_password:
+        raise HTTPException(status_code=400, detail="Yeni şifre mevcut şifreyle aynı olamaz.")
+    current_user.password_hash = hash_password(data.new_password)
+    session.add(current_user)
+    await session.commit()
+    return {"success": True, "message": "Şifreniz başarıyla güncellendi."}
+
+
+# ── E-posta Değiştirme ────────────────────────────────────────────────────────
+class ChangeEmailRequest(BaseModel):
+    new_email: str
+    current_password: str
+
+
+@router.post("/change-email")
+async def change_email(
+    data: ChangeEmailRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Mevcut şifreniz hatalı.")
+    existing = await session.execute(select(User).where(User.email == data.new_email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Bu e-posta adresi zaten kullanımda.")
+    current_user.email = data.new_email
+    session.add(current_user)
+    await session.commit()
+    return {"success": True, "message": "E-posta adresiniz güncellendi."}
+
+
+# ── Hesap Silme ───────────────────────────────────────────────────────────────
+class DeleteAccountRequest(BaseModel):
+    current_password: str
+    confirmation: str  # "HESABIMI SİL" yazması bekleniyor
+
+
+@router.delete("/account")
+async def delete_account(
+    data: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Şifreniz hatalı.")
+    if data.confirmation != "HESABIMI SİL":
+        raise HTTPException(status_code=400, detail="Onay metni hatalı.")
+    await session.delete(current_user)
+    await session.commit()
+    return {"success": True, "message": "Hesabınız silindi."}
