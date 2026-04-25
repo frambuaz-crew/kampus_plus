@@ -8,7 +8,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
-import { sendRequest } from '../api/friendship';
 import {
   CascadingInstitutionSelect,
   type InstitutionSelection,
@@ -18,6 +17,20 @@ import {
   getFaculties,
   getUniversities,
 } from '../api/institutions';
+import {
+  GraduationCap,
+  BookOpen,
+  Layers,
+  MessageSquare,
+  Edit3,
+  Camera,
+  ShoppingBag,
+  Briefcase,
+  Heart,
+  FileText,
+  X,
+  ChevronRight,
+} from 'lucide-react';
 
 // Tab ve Liste Tipleri
 type TabType = 'info' | 'activity' | 'favorites';
@@ -110,10 +123,6 @@ export const ProfilePage: React.FC = () => {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
-  // Arkadaşlık isteği state'i
-  const [friendRequestStatus, setFriendRequestStatus] = useState<
-    'idle' | 'sending' | 'sent' | 'error'
-  >('idle');
 
   useEffect(() => {
     if (locationState?.tab) {
@@ -265,18 +274,6 @@ export const ProfilePage: React.FC = () => {
     fetchProfileData();
   }, [targetUsername, isOwnProfile]);
 
-  const handleSendFriendRequest = async () => {
-    if (!profileData) return;
-    setFriendRequestStatus('sending');
-    try {
-      await sendRequest(profileData.id);
-      setFriendRequestStatus('sent');
-    } catch {
-      setFriendRequestStatus('error');
-      setTimeout(() => setFriendRequestStatus('idle'), 3000);
-    }
-  };
-
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -354,22 +351,45 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  if (loading) return <MainLayout><div className="flex items-center justify-center min-h-screen"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div></MainLayout>;
-  if (!profileData) return <MainLayout><div className="p-20 text-center text-red-500 font-bold text-2xl">Kullanıcı bulunamadı!</div></MainLayout>;
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 border-2 border-[#0ea5e9] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!profileData) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500">
+          <p className="text-lg font-semibold">Kullanıcı bulunamadı.</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const initials = `${profileData.first_name?.[0] ?? ''}${profileData.last_name?.[0] ?? ''}`.toUpperCase();
 
   return (
     <MainLayout>
-      <div className="w-full bg-gray-50/30 min-h-screen pb-20 pt-10">
+      <div className="w-full min-h-screen bg-slate-50 pb-16">
 
-        {/* ANA İÇERİK KONTEYNERİ */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        {/* Cover Banner */}
+        <div className="h-28 bg-gradient-to-r from-slate-800 to-slate-700 w-full" />
 
-          {/* PROFİL KARTI (ÜST) */}
-          <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 p-6 md:p-10 mb-8 border border-white mt-10">
-            <div className="flex flex-col md:flex-row items-center md:items-center gap-6 md:gap-8 mb-6">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
 
-              {/* Profil Fotoğrafı */}
-              <div className="relative group">
+          {/* Profile Card */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm mb-6 overflow-visible">
+
+            {/* Avatar + meta row */}
+            <div className="px-6 pt-0 pb-5 flex flex-col sm:flex-row sm:items-end gap-4">
+
+              {/* Avatar — overlaps the cover by -mt-12 */}
+              <div className="relative -mt-12 flex-shrink-0 group">
                 <input
                   type="file"
                   id="avatarUpload"
@@ -378,8 +398,8 @@ export const ProfilePage: React.FC = () => {
                   onChange={handleFileChange}
                 />
                 <label
-                  htmlFor={isOwnProfile && !isEditing ? "avatarUpload" : undefined}
-                  className={`w-32 h-32 md:w-36 md:h-36 rounded-[2rem] overflow-hidden bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-4xl font-black shadow-lg shadow-indigo-200/50 relative border-4 border-white ${isOwnProfile && !isEditing ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+                  htmlFor={isOwnProfile && !isEditing ? 'avatarUpload' : undefined}
+                  className={`w-20 h-20 rounded-xl overflow-hidden bg-[#0ea5e9] flex items-center justify-center text-white text-xl font-bold border-[3px] border-white shadow-lg relative ${isOwnProfile && !isEditing ? 'cursor-pointer' : ''}`}
                 >
                   {profileData.profile_picture_url ? (
                     <img
@@ -389,69 +409,53 @@ export const ProfilePage: React.FC = () => {
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   ) : (
-                    <>{profileData.first_name?.[0]}{profileData.last_name?.[0]}</>
+                    <span>{initials}</span>
                   )}
                   {isOwnProfile && !isEditing && (
-                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-2xl mb-1">📸</span>
-                      <span className="text-xs font-bold text-center px-2">{isUploading ? 'Yükleniyor...' : 'Fotoğraf Değiştir'}</span>
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                      <Camera className="w-5 h-5 text-white" />
                     </div>
                   )}
                 </label>
               </div>
 
-              {/* İsim ve Başlık */}
-              <div className="flex-1 text-center md:text-left pt-4 md:pt-0">
-                <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
+              {/* Name + meta */}
+              <div className="flex-1 min-w-0 sm:mb-1">
+                <h1 className="text-xl font-bold text-slate-900 leading-tight">
                   {profileData.first_name} {profileData.last_name}
                 </h1>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3 text-sm font-semibold text-gray-500 uppercase tracking-widest">
-                  <span className="flex items-center gap-1">🎓 {profileData.university}</span>
-                  <span className="text-gray-300">·</span>
-                  <span className="flex items-center gap-1">📚 {profileData.department}</span>
+                <p className="text-sm text-slate-500 mt-0.5">@{profileData.username}</p>
+                <div className="flex flex-wrap items-center gap-3 mt-2">
+                  {profileData.university && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <GraduationCap className="w-3.5 h-3.5 text-slate-400" />
+                      {profileData.university}
+                    </span>
+                  )}
+                  {profileData.department && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                      {profileData.department}
+                    </span>
+                  )}
                   {profileData.grade && (
-                    <>
-                      <span className="text-gray-300">·</span>
-                      <span className="flex items-center gap-1 px-3 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black tracking-wide normal-case">
-                        🎒 {profileData.grade}
-                      </span>
-                    </>
+                    <span className="px-2 py-0.5 bg-sky-50 text-[#0ea5e9] rounded text-xs font-medium border border-sky-100">
+                      {profileData.grade}
+                    </span>
                   )}
                 </div>
               </div>
 
-              {/* Aksiyon Butonları (Sağ) */}
-              <div className="flex gap-3 w-full md:w-auto mt-4 md:mt-0 flex-wrap">
+              {/* Actions */}
+              <div className="flex gap-2 sm:mb-1 flex-shrink-0">
                 {!isOwnProfile ? (
-                  <>
-                    <button
-                      onClick={() => navigate('/dashboard/messages')}
-                      className="flex-1 md:flex-none px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95"
-                    >
-                      💬 Mesaj Gönder
-                    </button>
-                    <button
-                      onClick={handleSendFriendRequest}
-                      disabled={friendRequestStatus === 'sending' || friendRequestStatus === 'sent'}
-                      className={`flex-1 md:flex-none px-6 py-3 font-bold rounded-2xl shadow-lg transition-all active:scale-95 ${
-                        friendRequestStatus === 'sent'
-                          ? 'bg-emerald-500 text-white shadow-emerald-200 cursor-default'
-                          : friendRequestStatus === 'error'
-                          ? 'bg-red-100 text-red-600 shadow-none'
-                          : 'bg-white border-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-indigo-100'
-                      }`}
-                    >
-                      {friendRequestStatus === 'sending' && (
-                        <span className="inline-flex items-center gap-2">
-                          <span className="inline-block w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                          Gönderiliyor...
-                        </span>
-                      )}
-                      {friendRequestStatus === 'sent' && '✓ İstek Gönderildi'}
-                      {friendRequestStatus === 'error' && '✕ Hata oluştu'}
-                      {(friendRequestStatus === 'idle') && '👤+ Arkadaş Ekle'}
-                    </button>
-                  </>
+                  <button
+                    onClick={() => navigate('/dashboard/messages')}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#0ea5e9] hover:bg-sky-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Mesaj Gönder
+                  </button>
                 ) : (
                   !isEditing && (
                     <button
@@ -463,8 +467,9 @@ export const ProfilePage: React.FC = () => {
                         });
                         setIsEditing(true);
                       }}
-                      className="flex-1 md:flex-none px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95"
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors"
                     >
+                      <Edit3 className="w-4 h-4" />
                       Profili Düzenle
                     </button>
                   )
@@ -472,24 +477,21 @@ export const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Biyografi ve İstatistikler */}
+            {/* Bio + Stats */}
             {!isEditing && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6 border-t border-gray-100">
-                <div className="md:col-span-2">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Hakkımda</h3>
-                  <p className="text-gray-700 text-base leading-relaxed">
-                    {profileData.bio ? profileData.bio : "Henüz bir biyografi eklenmemiş. Gizemli biri! 🕵️"}
-                  </p>
-                </div>
-                <div className="md:col-span-1 flex justify-around md:justify-end gap-6 md:gap-10">
-                  <div className="text-center group">
-                    <div className="text-3xl font-black text-gray-900 group-hover:text-indigo-600 transition-colors">{activities.length}</div>
-                    <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Paylaşım</div>
+              <div className="border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                <p className="flex-1 text-sm text-slate-600 leading-relaxed">
+                  {profileData.bio || <span className="text-slate-400 italic">Henüz bir biyografi eklenmemiş.</span>}
+                </p>
+                <div className="flex items-center gap-6 sm:border-l sm:border-slate-100 sm:pl-6 flex-shrink-0">
+                  <div className="text-center">
+                    <p className="text-xl font-bold text-slate-900">{activities.length}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Paylaşım</p>
                   </div>
                   {isOwnProfile && (
-                    <div className="text-center group">
-                      <div className="text-3xl font-black text-gray-900 group-hover:text-pink-600 transition-colors">{favorites.length}</div>
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Favori</div>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-slate-900">{favorites.length}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Favori</p>
                     </div>
                   )}
                 </div>
@@ -497,30 +499,28 @@ export const ProfilePage: React.FC = () => {
             )}
           </div>
 
-          {/* DÜZENLEME FORMU KARTI */}
+          {/* Edit Form */}
           {isEditing && (
-            <div className="bg-white rounded-[2rem] shadow-xl shadow-gray-200/50 p-8 md:p-12 mb-8 animate-in fade-in slide-in-from-bottom-4">
-              <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-6">
-                <h3 className="text-2xl font-black text-gray-900">Profili Düzenle</h3>
-                <button onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-900 font-bold transition-colors">✕ Kapat</button>
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm mb-6 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <h3 className="text-base font-semibold text-slate-900">Profili Düzenle</h3>
+                <button onClick={() => setIsEditing(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <form onSubmit={handleEditSubmit} className="space-y-6 max-w-2xl mx-auto">
+              <form onSubmit={handleEditSubmit} className="p-6 space-y-5 max-w-2xl">
+                <CascadingInstitutionSelect
+                  showDepartment
+                  initialUniversityName={editInstitution.universityName}
+                  initialUniversityId={editInstitution.universityId}
+                  initialFacultyId={editInstitution.facultyId}
+                  initialDepartmentId={editInstitution.departmentId}
+                  onChange={(selection) => setEditInstitution((prev) => ({ ...prev, ...selection }))}
+                />
                 <div>
-                  <CascadingInstitutionSelect
-                    showDepartment
-                    initialUniversityName={editInstitution.universityName}
-                    initialUniversityId={editInstitution.universityId}
-                    initialFacultyId={editInstitution.facultyId}
-                    initialDepartmentId={editInstitution.departmentId}
-                    onChange={(selection) => {
-                      setEditInstitution((prev) => ({ ...prev, ...selection }));
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">Sınıf</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Sınıf</label>
                   <select
-                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border border-gray-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-gray-700 appearance-none cursor-pointer"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
                     value={editForm.grade}
                     onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })}
                   >
@@ -530,9 +530,9 @@ export const ProfilePage: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">Biyografi (Hakkımda)</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Hakkımda</label>
                   <textarea
-                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border border-gray-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none text-gray-700"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
                     rows={4}
                     placeholder="Kendinizden, ilgi alanlarınızdan bahsedin..."
                     value={editForm.bio}
@@ -540,164 +540,160 @@ export const ProfilePage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">Profil Fotoğrafı URL</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Profil Fotoğrafı URL</label>
                   <input
                     type="url"
-                    className="w-full px-5 py-4 bg-gray-50 rounded-2xl border border-gray-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-gray-700"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
                     placeholder="https://example.com/photo.jpg"
                     value={editForm.profile_picture_url}
                     onChange={(e) => setEditForm({ ...editForm, profile_picture_url: e.target.value })}
                   />
-                  <p className="text-xs text-gray-400 mt-2 font-medium">Şimdilik sadece resim linki yapıştırarak fotoğraf ekleyebilirsiniz.</p>
                 </div>
-                <div className="flex justify-end gap-4 pt-6">
-                  <button type="button" onClick={() => setIsEditing(false)} className="px-8 py-3.5 text-gray-500 font-bold hover:bg-gray-100 rounded-2xl transition-all">İptal</button>
-                  <button type="submit" className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Değişiklikleri Kaydet ✓</button>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
+                    İptal
+                  </button>
+                  <button type="submit" className="px-5 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                    Kaydet
+                  </button>
                 </div>
               </form>
             </div>
           )}
 
-          {/* İÇERİK SEKMELERİ */}
+          {/* Tabs */}
           {!isEditing && (
             <>
-              <div className="flex justify-center md:justify-start gap-2 mb-8 p-1 bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-gray-100 w-fit mx-auto md:mx-0">
-                <button
-                  onClick={() => setActiveTab('info')}
-                  className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'info' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 hover:bg-white/80'}`}
-                >
-                  Bilgiler
-                </button>
-                <button
-                  onClick={() => setActiveTab('activity')}
-                  className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'activity' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 hover:bg-white/80'}`}
-                >
-                  Paylaşımlar
-                </button>
-                {isOwnProfile && (
+              <div className="flex items-center gap-0 border-b border-slate-200 mb-6 bg-white rounded-t-lg px-2">
+                {[
+                  { key: 'info', label: 'Bilgiler', icon: FileText },
+                  { key: 'activity', label: 'Paylaşımlar', icon: Layers },
+                  ...(isOwnProfile ? [{ key: 'favorites', label: 'Favoriler', icon: Heart }] : []),
+                ].map(({ key, label, icon: Icon }) => (
                   <button
-                    onClick={() => setActiveTab('favorites')}
-                    className={`px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${activeTab === 'favorites' ? 'bg-pink-500 text-white shadow-md shadow-pink-200' : 'text-gray-500 hover:text-pink-600 hover:bg-white/80'}`}
+                    key={key}
+                    onClick={() => setActiveTab(key as TabType)}
+                    className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-all border-b-2 -mb-px ${
+                      activeTab === key
+                        ? 'border-[#0ea5e9] text-[#0ea5e9]'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
                   >
-                    Favoriler
+                    <Icon className="w-4 h-4" />
+                    {label}
                   </button>
-                )}
+                ))}
               </div>
 
-              <div className="animate-in fade-in slide-in-from-bottom-5 duration-500">
+              {/* Tab Content */}
+              <div>
 
-                {/* BİLGİLER SEKMESİ */}
+                {/* BİLGİLER */}
                 {activeTab === 'info' && (
-                  <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8 md:p-10">
-                    <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-3">
-                      <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">📋</span> Detaylı Bilgiler
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
-                      <InfoCard icon="📅" label="Katılım Tarihi" value={new Date(profileData.created_at).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })} />
-                      <InfoCard icon="🏛️" label="Üniversite" value={profileData.university} />
-                      <InfoCard icon="📚" label="Bölüm" value={profileData.department} />
-                      <InfoCard icon="🎒" label="Sınıf" value={profileData.grade ?? undefined} />
+                  <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-4">Detaylı Bilgiler</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <InfoCard icon={GraduationCap} label="Üniversite" value={profileData.university} />
+                      <InfoCard icon={BookOpen} label="Bölüm" value={profileData.department} />
+                      <InfoCard icon={Layers} label="Sınıf" value={profileData.grade ?? undefined} />
                     </div>
                   </div>
                 )}
 
-                {/* PAYLAŞIMLAR SEKMESİ */}
+                {/* PAYLAŞIMLAR */}
                 {activeTab === 'activity' && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {activities.length === 0 ? (
-                      <div className="bg-white p-16 rounded-[2rem] border border-dashed border-gray-300 text-center">
-                        <div className="text-6xl mb-4 opacity-50">📭</div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Henüz Paylaşım Yok</h3>
-                        <p className="text-gray-500 font-medium">Bu kullanıcı henüz platformda bir içerik paylaşmamış.</p>
+                      <div className="bg-white border border-slate-200 rounded-xl p-16 text-center">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Layers className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700">Henüz paylaşım yok</p>
+                        <p className="text-xs text-slate-400 mt-1">Bu kullanıcı henüz içerik paylaşmamış.</p>
                       </div>
                     ) : (
-                      activities.map((act) => (
-                        <div
-                          key={act.id}
-                          onClick={() => {
-                            const stateToPass = { from: location.pathname, tab: activeTab };
-                            if (act.type === 'marketplace_listing') navigate(`/dashboard/marketplace/${act.id}`, { state: stateToPass });
-                            else if (act.type === 'forum_topic') navigate(`/dashboard/forum/${act.id}`, { state: stateToPass });
-                            else if (act.type === 'career_listing') navigate(`/dashboard/career/${act.id}`, { state: stateToPass });
-                          }}
-                          className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-100 transition-all group flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 cursor-pointer"
-                        >
-                          <div className="flex items-center gap-5">
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${act.type === 'marketplace_listing' ? 'bg-gradient-to-br from-teal-50 to-teal-100 text-teal-600' :
-                              act.type === 'forum_topic' ? 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600' :
-                                'bg-gradient-to-br from-purple-50 to-purple-100 text-purple-600'
-                              }`}>
-                              {act.type === 'marketplace_listing' ? '🛒' : act.type === 'forum_topic' ? '💬' : '💼'}
+                      activities.map((act) => {
+                        const isMarket = act.type === 'marketplace_listing';
+                        const isForum = act.type === 'forum_topic';
+                        const ActIcon = isMarket ? ShoppingBag : isForum ? MessageSquare : Briefcase;
+                        const label = isMarket ? 'Pazar' : isForum ? 'Forum' : 'Kariyer';
+                        const color = isMarket ? 'text-emerald-600 bg-emerald-50' : isForum ? 'text-blue-600 bg-blue-50' : 'text-violet-600 bg-violet-50';
+                        return (
+                          <div
+                            key={act.id}
+                            onClick={() => {
+                              const s = { from: location.pathname, tab: activeTab };
+                              if (isMarket) navigate(`/dashboard/marketplace/${act.id}`, { state: s });
+                              else if (isForum) navigate(`/dashboard/forum/${act.id}`, { state: s });
+                              else navigate(`/dashboard/career/${act.id}`, { state: s });
+                            }}
+                            className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-4 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                          >
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
+                              <ActIcon className="w-5 h-5" />
                             </div>
-                            <div>
-                              <h4 className="font-bold text-gray-900 text-lg group-hover:text-indigo-600 transition-colors line-clamp-1">{act.title}</h4>
-                              <div className="flex items-center gap-3 mt-1.5">
-                                <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md ${act.type === 'marketplace_listing' ? 'bg-teal-50 text-teal-700' :
-                                  act.type === 'forum_topic' ? 'bg-blue-50 text-blue-700' :
-                                    'bg-purple-50 text-purple-700'
-                                  }`}>
-                                  {act.type === 'marketplace_listing' ? 'Pazar İlanı' : act.type === 'forum_topic' ? 'Konu' : 'Kariyer İlanı'}
-                                </span>
-                                <span className="text-xs font-semibold text-gray-400">
-                                  {formatDistanceToNow(new Date(act.created_at), { addSuffix: true, locale: tr })}
-                                </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-[#0ea5e9] transition-colors">{act.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${color}`}>{label}</span>
+                                <span className="text-xs text-slate-400">{formatDistanceToNow(new Date(act.created_at), { addSuffix: true, locale: tr })}</span>
                               </div>
                             </div>
+                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0 transition-colors" />
                           </div>
-                          <div className="text-indigo-300 group-hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-all font-bold pr-2 -translate-x-4 group-hover:translate-x-0">
-                            Görüntüle →
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 )}
 
-                {/* FAVORİLER SEKMESİ */}
+                {/* FAVORİLER */}
                 {activeTab === 'favorites' && isOwnProfile && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-3">
                     {favorites.length === 0 ? (
-                      <div className="col-span-full bg-white p-16 rounded-[2rem] border border-dashed border-gray-300 text-center mt-4">
-                        <div className="text-6xl mb-4 opacity-50">💔</div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Henüz Favoriniz Yok</h3>
-                        <p className="text-gray-500 font-medium text-sm">Pazar yerinden veya forumdan ilgini çeken paylaşımları kalple, hepsi burada biriksin!</p>
+                      <div className="bg-white border border-slate-200 rounded-xl p-16 text-center">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Heart className="w-6 h-6 text-slate-400" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700">Henüz favori yok</p>
+                        <p className="text-xs text-slate-400 mt-1">Beğendiğin ilanları favorilere ekle.</p>
                       </div>
                     ) : (
-                      favorites.map((fav) => (
-                        <div
-                          key={fav.favorite_id}
-                          onClick={() => {
-                            const stateToPass = { from: location.pathname, tab: activeTab };
-                            if (fav.target_type === 'marketplace_listing') navigate(`/dashboard/marketplace/${fav.target_id}`, { state: stateToPass });
-                            else if (fav.target_type === 'forum_topic') navigate(`/dashboard/forum/${fav.target_id}`, { state: stateToPass });
-                            else if (fav.target_type === 'career_listing') navigate(`/dashboard/career/${fav.target_id}`, { state: stateToPass });
-                          }}
-                          className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:shadow-xl hover:shadow-pink-100/50 hover:border-pink-200 transition-all group flex items-center gap-4 cursor-pointer relative overflow-hidden"
-                        >
-                          {fav.image ? (
-                            <img src={`http://localhost:8000${fav.image}`} alt="Fav" className="w-20 h-20 rounded-2xl object-cover bg-gray-50" />
-                          ) : (
-                            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl shadow-inner ${fav.target_type === 'marketplace_listing' ? 'bg-teal-50 text-teal-600' :
-                              fav.target_type === 'forum_topic' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
-                              }`}>
-                              {fav.target_type === 'marketplace_listing' ? '🛍️' : fav.target_type === 'forum_topic' ? '🗯️' : '💼'}
+                      favorites.map((fav) => {
+                        const isMarket = fav.target_type === 'marketplace_listing';
+                        const isForum = fav.target_type === 'forum_topic';
+                        const FavIcon = isMarket ? ShoppingBag : isForum ? MessageSquare : Briefcase;
+                        const label = isMarket ? 'Pazar' : isForum ? 'Forum' : 'Kariyer';
+                        const color = isMarket ? 'text-emerald-600 bg-emerald-50' : isForum ? 'text-blue-600 bg-blue-50' : 'text-violet-600 bg-violet-50';
+                        return (
+                          <div
+                            key={fav.favorite_id}
+                            onClick={() => {
+                              const s = { from: location.pathname, tab: activeTab };
+                              if (isMarket) navigate(`/dashboard/marketplace/${fav.target_id}`, { state: s });
+                              else if (isForum) navigate(`/dashboard/forum/${fav.target_id}`, { state: s });
+                              else navigate(`/dashboard/career/${fav.target_id}`, { state: s });
+                            }}
+                            className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-4 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                          >
+                            {fav.image ? (
+                              <img src={`http://localhost:8000${fav.image}`} alt="Fav" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                            ) : (
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
+                                <FavIcon className="w-5 h-5" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-[#0ea5e9] transition-colors">{fav.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${color}`}>{label}</span>
+                                {fav.price && <span className="text-xs font-semibold text-slate-700">{fav.price} TL</span>}
+                              </div>
                             </div>
-                          )}
-                          <div className="flex-1 min-w-0 pr-6">
-                            <span className="text-[9px] font-black text-pink-500 uppercase tracking-widest bg-pink-50 px-2 py-0.5 rounded flex items-center w-fit mb-1.5 gap-1">
-                              ❤️ {fav.target_type === 'marketplace_listing' ? 'Pazar' : fav.target_type === 'career_listing' ? 'Kariyer' : 'Forum'}
-                            </span>
-                            <h4 className="font-bold text-gray-900 line-clamp-2 leading-tight group-hover:text-pink-600 transition-colors text-sm mb-1">{fav.title}</h4>
-                            {fav.price && <p className="text-indigo-600 font-black text-xs">{fav.price} TL</p>}
+                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0 transition-colors" />
                           </div>
-
-                          <div className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-white via-white/90 to-transparent w-16 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end pr-4">
-                            <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center group-hover:scale-110 transition-transform font-bold shadow-sm">
-                              ❯
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -706,75 +702,77 @@ export const ProfilePage: React.FC = () => {
             </>
           )}
 
-          {/* CROPPING MODAL */}
-          {selectedImageSrc && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-3xl overflow-hidden w-full max-w-lg flex flex-col shadow-2xl">
-                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                  <h3 className="font-bold text-gray-800">Fotoğrafı Kırp</h3>
-                  <button onClick={() => setSelectedImageSrc(null)} className="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
-                <div className="relative w-full h-80 bg-gray-100">
-                  <Cropper
-                    image={selectedImageSrc}
-                    crop={crop}
-                    zoom={zoom}
-                    aspect={1}
-                    cropShape="rect"
-                    onCropChange={setCrop}
-                    onCropComplete={onCropComplete}
-                    onZoomChange={setZoom}
-                  />
-                </div>
-
-                <div className="p-6 bg-white space-y-6">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-semibold text-gray-500">Yakınlaştır</span>
-                    <input
-                      type="range"
-                      value={zoom}
-                      min={1}
-                      max={3}
-                      step={0.1}
-                      aria-labelledby="Zoom"
-                      onChange={(e) => setZoom(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                    />
-                  </div>
-
-                  <div className="flex gap-3 justify-end">
-                    <button
-                      onClick={() => setSelectedImageSrc(null)}
-                      className="px-6 py-2.5 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
-                    >
-                      İptal
-                    </button>
-                    <button
-                      onClick={handleAvatarCropSave}
-                      className="px-6 py-2.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
-                    >
-                      {isUploading ? 'Yükleniyor...' : 'Uygula'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
         </div>
       </div>
+
+      {/* CROPPING MODAL */}
+      {selectedImageSrc && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl overflow-hidden w-full max-w-md flex flex-col shadow-2xl">
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-slate-800">Fotoğrafı Kırp</h3>
+              <button onClick={() => setSelectedImageSrc(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="relative w-full h-72 bg-slate-100">
+              <Cropper
+                image={selectedImageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="rect"
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-medium text-slate-500 w-20">Yakınlaştır</span>
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-labelledby="Zoom"
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="flex-1 accent-[#0ea5e9]"
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button onClick={() => setSelectedImageSrc(null)} className="px-4 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
+                  İptal
+                </button>
+                <button onClick={handleAvatarCropSave} className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                  {isUploading ? 'Yükleniyor...' : 'Uygula'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };
 
-// Alt Bileşen: Bilgi Kartı
-const InfoCard = ({ icon, label, value }: { icon: string; label: string; value?: string }) => (
-  <div className="bg-gray-50/80 hover:bg-indigo-50/50 p-5 rounded-2xl border border-gray-100 transition-colors flex items-start gap-4">
-    <div className="text-2xl mt-1 opacity-80">{icon}</div>
-    <div>
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-      <p className="font-bold text-gray-900 leading-tight">{value || 'Bilinmiyor'}</p>
+const InfoCard = ({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value?: string;
+}) => (
+  <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-lg">
+    <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
+      <Icon className="w-4 h-4 text-slate-500" />
+    </div>
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
+      <p className="text-sm font-semibold text-slate-800 truncate">{value || 'Bilinmiyor'}</p>
     </div>
   </div>
 );

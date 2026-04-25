@@ -6,8 +6,8 @@ Spec: specs/012-notifications/spec.md
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -108,3 +108,42 @@ async def list_notifications(
         "has_more": (page * limit) < total,
         "notifications": notifications,
     }
+
+
+@router.patch("/read-all", response_model=dict)
+async def mark_all_notifications_read(
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Tüm bildirimleri okundu olarak işaretle."""
+    await session.execute(
+        update(Notification)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.is_read.is_(False),
+        )
+        .values(is_read=True)
+    )
+    await session.commit()
+    return {"success": True}
+
+
+@router.patch("/{notification_id}/read", response_model=dict)
+async def mark_notification_read(
+    notification_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Tek bir bildirimi okundu olarak işaretle."""
+    result = await session.execute(
+        select(Notification).where(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id,
+        )
+    )
+    notif = result.scalar_one_or_none()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Bildirim bulunamadı.")
+    notif.is_read = True
+    await session.commit()
+    return {"success": True}

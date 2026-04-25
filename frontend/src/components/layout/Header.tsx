@@ -65,7 +65,12 @@ export const Header: React.FC = () => {
       loadNotifications();
       loadConversations();
     }, 10000);
-    return () => clearInterval(interval);
+    const onUpdated = () => loadNotifications();
+    window.addEventListener('kampus-notifications-updated', onUpdated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('kampus-notifications-updated', onUpdated);
+    };
   }, []);
 
   const loadNotifications = async () => {

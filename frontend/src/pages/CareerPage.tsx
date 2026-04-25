@@ -26,6 +26,7 @@ import {
   Flag,
   ExternalLink,
   Bookmark,
+  Trash2,
 } from 'lucide-react';
 import { apiClient } from '../api/config';
 import { getImageUrl } from '../utils/imageUrl';
@@ -390,144 +391,185 @@ const ListingDetailView: React.FC<{
   };
 
   return (
-    <div className="max-w-3xl">
-      <button onClick={onBack} className="inline-flex items-center gap-2 text-slate-600 hover:text-[#0ea5e9] transition-colors mb-6 font-medium text-sm">
+    <div>
+      <button
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors mb-6"
+      >
         <ArrowLeft className="w-4 h-4" /> Kariyer'e Dön
       </button>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className={`h-1.5 bg-gradient-to-r ${cfg.gradient}`} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <div className={`p-7 border-b ${cfg.bgLight}`}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg mb-3 ${cfg.bgLight}`}>
-                <TypeIcon className={`w-4 h-4 ${cfg.textColor}`} />
-                <span className={`text-xs font-bold ${cfg.textColor}`}>{cfg.labelFull}</span>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 leading-tight">{listing.title}</h1>
-              {listing.company_name && (
-                <p className="text-slate-600 mt-1 font-medium flex items-center gap-2"><Building2 className="w-4 h-4" /> {listing.company_name}</p>
-              )}
-              {listing.required_position && (
-                <p className="text-slate-600 mt-1 font-medium">Aranan: {listing.required_position}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleFavorite}
-                className={`p-2 rounded-full transition-colors flex items-center justify-center ${isFavorite ? 'bg-sky-100 text-[#0ea5e9]' : 'text-slate-400 hover:bg-slate-50 hover:text-[#0ea5e9]'}`}
-                title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
-              >
-                <Bookmark className={`w-5 h-5 ${isFavorite ? 'fill-[#0ea5e9]' : ''}`} />
-              </button>
-              {isOwner && (
-                <button onClick={() => { if (window.confirm('İlanı silmek istiyor musunuz?')) onDelete(listing.id); }}
-                  className="text-sm text-red-500 hover:text-red-700 font-medium whitespace-nowrap mt-1">
-                  Sil
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full"><MapPin className="w-3.5 h-3.5" />{listing.location}</span>
-            <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full">{listing.sector}</span>
-            {listing.salary_range && <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full">{listing.salary_range}</span>}
-            {listing.payment_type && <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full">{PAYMENT_LABELS[listing.payment_type] || listing.payment_type}</span>}
-            {listing.duration && <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full">{DURATION_LABELS[listing.duration] || listing.duration}</span>}
-            <span className="inline-flex items-center gap-1.5 text-sm bg-white/80 px-3 py-1 rounded-full"><Clock className="w-3.5 h-3.5" />{timeAgo(listing.created_at)}</span>
-          </div>
-        </div>
+        {/* ── Sol: Ana İçerik ── */}
+        <div className="lg:col-span-2 space-y-5">
 
-        <div className="p-7 space-y-6">
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-            <p className="text-xs text-slate-500 uppercase font-bold mb-3 tracking-wide">İlan Veren</p>
-            <Link to={`/dashboard/profile/${listing.creator?.username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity w-fit">
-              {listing.creator?.profile_picture_url ? (
-                <>
-                  <img
-                    src={getImageUrl(listing.creator.profile_picture_url)}
-                    alt={listing.creator.username || 'Creator'}
-                    className="w-10 h-10 rounded-lg object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      if (e.currentTarget.nextElementSibling) {
-                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                      }
-                    }}
-                  />
-                  <div className="w-10 h-10 rounded-lg bg-[#0ea5e9] items-center justify-center text-white font-bold" style={{ display: 'none' }}>
-                    {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
-                  </div>
-                </>
-              ) : (
-                <div className="w-10 h-10 rounded-lg bg-[#0ea5e9] flex items-center justify-center text-white font-bold">
-                  {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+          {/* Başlık Kartı */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className={`h-1.5 w-full bg-gradient-to-r ${cfg.gradient}`} />
+            <div className="p-8">
+              <div className="flex items-start justify-between mb-5">
+                <span className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full ${cfg.badgeBg} ${cfg.textColor}`}>
+                  <TypeIcon className="w-3.5 h-3.5" />
+                  {cfg.labelFull}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={toggleFavorite}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isFavorite ? 'bg-sky-50 text-[#0ea5e9]' : 'text-slate-400 hover:bg-slate-100'}`}
+                    title={isFavorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
+                  >
+                    <Bookmark className={`w-4 h-4 ${isFavorite ? 'fill-[#0ea5e9]' : ''}`} />
+                  </button>
+                  {isOwner && (
+                    <button
+                      onClick={() => { if (window.confirm('İlanı silmek istiyor musunuz?')) onDelete(listing.id); }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-              )}
-              <div>
-                <p className="font-semibold text-slate-900">
-                  {listing.creator ? `${listing.creator.full_name || listing.creator.username}` : "İlan Sahibi"}
-                </p>
-                {listing.creator?.university && <p className="text-sm text-slate-500">{listing.creator.university}</p>}
-                {listing.creator?.department && <p className="text-sm text-slate-500">{listing.creator.department}</p>}
               </div>
-            </Link>
-          </div>
 
-          <div>
-            <p className="text-xs text-slate-500 uppercase font-bold mb-3 tracking-wide">Açıklama</p>
-            <div className="text-slate-700 leading-relaxed whitespace-pre-line text-sm">{listing.description}</div>
-          </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-4 leading-tight">{listing.title}</h1>
 
-          {!isOwner && (
-            <div className="border-t border-slate-100 pt-6 flex flex-col gap-3">
-              {isJobOrInternship && listing.external_link ? (
-                <a
-                  href={listing.external_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`inline-flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r ${cfg.gradient} text-white font-semibold rounded-xl hover:shadow-lg transition-all text-sm`}
-                >
-                  <ExternalLink className="w-4 h-4" /> Harici Platforma Başvur
-                </a>
-              ) : null}
-              <button
-                onClick={() => setShowApplyDialog(true)}
-                className="w-full py-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <cfg.Icon className="w-4 h-4" />
-                {listing.listing_type === 'startup' ? 'İlgileniyorum — Mesaj Gönder' : listing.listing_type === 'project' ? 'Katılmak İstiyorum' : 'Başvur'}
-              </button>
+              <div className="space-y-2 mb-6">
+                {listing.company_name && (
+                  <div className="flex items-center gap-2 text-slate-600 text-sm">
+                    <Building2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <span className="font-medium">{listing.company_name}</span>
+                  </div>
+                )}
+                {listing.required_position && (
+                  <div className="flex items-center gap-2 text-slate-500 text-sm">
+                    <TypeIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <span>Aranan: {listing.required_position}</span>
+                  </div>
+                )}
+                {listing.location && (
+                  <div className="flex items-center gap-2 text-slate-500 text-sm">
+                    <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <span>{listing.location}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-5 border-t border-slate-100">
+                {listing.sector && <span className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full">{listing.sector}</span>}
+                {listing.payment_type && <span className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full">{PAYMENT_LABELS[listing.payment_type] || listing.payment_type}</span>}
+                {listing.salary_range && <span className="text-xs font-medium bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full">{listing.salary_range}</span>}
+                {listing.duration && <span className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full">{DURATION_LABELS[listing.duration] || listing.duration}</span>}
+                <span className="text-xs font-medium text-slate-400 px-3 py-1.5 rounded-full bg-slate-50 inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3" />{timeAgo(listing.created_at)}
+                </span>
+              </div>
             </div>
-          )}
+          </div>
 
-          {showApplyDialog && (
-            <ApplyDialog listing={listing} onClose={() => setShowApplyDialog(false)} />
-          )}
+          {/* Açıklama */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Açıklama</h2>
+            <p className="text-sm text-slate-700 leading-7 whitespace-pre-line">{listing.description}</p>
+          </div>
 
-          <div className="border-t border-slate-100 pt-4">
+          {/* Rapor */}
+          <div className="px-1">
             {reportSent ? (
               <p className="text-sm text-emerald-600 flex items-center gap-2"><Check className="w-4 h-4" /> Raporunuz alındı.</p>
             ) : showReportBox ? (
-              <div className="space-y-2">
+              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
                 <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)}
-                  placeholder="Uygunsuzluk nedenini açıklayın..."
-                  rows={2}
-                  className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-300 resize-none" />
+                  placeholder="Uygunsuzluk nedenini kısaca açıklayın..." rows={2}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200" />
                 <div className="flex gap-2">
-                  <button onClick={handleReport} className="text-sm px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium">Raporu Gönder</button>
-                  <button onClick={() => setShowReportBox(false)} className="text-sm px-4 py-1.5 text-slate-500 hover:text-slate-700">İptal</button>
+                  <button onClick={handleReport} className="text-sm px-4 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium">Gönder</button>
+                  <button onClick={() => setShowReportBox(false)} className="text-sm px-4 py-1.5 text-slate-400 hover:text-slate-600">İptal</button>
                 </div>
               </div>
             ) : (
-              <button onClick={() => setShowReportBox(true)} className="text-sm text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1.5">
+              <button onClick={() => setShowReportBox(true)} className="text-xs text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1.5">
                 <Flag className="w-3.5 h-3.5" /> Uygunsuz İlan Bildir
               </button>
             )}
           </div>
         </div>
+
+        {/* ── Sağ: Sidebar ── */}
+        <div className="space-y-4">
+
+          {/* CTA */}
+          {!isOwner && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-3">
+              <button
+                onClick={() => setShowApplyDialog(true)}
+                className="w-full py-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                <cfg.Icon className="w-4 h-4" />
+                {listing.listing_type === 'startup' ? 'İlgileniyorum' : listing.listing_type === 'project' ? 'Katılmak İstiyorum' : 'Başvur'}
+              </button>
+              {isJobOrInternship && listing.external_link && (
+                <a href={listing.external_link} target="_blank" rel="noopener noreferrer"
+                  className="w-full py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
+                  <ExternalLink className="w-4 h-4 text-slate-400" /> Harici Platform
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* İlan Veren */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">İlan Veren</p>
+            <Link to={`/dashboard/profile/${listing.creator?.username}`} className="flex items-center gap-3 group">
+              {listing.creator?.profile_picture_url ? (
+                <img src={getImageUrl(listing.creator.profile_picture_url)} alt={listing.creator.username || ''}
+                  className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-[#0ea5e9] flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+                  {listing.creator?.username?.charAt(0).toUpperCase() || '?'}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 group-hover:text-[#0ea5e9] transition-colors truncate">
+                  {listing.creator?.full_name || listing.creator?.username || 'İlan Sahibi'}
+                </p>
+                {listing.creator?.university && <p className="text-xs text-slate-500 truncate mt-0.5">{listing.creator.university}</p>}
+                {listing.creator?.department && <p className="text-xs text-slate-400 truncate">{listing.creator.department}</p>}
+              </div>
+            </Link>
+          </div>
+
+          {/* Detaylar */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Detaylar</p>
+            <div className="space-y-3">
+              {listing.location && (
+                <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                  <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" /><span>{listing.location}</span>
+                </div>
+              )}
+              {listing.sector && (
+                <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                  <Briefcase className="w-4 h-4 text-slate-400 flex-shrink-0" /><span>{listing.sector}</span>
+                </div>
+              )}
+              {listing.payment_type && (
+                <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                  <Check className="w-4 h-4 text-slate-400 flex-shrink-0" /><span>{PAYMENT_LABELS[listing.payment_type] || listing.payment_type}</span>
+                </div>
+              )}
+              {listing.duration && (
+                <div className="flex items-center gap-2.5 text-sm text-slate-600">
+                  <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" /><span>{DURATION_LABELS[listing.duration] || listing.duration}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {showApplyDialog && <ApplyDialog listing={listing} onClose={() => setShowApplyDialog(false)} />}
     </div>
   );
 };
@@ -1039,20 +1081,22 @@ export const CareerPage: React.FC = () => {
 
           {/* Detail */}
           {view === 'detail' && selectedListing && (
-            <ListingDetailView
-              listing={selectedListing}
-              onBack={() => {
-                const state = (location.state as BackState | null) || null;
-                if (state?.from) {
-                  navigate(state.from, { state: state.tab ? { tab: state.tab } : undefined });
-                } else {
-                  setView('list');
-                  if (id) navigate('/dashboard/career');
-                }
-              }}
-              currentUserId={currentUserId}
-              onDelete={handleDelete}
-            />
+            <div className="max-w-4xl mx-auto">
+              <ListingDetailView
+                listing={selectedListing}
+                onBack={() => {
+                  const state = (location.state as BackState | null) || null;
+                  if (state?.from) {
+                    navigate(state.from, { state: state.tab ? { tab: state.tab } : undefined });
+                  } else {
+                    setView('list');
+                    if (id) navigate('/dashboard/career');
+                  }
+                }}
+                currentUserId={currentUserId}
+                onDelete={handleDelete}
+              />
+            </div>
           )}
 
 

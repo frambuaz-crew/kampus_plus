@@ -11,6 +11,7 @@ import {
   Briefcase,
   ShoppingBag,
   ExternalLink,
+  UserCircle,
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
@@ -231,6 +232,18 @@ export const MessagesChatPage: React.FC = () => {
                 </>
               )}
             </div>
+
+            {/* Profili Gör */}
+            {conv?.other_user?.username && (
+              <button
+                onClick={() => navigate(`/dashboard/profile/${conv.other_user.username}`)}
+                className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-[#0ea5e9] hover:bg-sky-50 transition-colors border border-slate-200 hover:border-sky-100"
+                title="Profili Gör"
+              >
+                <UserCircle className="w-4 h-4" />
+                <span>Profili Gör</span>
+              </button>
+            )}
 
             {conv?.reference?.id && (
               <button

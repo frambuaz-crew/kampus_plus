@@ -7,7 +7,6 @@ import {
   MessageSquare,
   ShoppingBag,
   Briefcase,
-  Users,
   Calendar,
   CalendarDays,
   BookOpen,
@@ -29,7 +28,6 @@ const navigation = [
       { name: 'Forum', icon: MessageSquare, path: '/dashboard/forum' },
       { name: 'Pazar', icon: ShoppingBag, path: '/dashboard/marketplace' },
       { name: 'Kariyer', icon: Briefcase, path: '/dashboard/career' },
-      { name: 'Ağım', icon: Users, path: '/dashboard/network' },
     ],
   },
   {

@@ -9,8 +9,8 @@ import {
   MessageCircle,
   Briefcase,
   ShoppingBag,
-  ChevronRight,
   Search,
+  UserCircle,
 } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
@@ -171,10 +171,10 @@ export const MessagesPage: React.FC = () => {
                     : conv.other_user.username.charAt(0).toUpperCase();
 
                   return (
-                    <li key={conv.id}>
+                    <li key={conv.id} className="flex items-center hover:bg-slate-50 transition-colors">
                       <button
                         onClick={() => navigate(`/dashboard/messages/${conv.id}`)}
-                        className="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors text-left"
+                        className="flex-1 flex items-center gap-4 p-4 text-left min-w-0"
                       >
                         {/* Avatar */}
                         <div className="relative flex-shrink-0">
@@ -234,8 +234,19 @@ export const MessagesPage: React.FC = () => {
                             )}
                           </div>
                         </div>
+                      </button>
 
-                        <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                      {/* Profili Gör */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/profile/${conv.other_user.username}`);
+                        }}
+                        title="Profili Gör"
+                        className="flex-shrink-0 flex items-center gap-1.5 mr-3 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-[#0ea5e9] hover:bg-sky-50 transition-colors border border-transparent hover:border-sky-100"
+                      >
+                        <UserCircle className="w-4 h-4" />
+                        <span className="hidden sm:inline">Profil</span>
                       </button>
                     </li>
                   );
