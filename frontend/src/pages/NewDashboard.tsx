@@ -16,7 +16,6 @@ import {
   MapPin,
   Clock,
   MessageCircle,
-  Users,
   Tag,
   Sparkles,
 } from 'lucide-react';
@@ -214,14 +213,6 @@ export const NewDashboard: React.FC = () => {
       route: '/dashboard/messages',
     },
     {
-      label: 'Arkadaşlar',
-      value: stats.friends,
-      sub: 'Bağlantı',
-      icon: <Users className="w-5 h-5" />,
-      color: 'bg-violet-50 text-violet-500',
-      route: '/dashboard/network',
-    },
-    {
       label: 'İlanlarım',
       value: stats.myListings,
       sub: 'Aktif ilan',
@@ -252,7 +243,7 @@ export const NewDashboard: React.FC = () => {
         </div>
 
         {/* ─── Stats Cards ─── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {statCards.map((s) => (
             <Card
               key={s.label}
