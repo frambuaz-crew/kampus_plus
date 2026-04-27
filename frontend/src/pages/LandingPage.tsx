@@ -60,7 +60,7 @@ const FEATURES = [
 
 const STATS = [
   { value: '12.000+', label: 'Öğrenci' },
-  { value: '350+', label: 'Üniversite' },
+  { value: '4+', label: 'Üniversite' },
   { value: '500K+', label: 'Forum Gönderisi' },
 ];
 
