@@ -34,6 +34,8 @@ SUPER_ADMIN_FIRST_NAME = "Super"
 SUPER_ADMIN_LAST_NAME = "Admin"
 SUPER_ADMIN_USERNAME = "admin_abc"
 SUPER_ADMIN_UNIVERSITY_NAME = "Konya Gıda ve Tarım Üniversitesi"
+SUPER_ADMIN_FACULTY_NAME = "Mühendislik ve Mimarlık Fakültesi"
+SUPER_ADMIN_DEPARTMENT_NAME = "Bilgisayar Mühendisliği"
 
 KGTU_UNI_NAME = "Konya Gıda ve Tarım Üniversitesi"
 SELCUK_UNI_NAME = "Selçuk Üniversitesi"

@@ -16,7 +16,7 @@ from src.core.database import get_db
 from src.core.dependencies import get_current_user
 from src.models.career import CareerListing, CareerApplication, CareerReport, CareerMessage
 from src.models.messages import Conversation
-from src.models.user import User
+from src.models.user import User, UserRole
 
 router = APIRouter(prefix="/career", tags=["Career"])
 
@@ -159,13 +159,20 @@ async def get_listings(
     page: int = Query(1, ge=1),
     limit: int = Query(24, ge=1, le=100),
     university_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
+    # Admins see all universities; others see only their own university's listings.
+    is_admin = UserRole(current_user.role) in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN}
+
     stmt = (
         select(CareerListing, User)
         .outerjoin(User, CareerListing.posted_by == User.id)
         .where(CareerListing.status == "active")
     )
+
+    if not is_admin:
+        stmt = stmt.where(User.university_id == current_user.university_id)
 
     if listing_type:
         stmt = stmt.where(CareerListing.type == listing_type)
@@ -251,7 +258,7 @@ async def delete_listing(
     if not listing:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
 
-    is_admin = getattr(current_user, "role", None) == "admin"
+    is_admin = UserRole(current_user.role) in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN}
     if listing.posted_by != current_user.id and not is_admin:
         raise HTTPException(status_code=403, detail="Bu ilanı silme yetkiniz yok.")
 

@@ -8,10 +8,9 @@ from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, String, Text, text, Index
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, DialectJSON
 
 if TYPE_CHECKING:
     from .faculty import Faculty
@@ -38,10 +37,10 @@ class University(Base):
     city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     
     # Email domain'leri (JSON array string: ["selcuk.edu.tr", "ogr.selcuk.edu.tr"])
-    email_domains: Mapped[Optional[str]] = mapped_column(JSONB, nullable=True)
+    email_domains: Mapped[Optional[str]] = mapped_column(DialectJSON, nullable=True)
     
     # YÖK'tan çekilen ek bilgiler (JSON)
-    yok_data: Mapped[Optional[str]] = mapped_column(JSONB, nullable=True)
+    yok_data: Mapped[Optional[str]] = mapped_column(DialectJSON, nullable=True)
     
     # Aktif mi?
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False, index=True)

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.dialects.postgresql import JSONB as _PG_JSONB
 from alembic import context
 
 # backend/src dizinini Python path'ine ekle
@@ -38,6 +39,27 @@ if config.config_file_name is not None:
 # Tüm modelleri import ettiğimiz için Base.metadata'da tüm tablolar var
 target_metadata = Base.metadata
 
+
+def _compare_column_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
+    """Custom type comparator that prevents spurious migrations for DialectJSON columns.
+
+    Alembic resolves TypeDecorator types by reading `TypeDecorator.impl` —
+    not `load_dialect_impl` — when compare_type=True.  Because DialectJSON
+    sets `impl = JSON` (the SQLite-compatible fallback), Alembic would see
+    JSON ≠ JSONB on every autogenerate run against PostgreSQL and emit
+    destructive ALTER TABLE statements on all JSONB columns.
+
+    Returning False  → types are equivalent, no ALTER needed.
+    Returning None   → fall through to Alembic's default comparison.
+    """
+    from models.base import DialectJSON
+
+    if isinstance(metadata_type, DialectJSON) and isinstance(inspected_type, _PG_JSONB):
+        return False  # DialectJSON renders as JSONB on PostgreSQL — no change.
+
+    return None  # Use Alembic's default comparison for all other types.
+
+
 # Veritabanı URL'ini environment variable'lardan al
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.get_database_url_sync())
@@ -51,7 +73,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,  # Sütun tipi değişikliklerini algıla
+        compare_type=_compare_column_type,
         compare_server_default=True,  # Varsayılan değer değişikliklerini algıla
     )
     with context.begin_transaction():
@@ -69,7 +91,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            compare_type=True,  # Sütun tipi değişikliklerini algıla
+            compare_type=_compare_column_type,
             compare_server_default=True,  # Varsayılan değer değişikliklerini algıla
         )
         with context.begin_transaction():

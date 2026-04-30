@@ -10,7 +10,7 @@ import os
 import uuid
 
 from src.core.database import get_db
-from src.core.dependencies import get_current_user
+from src.core.dependencies import get_current_user, get_current_active_user
 from src.models.marketplace import MarketplaceListing
 from src.models.user import User
 
@@ -48,7 +48,8 @@ class ListingResponse(BaseModel):
 async def get_listings(
     university: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
-    session: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db),
 ):
     # User modelinden username kolonunu da çekiyoruz (SARI YENİ)
     stmt = (
@@ -119,8 +120,8 @@ async def create_listing(
     category: str = Form(...),
     condition: str = Form(...),
     files: Optional[List[UploadFile]] = File(None),
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db),
 ):
     saved_image_urls = []
     if files:

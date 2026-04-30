@@ -9,10 +9,9 @@ from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, DialectJSON
 
 
 class ForumCategory(Base):
@@ -81,8 +80,8 @@ class ForumTopic(Base):
     
     # SARI YENİ EKLENTİLER
     topic_type: Mapped[str] = mapped_column(String(20), server_default=text("'text'"), nullable=False)
-    tags: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)  # Native list — JSONB
-    image_urls: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)  # Native list — JSONB
+    tags: Mapped[Optional[list]] = mapped_column(DialectJSON, nullable=True)  # Native list — JSONB
+    image_urls: Mapped[Optional[list]] = mapped_column(DialectJSON, nullable=True)  # Native list — JSONB
     event_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     
     is_pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)

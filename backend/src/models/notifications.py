@@ -9,10 +9,9 @@ from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, DialectJSON
 
 
 class NotificationType(str, enum.Enum):
@@ -53,7 +52,7 @@ class Notification(Base):
     )
     
     link: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    metadata_json: Mapped[Optional[str]] = mapped_column(JSONB, nullable=True)  # JSON object (metadata reserved keyword)
+    metadata_json: Mapped[Optional[str]] = mapped_column(DialectJSON, nullable=True)  # JSON object (metadata reserved keyword)
     
     is_read: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False, index=True)
     

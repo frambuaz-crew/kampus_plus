@@ -84,6 +84,18 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
+        if user.is_deleted:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": {
+                        "code": "ACCOUNT_DELETED",
+                        "message": "Bu hesap silinmiş"
+                    }
+                },
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -94,7 +106,7 @@ async def get_current_user(
                     }
                 }
             )
-        
+
         return user
     
     except HTTPException:
@@ -110,6 +122,23 @@ async def get_current_user(
             },
             headers={"WWW-Authenticate": "Bearer"}
         )
+
+
+async def get_current_active_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """get_current_user üzerine e-posta doğrulaması kontrolü ekler."""
+    if not current_user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "EMAIL_NOT_VERIFIED",
+                    "message": "Bu kaynağa erişmeden önce lütfen e-posta adresinizi doğrulayın"
+                }
+            }
+        )
+    return current_user
 
 
 def require_role(*allowed_roles: UserRole):
