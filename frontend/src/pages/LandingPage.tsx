@@ -195,7 +195,7 @@ export const LandingPage: React.FC = () => {
                 <div className="w-3 h-3 rounded-full bg-red-400" />
                 <div className="w-3 h-3 rounded-full bg-amber-400" />
                 <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                <span className="ml-3 text-xs text-slate-400">kampusplus.com/dashboard</span>
+                <span className="ml-3 text-xs text-slate-400">kampusplus.app/dashboard</span>
               </div>
 
               {/* Preview body */}

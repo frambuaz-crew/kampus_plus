@@ -260,7 +260,6 @@ export const AdminSchedulePage: React.FC = () => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const [schSubTab, setSchSubTab] = useState<'pending' | 'approved'>('pending');
   const [pendingSchedules, setPendingSchedules] = useState<CourseSchedule[]>([]);
   const [approvedSchedules, setApprovedSchedules] = useState<CourseSchedule[]>([]);
   const [editingSchedule, setEditingSchedule] = useState<CourseSchedule | null>(null);
@@ -269,11 +268,8 @@ export const AdminSchedulePage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [ps, as_] = await Promise.all([
-        getPendingSchedules(),
-        getApprovedSchedules(),
-      ]);
-      setPendingSchedules(ps);
+      const as_ = await getApprovedSchedules();
+      setPendingSchedules([]);
       setApprovedSchedules(as_);
     } catch {
       setError('Veriler getirilemedi.');
@@ -338,30 +334,15 @@ export const AdminSchedulePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Alt sekmeler */}
-      <div className="flex gap-2 mb-4">
-        {(['pending', 'approved'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setSchSubTab(tab)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-              schSubTab === tab
-                ? 'bg-gray-700 text-white border-gray-600'
-                : 'bg-gray-900 text-gray-500 border-gray-800 hover:text-gray-300'
-            }`}
-          >
-            {tab === 'pending' ? `Onay Bekleyenler (${pendingSchedules.length})` : `Onaylılar (${approvedSchedules.length})`}
-          </button>
-        ))}
-      </div>
+      {/* Alt sekmeler kaldırıldı — tek liste gösteriliyor */}
 
       <ScheduleTable
-        schedules={schSubTab === 'pending' ? pendingSchedules : approvedSchedules}
-        isPending={schSubTab === 'pending'}
+        schedules={approvedSchedules}
+        isPending={false}
         loading={loading}
         error={error}
         processingId={processingId}
-        onApprove={handleApproveSchedule}
+        onApprove={() => {}}
         onDelete={handleDeleteSchedule}
         onEdit={setEditingSchedule}
         onReload={loadData}

@@ -11,9 +11,10 @@ export interface User {
   username: string;
   role: 'student' | 'instructor' | 'admin' | 'university_admin';
   university: string;
-  university_id?: string | null;
+  university_id?: string | null;              // ✅ UUID
   department_id: string;
   department?: string | null;
+  faculty_id?: string | null;                 // ✅ YENİ: Faculty UUID
   is_verified: boolean;
   grade?: string | null;
   profile_picture_url?: string | null;

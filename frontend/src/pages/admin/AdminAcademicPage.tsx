@@ -59,7 +59,6 @@ export const AdminAcademicPage: React.FC = () => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const [calSubTab, setCalSubTab] = useState<'pending' | 'approved'>('pending');
   const [pendingCalendars, setPendingCalendars] = useState<CalendarEvent[]>([]);
   const [approvedCalendars, setApprovedCalendars] = useState<CalendarEvent[]>([]);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -72,11 +71,8 @@ export const AdminAcademicPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [pc, ac] = await Promise.all([
-        getPendingCalendarEvents(),
-        getApprovedCalendarEvents(),
-      ]);
-      setPendingCalendars(pc);
+      const ac = await getApprovedCalendarEvents();
+      setPendingCalendars([]);
       setApprovedCalendars(ac);
     } catch {
       setError('Veriler getirilemedi.');
@@ -189,30 +185,15 @@ export const AdminAcademicPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Alt sekmeler */}
-      <div className="flex gap-2 mb-4">
-        {(['pending', 'approved'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setCalSubTab(tab)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-              calSubTab === tab
-                ? 'bg-gray-700 text-white border-gray-600'
-                : 'bg-gray-900 text-gray-500 border-gray-800 hover:text-gray-300'
-            }`}
-          >
-            {tab === 'pending' ? `Onay Bekleyenler (${pendingCalendars.length})` : `Onaylılar (${approvedCalendars.length})`}
-          </button>
-        ))}
-      </div>
+      {/* Alt sekmeler kaldırıldı — tek liste gösteriliyor */}
 
       <CalendarTable
-        events={calSubTab === 'pending' ? sortedPendingCals : sortedApprovedCals}
-        isPending={calSubTab === 'pending'}
+        events={sortedApprovedCals}
+        isPending={false}
         loading={loading}
         error={error}
         processingId={processingId}
-        onApprove={handleApproveCalendar}
+        onApprove={() => {}}
         onDelete={handleDeleteCalendar}
         onEdit={openEditModal}
         onReload={loadData}

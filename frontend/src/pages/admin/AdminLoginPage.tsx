@@ -65,7 +65,7 @@ export const AdminLoginPage: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@kampusplus.com"
+                placeholder="admin@kgtu.edu.tr"
                 className="w-full bg-gray-900/50 border border-gray-700 text-white px-6 py-4 rounded-2xl focus:ring-2 focus:ring-red-500/50 outline-none transition-all placeholder-gray-600 font-bold"
                 required
               />

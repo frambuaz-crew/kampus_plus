@@ -5,7 +5,7 @@ This script guarantees:
 - KGTU university admin + student test accounts
 - Selcuk student test account
 
-Existing users are never modified.
+Existing users are only updated for university_id fixes.
 """
 
 import asyncio
@@ -33,9 +33,7 @@ SUPER_ADMIN_PASSWORD = "admin123"
 SUPER_ADMIN_FIRST_NAME = "Super"
 SUPER_ADMIN_LAST_NAME = "Admin"
 SUPER_ADMIN_USERNAME = "admin_abc"
-SUPER_ADMIN_UNIVERSITY_NAME = "Kampusplus"
-SUPER_ADMIN_FACULTY_NAME = "Genel"
-SUPER_ADMIN_DEPARTMENT_NAME = "Genel"
+SUPER_ADMIN_UNIVERSITY_NAME = "Konya Gıda ve Tarım Üniversitesi"
 
 KGTU_UNI_NAME = "Konya Gıda ve Tarım Üniversitesi"
 SELCUK_UNI_NAME = "Selçuk Üniversitesi"
@@ -63,7 +61,7 @@ ACCOUNT_SEEDS: tuple[AccountSeed, ...] = (
         university_name=SUPER_ADMIN_UNIVERSITY_NAME,
     ),
     AccountSeed(
-        email="kgtu_admin@kampusplus.edu.tr",
+        email="kgtu_admin@kgtu.edu.tr",
         password="admin123",
         role=UserRole.UNIVERSITY_ADMIN,
         first_name="KGTU",
@@ -72,7 +70,7 @@ ACCOUNT_SEEDS: tuple[AccountSeed, ...] = (
         university_name=KGTU_UNI_NAME,
     ),
     AccountSeed(
-        email="kgtu_student@kampusplus.edu.tr",
+        email="kgtu_student@kgtu.edu.tr",
         password="student123",
         role=UserRole.STUDENT,
         first_name="KGTU",
@@ -81,7 +79,7 @@ ACCOUNT_SEEDS: tuple[AccountSeed, ...] = (
         university_name=KGTU_UNI_NAME,
     ),
     AccountSeed(
-        email="selcuk_student@kampusplus.edu.tr",
+        email="selcuk_student@selcuk.edu.tr",
         password="student123",
         role=UserRole.STUDENT,
         first_name="Selcuk",
@@ -177,6 +175,19 @@ async def _get_university_by_name_required(session, university_name: str) -> Uni
     return university
 
 
+async def _get_university_by_name_ilike_required(session, university_name: str) -> University:
+    result = await session.execute(
+        select(University).where(University.name.ilike(f"%{university_name}%"))
+    )
+    university = result.scalar_one_or_none()
+    if not university:
+        raise RuntimeError(
+            f"Universite bulunamadi (ILIKE): {university_name}. "
+            "Oncesinde seed_konya_normalized calismis olmali."
+        )
+    return university
+
+
 async def _get_any_department_for_university_required(session, university_id: str, university_name: str) -> Department:
     stmt = (
         select(Department)
@@ -195,12 +206,13 @@ async def _get_any_department_for_university_required(session, university_id: st
 
 
 async def _build_university_department_map(session) -> dict[str, tuple[str, str]]:
-    # Super admin icin Kampusplus hiyerarsisini garanti et.
-    super_admin_uni = await _ensure_super_admin_university(session)
-    super_admin_fac = await _ensure_super_admin_faculty(session, super_admin_uni.id)
-    super_admin_dep = await _ensure_super_admin_department(session, super_admin_fac.id)
+    # 🚀 Artık tüm üniversiteler seed_konya_normalized.py tarafından var
+    # Super admin da KGTU'ye atandığı için bu fonksiyonlar kaldırıldı
+    
+    # Üniversite isimlerinden university_id ve bir department_id bul.
+    super_admin_uni = await _get_university_by_name_required(session, SUPER_ADMIN_UNIVERSITY_NAME)
+    super_admin_dep = await _get_any_department_for_university_required(session, super_admin_uni.id, SUPER_ADMIN_UNIVERSITY_NAME)
 
-    # Test setleri icin universite isimlerinden university_id ve bir department_id bul.
     kgtu_uni = await _get_university_by_name_required(session, KGTU_UNI_NAME)
     kgtu_dep = await _get_any_department_for_university_required(session, kgtu_uni.id, KGTU_UNI_NAME)
 
@@ -221,6 +233,7 @@ async def ensure_initial_data() -> None:
         uni_dep_map = await _build_university_department_map(session)
         created_count = 0
         skipped_count = 0
+        updated_count = 0
 
         for account in ACCOUNT_SEEDS:
             existing_user_result = await session.execute(
@@ -229,11 +242,39 @@ async def ensure_initial_data() -> None:
             existing_user = existing_user_result.scalar_one_or_none()
 
             if existing_user:
-                skipped_count += 1
-                print(f"[SKIP] {account.email} zaten mevcut, degisiklik yapilmadi.")
+                if account.email == "kgtu_admin@kgtu.edu.tr":
+                    kgtu_university = await _get_university_by_name_ilike_required(session, KGTU_UNI_NAME)
+                    existing_user.university = kgtu_university.name
+                    existing_user.university_id = kgtu_university.id
+                    if not existing_user.department_id:
+                        _, department_id = uni_dep_map[account.university_name]
+                        existing_user.department_id = department_id
+                    await session.commit()
+                    await session.refresh(existing_user)
+                    updated_count += 1
+                    print(f"[UPDATE] {account.email} university_id guncellendi.")
+                elif account.email == SUPER_ADMIN_EMAIL:
+                    university_id, department_id = uni_dep_map[account.university_name]
+                    existing_user.university = account.university_name
+                    existing_user.university_id = university_id
+                    if not existing_user.department_id:
+                        existing_user.department_id = department_id
+                    updated_count += 1
+                    print(f"[UPDATE] {account.email} university_id guncellendi.")
+                else:
+                    skipped_count += 1
+                    print(f"[SKIP] {account.email} zaten mevcut, degisiklik yapilmadi.")
                 continue
 
-            university_id, department_id = uni_dep_map[account.university_name]
+            if account.email == "kgtu_admin@kgtu.edu.tr":
+                kgtu_university = await _get_university_by_name_ilike_required(session, KGTU_UNI_NAME)
+                university_id = kgtu_university.id
+                university_name = kgtu_university.name
+                _, department_id = uni_dep_map[account.university_name]
+            else:
+                university_id, department_id = uni_dep_map[account.university_name]
+                university_name = account.university_name
+
             user = User(
                 id=str(uuid4()),
                 email=account.email,
@@ -241,7 +282,7 @@ async def ensure_initial_data() -> None:
                 first_name=account.first_name,
                 last_name=account.last_name,
                 username=account.username,
-                university=account.university_name,
+                university=university_name,
                 university_id=university_id,
                 department_id=department_id,
                 role=account.role,
@@ -253,8 +294,12 @@ async def ensure_initial_data() -> None:
             created_count += 1
             print(f"[OK] Olusturuldu: {account.email} ({account.role.value})")
 
+            if account.email == "kgtu_admin@kgtu.edu.tr":
+                await session.commit()
+                await session.refresh(user)
+
         await session.commit()
-        print(f"[DONE] created={created_count}, skipped={skipped_count}")
+        print(f"[DONE] created={created_count}, updated={updated_count}, skipped={skipped_count}")
 
 
 async def main() -> None:

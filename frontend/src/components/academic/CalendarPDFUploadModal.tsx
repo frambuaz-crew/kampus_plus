@@ -22,12 +22,17 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
   onComplete,
 }) => {
   const { user } = useAuth();
-  const isUniversityAdmin = user?.role === 'university_admin';
+  const isLockedUniversityRole = user?.role === 'university_admin';
+  const resolvedUniversityName = user?.university || defaultUniversity || '';
+  const resolvedUniversityId = user?.university_id || undefined;
+  // Lock by name when user is a university admin and has a university name
+  const lockedUniversityName = isLockedUniversityRole && resolvedUniversityName ? resolvedUniversityName : undefined;
+  const initialUniversityId = isLockedUniversityRole && resolvedUniversityId ? resolvedUniversityId : undefined;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [universityName, setUniversityName] = useState(
-    isUniversityAdmin ? (user?.university ?? defaultUniversity) : defaultUniversity
+    isLockedUniversityRole ? resolvedUniversityName : defaultUniversity
   );
   const [academicYear, setAcademicYear] = useState(
     ACADEMIC_YEAR_OPTIONS.includes(defaultAcademicYear as (typeof ACADEMIC_YEAR_OPTIONS)[number])
@@ -129,23 +134,17 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
           </div>
 
           {/* Üniversite */}
-          {isUniversityAdmin ? (
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Üniversite</label>
-              <div className="flex items-center gap-2 border border-amber-200 rounded-xl px-3 py-2 bg-amber-50">
-                <span className="text-sm text-gray-800 font-medium flex-1 truncate">{user?.university}</span>
-                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">Otomatik</span>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">Üniversite yetkilisi olarak veriler kendi üniversitenize kaydedilecek.</p>
-            </div>
-          ) : (
-            <CascadingInstitutionSelect
-              showDepartment={false}
-              initialUniversityName={defaultUniversity}
-              onChange={(sel) => {
-                if (sel.universityName !== undefined) setUniversityName(sel.universityName);
-              }}
-            />
+          <CascadingInstitutionSelect
+            showDepartment={false}
+            initialUniversityName={defaultUniversity}
+            initialUniversityId={initialUniversityId}
+            lockedUniversity={lockedUniversityName}
+            onChange={(sel) => {
+              if (sel.universityName !== undefined) setUniversityName(sel.universityName);
+            }}
+          />
+          {isLockedUniversityRole && (
+            <p className="text-xs text-gray-400 -mt-1">Üniversite yetkilisi olarak veriler kendi üniversitenize kaydedilecek.</p>
           )}
 
           {/* Akademik Yıl */}
@@ -155,7 +154,7 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
               value={academicYear}
               onChange={(e) => setAcademicYear(e.target.value)}
               disabled={isSuccess}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
             >
               <option value="">— Akademik yıl seçin —</option>
               {ACADEMIC_YEAR_OPTIONS.map((year) => (

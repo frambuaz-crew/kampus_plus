@@ -111,7 +111,10 @@ export const ProfilePage: React.FC = () => {
     grade: ''
   });
   const [editInstitution, setEditInstitution] = useState<Partial<InstitutionSelection>>({
+    universityId: '',
     universityName: '',
+    facultyId: '',
+    facultyName: '',
     departmentId: '',
     departmentName: '',
   });
@@ -137,9 +140,12 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (!isEditing || !isOwnProfile || !currentUser) return;
 
+    // 🚀 Backend'den gelen university_id ve faculty_id'yi DOĞRUDAN kullan
     setEditInstitution((prev) => ({
       ...prev,
+      universityId: currentUser.university_id || prev.universityId || '',      // ✅ YENİ
       universityName: currentUser.university || profileData?.university || '',
+      facultyId: currentUser.faculty_id || prev.facultyId || '',               // ✅ YENİ
       departmentId: currentUser.department_id || prev.departmentId || '',
       departmentName: profileData?.department || prev.departmentName || '',
     }));

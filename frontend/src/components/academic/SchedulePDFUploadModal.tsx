@@ -35,12 +35,18 @@ export const SchedulePDFUploadModal: React.FC<SchedulePDFUploadModalProps> = ({
   onComplete,
 }) => {
   const { user } = useAuth();
-  const isUniversityAdmin = user?.role === 'university_admin';
+  const isLockedUniversityRole = user?.role === 'university_admin';
+  const resolvedUniversityName = user?.university || defaultUniversity || '';
+  const resolvedUniversityId = user?.university_id || undefined;
+  // Lock by name when user is a university admin and has a university name
+  const lockedUniversityName = isLockedUniversityRole && resolvedUniversityName ? resolvedUniversityName : undefined;
+  const initialUniversityId = isLockedUniversityRole && resolvedUniversityId ? resolvedUniversityId : undefined;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [institution, setInstitution] = useState<Partial<InstitutionSelection>>({
-    universityName: isUniversityAdmin ? (user?.university ?? defaultUniversity) : defaultUniversity,
+    universityId: isLockedUniversityRole && resolvedUniversityId ? (resolvedUniversityId || '') : '',
+    universityName: isLockedUniversityRole ? resolvedUniversityName : defaultUniversity,
   });
   const [classYear, setClassYear] = useState(defaultClassYear);
   const [semester, setSemester] = useState(defaultSemester);
@@ -145,7 +151,8 @@ export const SchedulePDFUploadModal: React.FC<SchedulePDFUploadModalProps> = ({
           <CascadingInstitutionSelect
             showDepartment
             initialUniversityName={defaultUniversity}
-            lockedUniversity={isUniversityAdmin ? (user?.university ?? undefined) : undefined}
+            initialUniversityId={initialUniversityId}
+            lockedUniversity={lockedUniversityName}
             onChange={(sel) => setInstitution((prev) => ({ ...prev, ...sel }))}
           />
 
@@ -157,7 +164,7 @@ export const SchedulePDFUploadModal: React.FC<SchedulePDFUploadModalProps> = ({
                 value={classYear}
                 onChange={(e) => setClassYear(e.target.value)}
                 disabled={isSuccess}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
               >
                 <option value="">— Seç —</option>
                 {CLASS_YEARS.map((cy) => (
@@ -171,7 +178,7 @@ export const SchedulePDFUploadModal: React.FC<SchedulePDFUploadModalProps> = ({
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
                 disabled={isSuccess}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50 focus:bg-white transition-colors appearance-none cursor-pointer disabled:opacity-60"
               >
                 <option value="Bahar">Bahar</option>
                 <option value="Güz">Güz</option>

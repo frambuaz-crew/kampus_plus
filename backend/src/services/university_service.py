@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Optional, Dict
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.university import University
 
@@ -61,8 +61,8 @@ class UniversityService:
             stmt = select(University).where(
                 University.is_active == True,
                 or_(
-                    University.email_domains.like(f'%"{full_domain}"%'),
-                    University.email_domains.like(f'%"{normalized_domain}"%'),
+                    cast(University.email_domains, String).ilike(f"%{full_domain}%"),
+                    cast(University.email_domains, String).ilike(f"%{normalized_domain}%"),
                     University.name.ilike(f"%{root_name}%")
                 )
             ).limit(1)

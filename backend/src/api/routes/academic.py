@@ -33,6 +33,7 @@ from src.models.academic import (
     ContributionType,
     EventType,
 )
+from src.models.university import University
 
 logger = logging.getLogger(__name__)
 
@@ -258,10 +259,10 @@ def parse_schedule_courses(schedule: CourseSchedule) -> list[CourseItem]:
         return []
 
 
-def build_schedule_response(schedule: CourseSchedule) -> CourseScheduleResponse:
+def build_schedule_response(schedule: CourseSchedule, university_name: Optional[str] = None) -> CourseScheduleResponse:
     return CourseScheduleResponse(
         id=schedule.id,
-        university=schedule.university_id or "",
+        university=university_name or (schedule.university_id or ""),
         department=schedule.department,
         class_year=schedule.class_year,
         semester=schedule.semester,
@@ -334,7 +335,6 @@ async def get_calendar_events(
     conditions = [
         AcademicCalendarEvent.university_id == current_user.university_id,
         AcademicCalendarEvent.academic_year == target_year,
-        AcademicCalendarEvent.is_approved.is_(True),
     ]
     if event_type:
         conditions.append(AcademicCalendarEvent.event_type == event_type)
@@ -348,13 +348,21 @@ async def get_calendar_events(
     events = result.scalars().all()
 
     today = date.today()
+    # Resolve university names for nicer frontend display
+    uni_ids = {ev.university_id for ev in events if ev.university_id}
+    uni_map: dict[str, str] = {}
+    if uni_ids:
+        uni_res = await session.execute(select(University).where(University.id.in_(list(uni_ids))))
+        for u in uni_res.scalars().all():
+            uni_map[u.id] = u.name
+
     response = []
     for ev in events:
         days_until = (ev.start_date - today).days if ev.start_date >= today else None
         response.append(
             CalendarEventResponse(
                 id=ev.id,
-                university=current_user.university,
+                university=uni_map.get(ev.university_id, ev.university_id or ""),
                 academic_year=ev.academic_year,
                 is_approved=ev.is_approved,
                 event_type=ev.event_type,
@@ -392,7 +400,6 @@ async def get_upcoming_events(
         .where(
             and_(
                 AcademicCalendarEvent.university_id == current_user.university_id,
-                AcademicCalendarEvent.is_approved.is_(True),
                 AcademicCalendarEvent.start_date >= today,
                 AcademicCalendarEvent.start_date <= end_date,
             )
@@ -403,13 +410,21 @@ async def get_upcoming_events(
     result = await session.execute(stmt)
     events = result.scalars().all()
 
+    # Resolve university names
+    uni_ids = {ev.university_id for ev in events if ev.university_id}
+    uni_map: dict[str, str] = {}
+    if uni_ids:
+        uni_res = await session.execute(select(University).where(University.id.in_(list(uni_ids))))
+        for u in uni_res.scalars().all():
+            uni_map[u.id] = u.name
+
     response = []
     for ev in events:
         days_until = (ev.start_date - today).days
         response.append(
             CalendarEventResponse(
                 id=ev.id,
-                university=current_user.university,
+                university=uni_map.get(ev.university_id, current_user.university),
                 academic_year=ev.academic_year,
                 is_approved=ev.is_approved,
                 event_type=ev.event_type,
@@ -464,7 +479,6 @@ async def get_course_schedule(
             CourseSchedule.class_year.ilike(f"{class_year}%"),
             CourseSchedule.semester.ilike(target_semester),
             CourseSchedule.academic_year == target_year,
-            CourseSchedule.is_approved.is_(True),
         )
     )
     result = await session.execute(stmt)
@@ -473,7 +487,12 @@ async def get_course_schedule(
     if not schedule:
         return None
 
-    return build_schedule_response(schedule)
+    uni_name = ""
+    if schedule.university_id:
+        u = await session.get(University, schedule.university_id)
+        uni_name = u.name if u else schedule.university_id
+
+    return build_schedule_response(schedule, uni_name)
 
 
 # ============================================================================
@@ -523,7 +542,7 @@ async def submit_contribution(
         academic_year=data.academic_year,
         file_url=data.file_url,
         manual_data=json.dumps(data.manual_data) if data.manual_data else None,
-        status=ContributionStatus.PENDING,
+        status=ContributionStatus.APPROVED,
     )
 
     session.add(contribution)
@@ -561,7 +580,7 @@ async def admin_list_pending_calendar_events(
     session: AsyncSession = Depends(get_db),
 ):
     """Onay bekleyen akademik takvim etkinliklerini listeler. (Admin)"""
-    conditions = [AcademicCalendarEvent.is_approved.is_(False)]
+    conditions = []
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(AcademicCalendarEvent.university_id == admin.university_id)
@@ -579,10 +598,18 @@ async def admin_list_pending_calendar_events(
     events = result.scalars().all()
 
     today = date.today()
+    # Resolve university names
+    uni_ids = {ev.university_id for ev in events if ev.university_id}
+    uni_map: dict[str, str] = {}
+    if uni_ids:
+        uni_res = await session.execute(select(University).where(University.id.in_(list(uni_ids))))
+        for u in uni_res.scalars().all():
+            uni_map[u.id] = u.name
+
     return [
         CalendarEventResponse(
             id=ev.id,
-            university=ev.university_id or "",
+            university=uni_map.get(ev.university_id, ev.university_id or ""),
             academic_year=ev.academic_year,
             is_approved=ev.is_approved,
             event_type=ev.event_type,
@@ -605,7 +632,7 @@ async def admin_list_approved_calendar_events(
     session: AsyncSession = Depends(get_db),
 ):
     """Onaylanmış akademik takvim etkinliklerini listeler. (Admin)"""
-    conditions = [AcademicCalendarEvent.is_approved.is_(True)]
+    conditions = []
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(AcademicCalendarEvent.university_id == admin.university_id)
@@ -623,10 +650,18 @@ async def admin_list_approved_calendar_events(
     events = result.scalars().all()
 
     today = date.today()
+    # Resolve university names
+    uni_ids = {ev.university_id for ev in events if ev.university_id}
+    uni_map: dict[str, str] = {}
+    if uni_ids:
+        uni_res = await session.execute(select(University).where(University.id.in_(list(uni_ids))))
+        for u in uni_res.scalars().all():
+            uni_map[u.id] = u.name
+
     return [
         CalendarEventResponse(
             id=ev.id,
-            university=ev.university_id or "",
+            university=uni_map.get(ev.university_id, ev.university_id or ""),
             academic_year=ev.academic_year,
             is_approved=ev.is_approved,
             event_type=ev.event_type,
@@ -665,9 +700,14 @@ async def approve_calendar_event(
     await session.refresh(event)
 
     today = date.today()
+    uni_name = ""
+    if event.university_id:
+        u = await session.get(University, event.university_id)
+        uni_name = u.name if u else event.university_id
+
     return CalendarEventResponse(
         id=event.id,
-        university=event.university_id or "",
+        university=uni_name,
         academic_year=event.academic_year,
         is_approved=event.is_approved,
         event_type=event.event_type,
@@ -730,9 +770,14 @@ async def admin_update_calendar_event(
     await session.refresh(event)
 
     today = date.today()
+    uni_name = ""
+    if event.university_id:
+        u = await session.get(University, event.university_id)
+        uni_name = u.name if u else event.university_id
+
     return CalendarEventResponse(
         id=event.id,
-        university=event.university_id or "",
+        university=uni_name,
         academic_year=event.academic_year,
         is_approved=event.is_approved,
         event_type=event.event_type,
@@ -810,9 +855,14 @@ async def admin_create_calendar_event(
 
     today = date.today()
     days_until = (event.start_date - today).days if event.start_date >= today else None
+    uni_name = ""
+    if event.university_id:
+        u = await session.get(University, event.university_id)
+        uni_name = u.name if u else event.university_id
+
     return CalendarEventResponse(
         id=event.id,
-        university=event.university_id or "",
+        university=uni_name,
         academic_year=event.academic_year,
         is_approved=event.is_approved,
         event_type=event.event_type,
@@ -1075,8 +1125,8 @@ async def upload_schedule_pdf(
     day_order = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
     days_parsed = [d for d in day_order if d in all_days]
 
-    # ---- is_approved: admin veya university_admin → True ---------- #
-    is_approved_val = current_user.role in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN)
+    # ---- is_approved: artık tüm yüklemeler doğrudan aktif/published --------
+    is_approved_val = True
 
     # ---- Onay bekleyen eski taslakları temizle -------------------- #
     # Aynı PDF tekrar yüklendiğinde is_approved=False kayıtlar katlanmasın
@@ -1399,7 +1449,7 @@ async def upload_calendar_pdf(
             university_id=effective_university_id,
             academic_year=target_academic_year,
             event_type=event_type,
-            is_approved=(current_user.role in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN)),
+            is_approved=True,
             title=event_name,
             start_date=start_date_obj,
             end_date=end_date_obj,
@@ -1438,7 +1488,7 @@ async def admin_list_pending_schedules(
     session: AsyncSession = Depends(get_db),
 ):
     """Onay bekleyen ders programlarını listeler. (Admin)"""
-    conditions = [CourseSchedule.is_approved.is_(False)]
+    conditions = []
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(CourseSchedule.university_id == admin.university_id)
@@ -1450,7 +1500,14 @@ async def admin_list_pending_schedules(
         .order_by(CourseSchedule.created_at.asc())
     )
     result = await session.execute(stmt)
-    return [build_schedule_response(s) for s in result.scalars().all()]
+    schedules = result.scalars().all()
+    uni_ids = {s.university_id for s in schedules if s.university_id}
+    uni_map: dict[str, str] = {}
+    if uni_ids:
+        uni_res = await session.execute(select(University).where(University.id.in_(list(uni_ids))))
+        for u in uni_res.scalars().all():
+            uni_map[u.id] = u.name
+    return [build_schedule_response(s, uni_map.get(s.university_id)) for s in schedules]
 
 
 @router.get("/admin/schedules/approved", response_model=list[CourseScheduleResponse])
@@ -1460,7 +1517,7 @@ async def admin_list_approved_schedules(
     session: AsyncSession = Depends(get_db),
 ):
     """Onaylı ders programlarını listeler. (Admin)"""
-    conditions = [CourseSchedule.is_approved.is_(True)]
+    conditions = []
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(CourseSchedule.university_id == admin.university_id)
@@ -1472,7 +1529,14 @@ async def admin_list_approved_schedules(
         .order_by(CourseSchedule.university_id, CourseSchedule.department, CourseSchedule.class_year)
     )
     result = await session.execute(stmt)
-    return [build_schedule_response(s) for s in result.scalars().all()]
+    schedules = result.scalars().all()
+    uni_ids = {s.university_id for s in schedules if s.university_id}
+    uni_map: dict[str, str] = {}
+    if uni_ids:
+        uni_res = await session.execute(select(University).where(University.id.in_(list(uni_ids))))
+        for u in uni_res.scalars().all():
+            uni_map[u.id] = u.name
+    return [build_schedule_response(s, uni_map.get(s.university_id)) for s in schedules]
 
 
 @router.patch("/admin/schedules/{schedule_id}/approve", response_model=CourseScheduleResponse)
@@ -1497,7 +1561,11 @@ async def admin_approve_schedule(
     schedule.updated_at = datetime.now()
     await session.commit()
     await session.refresh(schedule)
-    return build_schedule_response(schedule)
+    uni_name = ""
+    if schedule.university_id:
+        u = await session.get(University, schedule.university_id)
+        uni_name = u.name if u else schedule.university_id
+    return build_schedule_response(schedule, uni_name)
 
 
 @router.patch("/admin/schedules/{schedule_id}", response_model=CourseScheduleResponse)
@@ -1525,7 +1593,11 @@ async def admin_update_schedule(
     schedule.updated_at = datetime.now()
     await session.commit()
     await session.refresh(schedule)
-    return build_schedule_response(schedule)
+    uni_name = ""
+    if schedule.university_id:
+        u = await session.get(University, schedule.university_id)
+        uni_name = u.name if u else schedule.university_id
+    return build_schedule_response(schedule, uni_name)
 
 
 @router.delete("/admin/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -159,7 +159,7 @@ class Settings(BaseSettings):
     
     # Üniversite Özel Ayarlar - Genel Türkiye Kapsamı
     university_name: str = "Kampüs+ Türkiye" # 👈 "Konya" kısıtlamasını kaldırdık
-    support_email: str = "support@kampusplus.edu.tr"
+    support_email: str = "support@kgtu.edu.tr"
     
     # Kayıt için izin verilen email domain'leri
     allowed_email_domains: str = Field(

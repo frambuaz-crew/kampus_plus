@@ -143,8 +143,10 @@ class UserResponse(BaseModel):
     last_name: str
     role: str
     university: Optional[str]
+    university_id: Optional[str] = None      # 🚀 YENİ: Üniversite UUID'si
     department_id: Optional[str] = None
-    department: Optional[str] = None    # Yeni: Bölümün ismi (Metin)
+    department: Optional[str] = None         # Yeni: Bölümün ismi (Metin)
+    faculty_id: Optional[str] = None         # 🚀 YENİ: Fakülte UUID'si
     grade: Optional[str] = None
     is_verified: bool
     profile_picture_url: Optional[str] = None
@@ -348,9 +350,11 @@ async def login(
                 role=user.role.value,
                 # 🚀 Veritabanındaki eski değer yerine servisten gelen resmi isim
                 university=official_university_name, 
+                university_id=user.university_id,                    # 🚀 YENİ: UUID
                 department_id=user.department_id,
                 # İlişki üzerinden bölüm ismini al
                 department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
+                faculty_id=user.department_rel.faculty_id if user.department_rel else None,  # 🚀 YENİ: Faculty UUID
                 is_verified=user.is_verified,
                 profile_picture_url=user.profile_picture_url,
                 created_at=user.created_at
