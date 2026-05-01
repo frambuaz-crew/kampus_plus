@@ -221,7 +221,8 @@ def parse_schedule_courses(schedule: CourseSchedule) -> list[CourseItem]:
     - Eski format: {"Pazartesi": [{"ders": "...", "saat": "HH:MM-HH:MM", "ogretmen": "...", "derslik": "..."}]}
     """
     try:
-        data = json.loads(schedule.schedule_data)
+        raw = schedule.schedule_data
+        data = raw if isinstance(raw, dict) else json.loads(raw)
 
         # ── Yeni format ─────────────────────────────────────────────────
         if "courses" in data and isinstance(data["courses"], list):
@@ -315,6 +316,7 @@ async def get_semester_info():
 async def get_calendar_events(
     academic_year: Optional[str] = Query(None, description="Öğretim yılı, örn: 2025-2026"),
     event_type: Optional[str] = Query(None, description="exam / registration / holiday / other"),
+    university_id: Optional[str] = Query(None, description="Üniversite ID; belirtilmezse kullanıcının üniversitesi kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -331,10 +333,15 @@ async def get_calendar_events(
 
     semester_info = get_current_semester_info()
     target_year = academic_year or semester_info["academic_year"]
+    normalized_university_id = (university_id or "").strip()
+    if normalized_university_id.lower() in {"", "null", "undefined"}:
+        normalized_university_id = ""
+    target_university_id = normalized_university_id or current_user.university_id
 
     conditions = [
-        AcademicCalendarEvent.university_id == current_user.university_id,
+        AcademicCalendarEvent.university_id == target_university_id,
         AcademicCalendarEvent.academic_year == target_year,
+        AcademicCalendarEvent.is_approved.is_(True),
     ]
     if event_type:
         conditions.append(AcademicCalendarEvent.event_type == event_type)
@@ -449,6 +456,7 @@ async def get_course_schedule(
     semester: Optional[str] = Query(None, description="Dönem: guz veya bahar"),
     academic_year: Optional[str] = Query(None, description="Öğretim yılı, örn: 2025-2026"),
     department: Optional[str] = Query(None, description="Bölüm adı; belirtilmezse kullanıcının bölümü kullanılır"),
+    university_id: Optional[str] = Query(None, description="Üniversite ID; belirtilmezse kullanıcının üniversitesi kullanılır"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -471,10 +479,14 @@ async def get_course_schedule(
     target_department = department or (
         current_user.department_rel.name if current_user.department_rel else ""
     )
+    normalized_university_id = (university_id or "").strip()
+    if normalized_university_id.lower() in {"", "null", "undefined"}:
+        normalized_university_id = ""
+    target_university_id = normalized_university_id or current_user.university_id
 
     stmt = select(CourseSchedule).where(
         and_(
-            CourseSchedule.university_id == current_user.university_id,
+            CourseSchedule.university_id == target_university_id,
             CourseSchedule.department.ilike(target_department),
             CourseSchedule.class_year.ilike(f"{class_year}%"),
             CourseSchedule.semester.ilike(target_semester),

@@ -22,23 +22,18 @@ import {
   CascadingInstitutionSelect,
   type InstitutionSelection,
 } from '../components/institution/CascadingInstitutionSelect';
-import {
-  getDepartments,
-  getFaculties,
-  getUniversities,
-  type DepartmentItem,
-} from '../api/institutions';
+// institution API is handled by CascadingInstitutionSelect internally
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
 const CLASS_YEARS = [
-  { value: '1. Sınıf', label: '1. Sınıf' },
-  { value: '2. Sınıf', label: '2. Sınıf' },
-  { value: '3. Sınıf', label: '3. Sınıf' },
-  { value: '4. Sınıf', label: '4. Sınıf' },
-  { value: '5. Sınıf', label: '5. Sınıf' },
+  { value: '1', label: '1. Sınıf' },
+  { value: '2', label: '2. Sınıf' },
+  { value: '3', label: '3. Sınıf' },
+  { value: '4', label: '4. Sınıf' },
+  { value: '5', label: '5. Sınıf' },
 ];
 
 const DAYS_TR: Record<string, string> = {
@@ -390,92 +385,25 @@ export const CourseSchedulePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
 
-  const [filterUniversity, setFilterUniversity] = useState(user?.university ?? '');
+  const [filterUniversity,   setFilterUniversity]   = useState(user?.university ?? '');
+  const [selectedUniversityId, setSelectedUniversityId] = useState(user?.university_id ?? '');
   const [filterDepartment,  setFilterDepartment]  = useState(user?.department ?? '');
-  const [selectedUniversityId, setSelectedUniversityId] = useState('');
-  const [selectedFacultyId, setSelectedFacultyId] = useState('');
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState(user?.department_id ?? '');
+  const [selectedFacultyId, setSelectedFacultyId] = useState(user?.faculty_id ?? '');
   const [classYear,         setClassYear]         = useState(user?.grade || '');
   const [filterSemester,    setFilterSemester]    = useState(currentTerm.semester);
   const [academicYear,      setAcademicYear]      = useState(currentTerm.year);
 
-  // Kullanıcı profili async yüklendiğinde tüm filtreleri otomatik doldur
+  // Kullanıcı profili async yüklendiğinde eksik alanları doldur
   useEffect(() => {
     if (!user) return;
-
-    let cancelled = false;
-
-    const hydrateFiltersFromProfile = async () => {
-      if (user.grade) {
-        setClassYear(user.grade);
-      }
-
-      if (semesterInfo?.semester) {
-        setFilterSemester(semesterInfo.semester);
-      }
-
-      if (semesterInfo?.academic_year) {
-        setAcademicYear(semesterInfo.academic_year);
-      }
-
-      if (!user.university || !user.department_id) {
-        if (user.university) setFilterUniversity((prev) => prev || user.university);
-        if (user.department) setFilterDepartment((prev) => prev || user.department);
-        return;
-      }
-
-      try {
-        const universities = await getUniversities();
-        const matchedUniversity = universities.find(
-          (u) => u.name.toLowerCase() === user.university.toLowerCase()
-        );
-
-        if (!matchedUniversity || cancelled) return;
-
-        const faculties = await getFaculties(matchedUniversity.id);
-        const departmentLists = await Promise.all(
-          faculties.map((faculty) => getDepartments(faculty.id).catch(() => []))
-        );
-        const departments: DepartmentItem[] = departmentLists.flat();
-
-        const matchedDepartment = departments.find((d) => d.id === user.department_id);
-        const resolvedFacultyId =
-          departments.find((d) => d.id === user.department_id)?.faculty_id || '';
-
-        if (cancelled) return;
-
-        setSelectedUniversityId(matchedUniversity.id);
-        setFilterUniversity(matchedUniversity.name);
-
-        if (resolvedFacultyId) {
-          setSelectedFacultyId(resolvedFacultyId);
-        }
-
-        if (matchedDepartment) {
-          setSelectedDepartmentId(matchedDepartment.id);
-          setFilterDepartment(matchedDepartment.name);
-        } else if (user.department) {
-          setFilterDepartment((prev) => prev || user.department || '');
-          setSelectedDepartmentId(user.department_id);
-        }
-      } catch {
-        if (cancelled) return;
-        setFilterUniversity((prev) => prev || user.university || '');
-        setFilterDepartment((prev) => prev || user.department || '');
-        setSelectedDepartmentId((prev) => prev || user.department_id || '');
-      }
-    };
-
-    hydrateFiltersFromProfile();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    semesterInfo?.academic_year,
-    semesterInfo?.semester,
-    user,
-  ]);
+    if (user.grade) setClassYear(user.grade);
+    if (user.department) setFilterDepartment((prev) => prev || user.department || '');
+    if (user.faculty_id) setSelectedFacultyId((prev) => prev || user.faculty_id || '');
+    if (user.university) setFilterUniversity((prev) => prev || user.university || '');
+    if (user.university_id) setSelectedUniversityId((prev) => prev || user.university_id || '');
+    if (semesterInfo?.semester) setFilterSemester(semesterInfo.semester);
+    if (semesterInfo?.academic_year) setAcademicYear(semesterInfo.academic_year);
+  }, [user, semesterInfo?.semester, semesterInfo?.academic_year]);
 
   // Dönem bilgisini yükle
   useEffect(() => {
@@ -498,7 +426,7 @@ export const CourseSchedulePage: React.FC = () => {
   // Ders programını yükle
   const loadSchedule = useCallback(async () => {
     if (!semesterInfo) return;
-    if (!filterUniversity || !filterDepartment) {
+    if (!filterDepartment) {
       setSchedule(null);
       return;
     }
@@ -509,8 +437,8 @@ export const CourseSchedulePage: React.FC = () => {
         class_year: classYear,
         semester: filterSemester || semesterInfo.semester,
         academic_year: academicYear,
-        university: filterUniversity,
         department: filterDepartment,
+        university_id: selectedUniversityId || undefined,
       });
       setSchedule(data);
     } catch {
@@ -519,7 +447,7 @@ export const CourseSchedulePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [classYear, filterSemester, academicYear, filterUniversity, filterDepartment, semesterInfo]);
+  }, [classYear, filterSemester, academicYear, filterDepartment, filterUniversity, selectedUniversityId, semesterInfo]);
 
   useEffect(() => {
     loadSchedule();
@@ -560,18 +488,16 @@ export const CourseSchedulePage: React.FC = () => {
 
           {/* Filtre çubuğu */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-            {/* Üniversite + Bölüm */}
+            {/* Üniversite + Fakülte + Bölüm */}
             <CascadingInstitutionSelect
               showDepartment
-              initialUniversityName={filterUniversity}
               initialUniversityId={selectedUniversityId}
               initialFacultyId={selectedFacultyId}
-              initialDepartmentId={selectedDepartmentId}
+              initialDepartmentId={user?.department_id ?? ''}
               onChange={(sel) => {
                 if (sel.universityId !== undefined) setSelectedUniversityId(sel.universityId);
-                if (sel.facultyId !== undefined) setSelectedFacultyId(sel.facultyId);
-                if (sel.departmentId !== undefined) setSelectedDepartmentId(sel.departmentId);
                 if (sel.universityName !== undefined) setFilterUniversity(sel.universityName);
+                if (sel.facultyId !== undefined) setSelectedFacultyId(sel.facultyId);
                 if (sel.departmentName !== undefined) setFilterDepartment(sel.departmentName);
               }}
             />

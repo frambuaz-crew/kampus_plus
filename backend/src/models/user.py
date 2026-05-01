@@ -117,7 +117,12 @@ class User(Base):
     ai_conversations = relationship("AIConversation", foreign_keys="AIConversation.user_id", cascade="all, delete-orphan")
     
     # Settings relationships
-    contact_messages = relationship("ContactMessage", foreign_keys="ContactMessage.user_id", cascade="all, delete-orphan")
+    contact_messages = relationship(
+        "ContactMessage",
+        foreign_keys="ContactMessage.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     # Audit relationships
     audit_logs = relationship("AuditLog", back_populates="user")

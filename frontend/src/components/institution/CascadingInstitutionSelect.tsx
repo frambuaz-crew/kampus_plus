@@ -62,6 +62,7 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
   const [selectedUnivId, setSelectedUnivId] = useState<string>(initialUniversityId || '');
   const [selectedFacId, setSelectedFacId] = useState('');
   const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [hasUserChangedUniversity, setHasUserChangedUniversity] = useState(false);
 
   const [loadingUni, setLoadingUni] = useState(true);
   const [loadingFac, setLoadingFac] = useState(false);
@@ -144,32 +145,6 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
             /* ignore */
           }
           loadFaculties(uid);
-        } else {
-          let storedUserEmail = '';
-          try {
-            const rawUser = localStorage.getItem('user');
-            const parsedUser = rawUser ? JSON.parse(rawUser) : null;
-            if (parsedUser?.email) storedUserEmail = String(parsedUser.email).toLowerCase();
-          } catch {
-            storedUserEmail = '';
-          }
-
-          const isKgtuAdmin = storedUserEmail.includes('kgtu');
-          const kgtuName = 'Konya Gıda ve Tarım Üniversitesi';
-          const kgtuMatch = isKgtuAdmin
-            ? data.find((u) => u.name.toLowerCase() === kgtuName.toLowerCase())
-            : undefined;
-
-          if (!initialUniversityId && kgtuMatch) {
-            const uid = kgtuMatch.id;
-            setSelectedUnivId((prev) => prev || uid);
-            try {
-              onChange({ universityId: uid, universityName: kgtuMatch.name });
-            } catch {
-              /* ignore */
-            }
-            loadFaculties(uid);
-          }
         }
       })
       .catch(() => { /* ignore */ })
@@ -186,10 +161,9 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
       setSelectedDeptId('');
       return;
     }
-    if (!isPrefilledUniversity) {
-      loadFaculties(selectedUnivId);
-    }
-  }, [selectedUnivId, isPrefilledUniversity]);
+    if (isPrefilledUniversity && !hasUserChangedUniversity) return;
+    loadFaculties(selectedUnivId);
+  }, [selectedUnivId, isPrefilledUniversity, hasUserChangedUniversity]);
 
   // ── Varsayılan fakülteyi uygula ──────────────────────────────────────────
   useEffect(() => {
@@ -239,6 +213,7 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
   const handleUnivChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
     const name = universities.find((u) => u.id === id)?.name ?? '';
+    setHasUserChangedUniversity(true);
     setSelectedUnivId(id);
     onChange({ universityId: id, universityName: name, facultyId: '', facultyName: '', departmentId: '', departmentName: '' });
   };

@@ -363,7 +363,7 @@ async def login(
     
     except ValueError as e:
         error_msg = str(e).lower()
-        if "not verified" in error_msg:
+        if "email_not_verified" in error_msg or "not verified" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -374,7 +374,7 @@ async def login(
                     }
                 }
             )
-        if "inactive" in error_msg:
+        if "account_inactive" in error_msg or "inactive" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": {"code": "ACCOUNT_INACTIVE", "message": "Hesabınız devre dışı bırakılmış."}}
@@ -521,7 +521,18 @@ async def admin_login(
 
     except ValueError as e:
         error_msg = str(e).lower()
-        if "inactive" in error_msg:
+        if "email_not_verified" in error_msg or "not verified" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": {
+                        "code": "EMAIL_NOT_VERIFIED",
+                        "message": "Email adresiniz doğrulanmamış. Lütfen email'inizi kontrol edin.",
+                        "email": request.email,
+                    }
+                },
+            )
+        if "account_inactive" in error_msg or "inactive" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": {"code": "ACCOUNT_INACTIVE", "message": "Hesabınız devre dışı bırakılmış."}}

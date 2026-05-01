@@ -57,6 +57,6 @@ class ContactMessage(Base):
         index=True,
     )
     
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", back_populates="contact_messages", foreign_keys=[user_id])
     answerer = relationship("User", foreign_keys=[answered_by])
 

@@ -47,9 +47,9 @@ cd kampus_plus
 | Rol | E-posta | Şifre | Açıklama |
 | :--- | :--- | :--- | :--- |
 | **Süper Admin** | admin@abc.com | admin123 | Tüm üniversiteleri yöneten en yetkili hesap. |
-| **Üniversite Admini** | kgtu_admin@kampusplus.edu.tr | admin123 | Sadece KGTÜ verilerini yöneten kısıtlı admin. |
-| **Öğrenci (KGTÜ)** | kgtu_student@kampusplus.edu.tr | student123 | KGTÜ ders programı ve takvimini gören kullanıcı. |
-| **Öğrenci (Selçuk)** | selcuk_student@kampusplus.edu.tr | student123 | Selçuk Üniversitesi verilerini gören kullanıcı. |
+| **Üniversite Admini** | kgtu_admin@kgtu.edu.tr | admin123 | Sadece KGTÜ verilerini yöneten kısıtlı admin. |
+| **Öğrenci (KGTÜ)** | kgtu_student@kgtu.edu.tr | student123 | KGTÜ ders programı ve takvimini gören kullanıcı. |
+| **Öğrenci (Selçuk)** | selcuk_student@selcuk.edu.tr | student123 | Selçuk Üniversitesi verilerini gören kullanıcı. |
 
 Not: Bu hesaplar `setup.bat` veya `make up` komutu calisirken `backend/scripts/ensure_initial_data.py` scripti ile otomatik olarak olusturulur.
 

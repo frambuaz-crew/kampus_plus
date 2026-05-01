@@ -259,14 +259,14 @@ export const AcademicCalendarPage: React.FC = () => {
   const [showPast,           setShowPast]           = useState(false);
   const [viewMode,           setViewMode]           = useState<CalendarViewMode>('list');
   const [calendarMonth,      setCalendarMonth]      = useState<Date>(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const [selectedUniversity, setSelectedUniversity] = useState<string>(user?.university ?? '');
+  const [selectedUniversityId, setSelectedUniversityId] = useState<string>(user?.university_id ?? '');
+  const [selectedUniversityName, setSelectedUniversityName] = useState<string>(user?.university ?? '');
 
   // Kullanıcı profili yüklenince üniversiteyi güncelle
   useEffect(() => {
-    if (user?.university && !selectedUniversity) {
-      setSelectedUniversity(user.university);
-    }
-  }, [user?.university]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (user?.university_id && !selectedUniversityId) setSelectedUniversityId(user.university_id);
+    if (user?.university  && !selectedUniversityName) setSelectedUniversityName(user.university);
+  }, [user?.university_id, user?.university]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dönem bilgisi
   useEffect(() => {
@@ -282,19 +282,20 @@ export const AcademicCalendarPage: React.FC = () => {
     });
   }, []);
 
-  // Etkinlikler
+  // Etkinlikler — seçili üniversiteye göre filtrele
   const loadEvents = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getCalendarEvents(selectedUniversity ? { university: selectedUniversity } : undefined);
+      const params = selectedUniversityId ? { university_id: selectedUniversityId } : undefined;
+      const data = await getCalendarEvents(params);
       setAllEvents(normalizeCalendarEvents(data));
     } catch {
       setError('Etkinlikler yüklenemedi.');
     } finally {
       setLoading(false);
     }
-  }, [selectedUniversity]);
+  }, [selectedUniversityId]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
@@ -318,7 +319,7 @@ export const AcademicCalendarPage: React.FC = () => {
     return map;
   }, [calendarDays, filteredEvents]);
   const urgentCount    = upcomingEvents.filter(e => (e.days_until ?? 99) <= 7).length;
-  const university     = selectedUniversity || user?.university || '';
+  const university     = selectedUniversityName || user?.university || '';
   const activeViewHasNoEvents = viewMode === 'list' ? displayEvents.length === 0 : filteredEvents.length === 0;
   const getFilterCount = (filterKey: FilterKey) => {
     if (filterKey === 'all') return upcomingAllEvents.length;
@@ -371,15 +372,14 @@ export const AcademicCalendarPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ── Üniversite filtresi ──────────────────────── */}
+          {/* ── Üniversite seçici ────────────────────────── */}
           <div className="mb-6">
             <CascadingInstitutionSelect
               showDepartment={false}
-              initialUniversityName={selectedUniversity}
+              initialUniversityId={selectedUniversityId}
               onChange={(sel) => {
-                if (sel.universityName !== undefined && sel.universityName !== selectedUniversity) {
-                  setSelectedUniversity(sel.universityName);
-                }
+                if (sel.universityId !== undefined) setSelectedUniversityId(sel.universityId);
+                if (sel.universityName !== undefined) setSelectedUniversityName(sel.universityName);
               }}
             />
           </div>
