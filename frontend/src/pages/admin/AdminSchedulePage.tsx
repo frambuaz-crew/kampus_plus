@@ -7,6 +7,7 @@ import {
   BookOpen,
   CheckCircle2,
   PencilLine,
+  Plus,
   Search,
   Trash2,
   Upload,
@@ -94,6 +95,25 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
     });
   };
 
+  const addCourse = () => {
+    setCourses((prev) => [
+      ...prev,
+      {
+        id: `new-${Date.now()}`,
+        name: '',
+        code: null,
+        instructor: null,
+        room: null,
+        color: null,
+        slots: [{ day: 'monday', start_time: '09:00', end_time: '10:50' }],
+      },
+    ]);
+  };
+
+  const removeCourse = (courseIdx: number) => {
+    setCourses((prev) => prev.filter((_, i) => i !== courseIdx));
+  };
+
   const handleSave = async () => {
     if (saving) return;
     setSaving(true);
@@ -137,9 +157,19 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
 
           {courses.map((course, cIdx) => (
             <div key={course.id} className="bg-gray-800 rounded-xl p-4 space-y-3">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
-                Ders {cIdx + 1}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                  Ders {cIdx + 1}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => removeCourse(cIdx)}
+                  title="Dersi Sil"
+                  className="text-gray-600 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -222,6 +252,14 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
               </div>
             </div>
           ))}
+          <button
+            type="button"
+            onClick={addCourse}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400 text-sm font-semibold transition-colors"
+          >
+            <Plus size={15} />
+            Yeni Ders Ekle
+          </button>
         </div>
 
         {/* Footer */}

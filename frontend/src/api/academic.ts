@@ -52,6 +52,14 @@ export interface CalendarEvent {
   created_at: string;
 }
 
+export interface PersonalSchedule {
+  id: string;
+  user_id: string;
+  base_schedule_id: string | null;
+  courses: CourseItem[];
+  updated_at: string;
+}
+
 export interface SemesterInfo {
   semester: string;
   semester_label: string;
@@ -223,6 +231,27 @@ export const uploadSchedulePDF = async (params: {
     formData,
     { headers: { 'Content-Type': 'multipart/form-data' } }
   );
+  return res.data;
+};
+
+// ============================================================================
+// KİŞİSEL DERS PROGRAMI
+// ============================================================================
+
+export const getMySchedule = async (): Promise<PersonalSchedule> => {
+  const res = await apiClient.get<PersonalSchedule>('/academic/my-schedule');
+  return res.data;
+};
+
+export const cloneToMySchedule = async (courseScheduleId: string): Promise<PersonalSchedule> => {
+  const res = await apiClient.post<PersonalSchedule>(
+    `/academic/my-schedule/clone/${courseScheduleId}`
+  );
+  return res.data;
+};
+
+export const updateMySchedule = async (courses: CourseItem[]): Promise<PersonalSchedule> => {
+  const res = await apiClient.put<PersonalSchedule>('/academic/my-schedule', { courses });
   return res.data;
 };
 

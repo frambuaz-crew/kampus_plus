@@ -29,6 +29,7 @@ from src.models.academic import (
     AcademicCalendarEvent,
     AcademicContribution,
     CourseSchedule,
+    PersonalSchedule,
     ContributionStatus,
     ContributionType,
     EventType,
@@ -1483,6 +1484,133 @@ async def upload_calendar_pdf(
         academic_year=target_academic_year,
         events_parsed=saved_count,
     )
+
+
+class PersonalScheduleResponse(BaseModel):
+    id: str
+    user_id: str
+    base_schedule_id: Optional[str]
+    courses: list[CourseItem]
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PersonalScheduleUpdateRequest(BaseModel):
+    courses: list[CourseItem]
+
+
+def _parse_personal_schedule(ps: "PersonalSchedule") -> PersonalScheduleResponse:
+    try:
+        raw = ps.schedule_data
+        data = raw if isinstance(raw, dict) else json.loads(raw)
+        courses = [CourseItem(**c) for c in data.get("courses", [])]
+    except Exception:
+        logger.exception("_parse_personal_schedule hatası. ps_id=%s", ps.id)
+        courses = []
+    return PersonalScheduleResponse(
+        id=ps.id,
+        user_id=ps.user_id,
+        base_schedule_id=ps.base_schedule_id,
+        courses=courses,
+        updated_at=ps.updated_at,
+    )
+
+
+# ============================================================================
+# KİŞİSEL DERS PROGRAMI ENDPOINT'LERİ
+# ============================================================================
+
+@router.get("/my-schedule", response_model=PersonalScheduleResponse)
+async def get_my_schedule(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Giriş yapan kullanıcının kişisel ders programını döndürür."""
+    stmt = select(PersonalSchedule).where(PersonalSchedule.user_id == current_user.id)
+    result = await session.execute(stmt)
+    ps = result.scalar_one_or_none()
+    if not ps:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Kişisel program bulunamadı."}},
+        )
+    return _parse_personal_schedule(ps)
+
+
+@router.post(
+    "/my-schedule/clone/{course_schedule_id}",
+    response_model=PersonalScheduleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def clone_to_my_schedule(
+    course_schedule_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Resmi ders programını kullanıcının kişisel programına kopyalar (upsert)."""
+    official = await session.get(CourseSchedule, course_schedule_id)
+    if not official:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Resmi program bulunamadı."}},
+        )
+
+    courses = parse_schedule_courses(official)
+    schedule_data_str = json.dumps(
+        {"courses": [c.model_dump() for c in courses]}, ensure_ascii=False
+    )
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    stmt = select(PersonalSchedule).where(PersonalSchedule.user_id == current_user.id)
+    result = await session.execute(stmt)
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.base_schedule_id = course_schedule_id
+        existing.schedule_data = schedule_data_str
+        existing.updated_at = now
+        ps = existing
+    else:
+        ps = PersonalSchedule(
+            id=str(uuid4()),
+            user_id=current_user.id,
+            base_schedule_id=course_schedule_id,
+            schedule_data=schedule_data_str,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(ps)
+
+    await session.commit()
+    await session.refresh(ps)
+    logger.info("Kişisel program oluşturuldu/güncellendi. user=%s", current_user.id)
+    return _parse_personal_schedule(ps)
+
+
+@router.put("/my-schedule", response_model=PersonalScheduleResponse)
+async def update_my_schedule(
+    data: PersonalScheduleUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Kullanıcının kişisel ders programını günceller."""
+    stmt = select(PersonalSchedule).where(PersonalSchedule.user_id == current_user.id)
+    result = await session.execute(stmt)
+    ps = result.scalar_one_or_none()
+    if not ps:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Kişisel program bulunamadı."}},
+        )
+
+    ps.schedule_data = json.dumps(
+        {"courses": [c.model_dump() for c in data.courses]}, ensure_ascii=False
+    )
+    ps.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    await session.commit()
+    await session.refresh(ps)
+    return _parse_personal_schedule(ps)
 
 
 # ============================================================================

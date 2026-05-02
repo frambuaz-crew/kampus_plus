@@ -129,6 +129,48 @@ class CourseSchedule(Base):
     )
 
 
+class PersonalSchedule(Base):
+    """Kişisel ders programı — öğrenciye özel, admin göremez."""
+
+    __tablename__ = "personal_schedules"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid4()),
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    base_schedule_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("course_schedules.id"),
+        nullable=True,
+    )
+
+    schedule_data: Mapped[str] = mapped_column(DialectJSON, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    user = relationship("User", foreign_keys=[user_id])
+    base_schedule = relationship("CourseSchedule", foreign_keys=[base_schedule_id])
+
+
 class AcademicContribution(Base):
     """Akademik katkı modeli."""
     

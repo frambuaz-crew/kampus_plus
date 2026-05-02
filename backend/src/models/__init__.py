@@ -11,7 +11,7 @@ from .department import Department
 from .forum import ForumCategory, ForumTopic, ForumReply, ForumReport
 from .marketplace import MarketplaceListing, MarketplaceReport, MarketplaceMessage
 from .career import CareerListing, CareerApplication, CareerReport, CareerMessage
-from .academic import AcademicCalendarEvent, CourseSchedule, AcademicContribution
+from .academic import AcademicCalendarEvent, CourseSchedule, AcademicContribution, PersonalSchedule
 from .messages import Conversation
 from .direct import DirectMessage
 from .notifications import Notification
@@ -47,6 +47,7 @@ __all__ = [
     "AcademicCalendarEvent",
     "CourseSchedule",
     "AcademicContribution",
+    "PersonalSchedule",
     # Messages
     "Conversation",
     "DirectMessage",

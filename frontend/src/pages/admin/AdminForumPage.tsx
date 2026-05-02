@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MessageSquare, Flag, Pin, Trash2, Check, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { MessageSquare, Flag, Pin, Trash2, Check, X, AlertCircle, RefreshCw, Eye, Tag, Calendar, User } from 'lucide-react';
 import {
   getForumReports,
   resolveForumReport,
   getAdminForumTopics,
   deleteForumTopic,
+  getForumTopicDetail,
 } from '../../api/forum';
 import type { ForumReport, ForumTopic } from '../../types/forum';
 
@@ -160,6 +161,94 @@ const ReportsTab: React.FC = () => {
 };
 
 // ============================================================================
+// KONU İNCELE MODALI
+// ============================================================================
+const TopicInspectModal: React.FC<{ topic: ForumTopic; onClose: () => void }> = ({ topic, onClose }) => {
+  const authorName = topic.author
+    ? `${topic.author.first_name} ${topic.author.last_name}`
+    : 'Anonim';
+  const authorUsername = topic.author?.username ? `@${topic.author.username}` : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-800 shrink-0">
+          <div className="flex items-center gap-2">
+            <Eye size={16} className="text-blue-400 shrink-0 mt-0.5" />
+            <h2 className="text-base font-bold text-white leading-snug">{topic.title}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-gray-500 hover:text-white rounded-lg hover:bg-gray-800 transition-colors shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Meta */}
+        <div className="px-6 py-3 border-b border-gray-800 flex flex-wrap gap-x-5 gap-y-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <User size={12} className="text-gray-500" />
+            <span className="font-semibold text-gray-300">{authorName}</span>
+            {authorUsername && <span className="text-gray-600">{authorUsername}</span>}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <Calendar size={12} className="text-gray-500" />
+            {new Date(topic.created_at).toLocaleDateString('tr-TR', {
+              day: 'numeric', month: 'long', year: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span>{topic.reply_count} yorum</span>
+            <span>•</span>
+            <span>{topic.view_count} görüntülenme</span>
+          </div>
+        </div>
+
+        {/* Tags */}
+        {topic.tags && topic.tags.length > 0 && (
+          <div className="px-6 py-2.5 border-b border-gray-800 flex items-center gap-2 flex-wrap shrink-0">
+            <Tag size={11} className="text-gray-600" />
+            {topic.tags.map(tag => (
+              <span key={tag} className="text-[11px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">
+          {topic.content ? (
+            <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{topic.content}</p>
+          ) : (
+            <p className="text-sm text-gray-600 italic">İçerik bulunamadı.</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-gray-800 flex justify-end shrink-0">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors"
+          >
+            Kapat
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // KONULAR SEKMESİ
 // ============================================================================
 const TopicsTab: React.FC = () => {
@@ -167,6 +256,9 @@ const TopicsTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<ForumTopic | null>(null);
+  const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
+  const [isInspecting, setIsInspecting] = useState<string | null>(null);
 
   const fetchTopics = useCallback(async () => {
     try {
@@ -183,12 +275,31 @@ const TopicsTab: React.FC = () => {
 
   useEffect(() => { void fetchTopics(); }, [fetchTopics]);
 
+  const handleInspect = async (topic: ForumTopic) => {
+    try {
+      setIsInspecting(topic.id);
+      const res = await getForumTopicDetail(topic.id);
+      setSelectedTopic(res.topic);
+      setIsInspectModalOpen(true);
+    } catch {
+      setError('Konu detayı yüklenemedi.');
+    } finally {
+      setIsInspecting(null);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsInspectModalOpen(false);
+    setSelectedTopic(null);
+  };
+
   const handleDelete = async (topicId: string) => {
     if (!confirm('Bu konuyu silmek istediğinize emin misiniz?')) return;
     try {
       setDeleting(topicId);
       await deleteForumTopic(topicId);
       setTopics(prev => prev.filter(t => t.id !== topicId));
+      if (selectedTopic?.id === topicId) handleCloseModal();
     } catch {
       setError('Konu silinemedi.');
     } finally {
@@ -205,61 +316,79 @@ const TopicsTab: React.FC = () => {
   }
 
   return (
-    <div>
-      <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MessageSquare size={16} className="text-blue-400" />
-          <span className="text-sm font-semibold text-gray-300">Forum Konuları</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-semibold">
-            {topics.length} konu
-          </span>
-          <button onClick={fetchTopics} className="p-1.5 text-gray-500 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
-            <RefreshCw size={14} />
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="mx-6 mt-4 text-sm text-red-400 flex items-center gap-2 bg-red-500/10 p-3 rounded-lg">
-          <AlertCircle size={16} /> {error}
-        </div>
+    <>
+      {isInspectModalOpen && selectedTopic && (
+        <TopicInspectModal topic={selectedTopic} onClose={handleCloseModal} />
       )}
 
-      {topics.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <MessageSquare size={40} className="text-gray-600 mb-3" />
-          <p className="text-sm text-gray-600">Henüz forum konusu bulunmuyor.</p>
+      <div>
+        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquare size={16} className="text-blue-400" />
+            <span className="text-sm font-semibold text-gray-300">Forum Konuları</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-semibold">
+              {topics.length} konu
+            </span>
+            <button onClick={fetchTopics} className="p-1.5 text-gray-500 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
+              <RefreshCw size={14} />
+            </button>
+          </div>
         </div>
-      ) : (
-        <div className="divide-y divide-gray-800">
-          {topics.map(topic => (
-            <div key={topic.id} className="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-gray-800/50 transition-colors">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-200 truncate">{topic.title}</p>
-                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
-                  <span>{topic.author ? `${topic.author.first_name} ${topic.author.last_name}` : 'Anonim'}</span>
-                  <span>•</span>
-                  <span>{topic.reply_count} yorum</span>
-                  <span>•</span>
-                  <span>{topic.view_count} görüntülenme</span>
-                  <span>•</span>
-                  <span>{new Date(topic.created_at).toLocaleDateString('tr-TR')}</span>
+
+        {error && (
+          <div className="mx-6 mt-4 text-sm text-red-400 flex items-center gap-2 bg-red-500/10 p-3 rounded-lg">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        {topics.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <MessageSquare size={40} className="text-gray-600 mb-3" />
+            <p className="text-sm text-gray-600">Henüz forum konusu bulunmuyor.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-800">
+            {topics.map(topic => (
+              <div key={topic.id} className="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-gray-800/50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-200 truncate">{topic.title}</p>
+                  <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
+                    <span>{topic.author ? `${topic.author.first_name} ${topic.author.last_name}` : 'Anonim'}</span>
+                    <span>•</span>
+                    <span>{topic.reply_count} yorum</span>
+                    <span>•</span>
+                    <span>{topic.view_count} görüntülenme</span>
+                    <span>•</span>
+                    <span>{new Date(topic.created_at).toLocaleDateString('tr-TR')}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => void handleInspect(topic)}
+                    disabled={isInspecting === topic.id}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                  >
+                    {isInspecting === topic.id
+                      ? <span className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      : <Eye size={12} />}
+                    {isInspecting === topic.id ? '...' : 'İncele'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(topic.id)}
+                    disabled={deleting === topic.id}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 size={12} /> {deleting === topic.id ? '...' : 'Sil'}
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => handleDelete(topic.id)}
-                disabled={deleting === topic.id}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50 shrink-0"
-              >
-                <Trash2 size={12} /> {deleting === topic.id ? '...' : 'Sil'}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 

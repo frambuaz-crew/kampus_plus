@@ -13,7 +13,7 @@ from sqlalchemy import desc, asc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
-from src.core.dependencies import get_current_user
+from src.core.dependencies import get_current_user, require_admin
 from src.models.career import CareerListing, CareerApplication, CareerReport, CareerMessage
 from src.models.messages import Conversation
 from src.models.user import User, UserRole
@@ -148,6 +148,25 @@ def _listing_to_response(listing: CareerListing, user: Optional[User] = None) ->
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
+
+@router.get("/admin/listings", response_model=List[CareerListingResponse])
+async def admin_get_all_listings(
+    listing_type: Optional[str] = Query(None),
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_db),
+):
+    """Admin: tüm ilanları durum filtresi olmadan döndürür."""
+    stmt = (
+        select(CareerListing, User)
+        .outerjoin(User, CareerListing.posted_by == User.id)
+    )
+    if listing_type:
+        stmt = stmt.where(CareerListing.type == listing_type)
+    stmt = stmt.order_by(desc(CareerListing.created_at))
+
+    result = await session.execute(stmt)
+    return [_listing_to_response(listing, user) for listing, user in result.all()]
+
 
 @router.get("/listings", response_model=List[CareerListingResponse])
 async def get_listings(

@@ -10,9 +10,9 @@ import os
 import uuid
 
 from src.core.database import get_db
-from src.core.dependencies import get_current_user, get_current_active_user
+from src.core.dependencies import get_current_user, get_current_active_user, require_admin
 from src.models.marketplace import MarketplaceListing
-from src.models.user import User
+from src.models.user import User, UserRole
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
@@ -84,13 +84,44 @@ async def get_listings(
 
     return final_listings
 
+@router.get("/admin/listings", response_model=List[ListingResponse])
+async def admin_get_all_listings(
+    category: Optional[str] = Query(None),
+    current_user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_db),
+):
+    """Admin: tüm ilanları durum filtresi olmadan döndürür."""
+    stmt = (
+        select(MarketplaceListing, User.first_name, User.last_name, User.university, User.username, User.profile_picture_url)
+        .outerjoin(User, MarketplaceListing.seller_id == User.id)
+    )
+    if category:
+        stmt = stmt.where(MarketplaceListing.category == category)
+    stmt = stmt.order_by(desc(MarketplaceListing.created_at))
+
+    result = await session.execute(stmt)
+    listings = []
+    for row in result:
+        listing = row[0]
+        listing.creator = {
+            "id": listing.seller_id,
+            "username": row[4],
+            "first_name": row[1],
+            "last_name": row[2],
+            "university": row[3] if row[3] else "Kampüs İçi",
+            "profile_picture_url": row[5],
+        }
+        listings.append(listing)
+    return listings
+
+
 @router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_listing(
     listing_id: str,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)
 ):
-    """İlanı veren kişinin kendi ilanını silmesini sağlar."""
+    """İlan sahibi veya admin silebilir."""
     stmt = select(MarketplaceListing).where(MarketplaceListing.id == listing_id)
     result = await session.execute(stmt)
     listing = result.scalar_one_or_none()
@@ -98,7 +129,8 @@ async def delete_listing(
     if not listing:
         raise HTTPException(status_code=404, detail="İlan bulunamadı.")
 
-    if listing.seller_id != current_user.id:
+    is_admin = UserRole(current_user.role) in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN)
+    if listing.seller_id != current_user.id and not is_admin:
         raise HTTPException(
             status_code=403,
             detail="Bu ilanı silme yetkiniz bulunmamaktadır."
