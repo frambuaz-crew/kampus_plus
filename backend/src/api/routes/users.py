@@ -1,16 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from src.core.database import get_db
-from src.core.dependencies import get_current_user
-from src.models.user import User
+from src.core.dependencies import get_current_user, require_admin
+from src.models.user import User, UserRole
 from src.models.favorite import UserFavorite
 from src.models.forum import ForumTopic
 from src.models.marketplace import MarketplaceListing
 from src.models.career import CareerListing
 from src.models.academic import AcademicContribution
 from src.core.security import hash_password, verify_password
+from src.schemas.user import (
+    AdminUserItem,
+    AdminUserListResponse,
+    AdminUserStats,
+    UserBlockRequest,
+    UserVerifyRequest,
+    UserRoleUpdateRequest,
+)
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from sqlalchemy import desc
@@ -19,6 +27,9 @@ import uuid
 from fastapi import File, UploadFile
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+# Users with this role are invisible to and unmanageable by the admin panel.
+_PROTECTED_ROLE = UserRole.ADMIN
 
 @router.get("/profile/{username}")
 async def get_user_profile(username: str, session: AsyncSession = Depends(get_db)):
@@ -105,6 +116,221 @@ async def upload_profile_picture(
     await session.commit()
 
     return {"success": True, "profile_picture_url": image_url}
+
+@router.get("/admin/stats", response_model=AdminUserStats)
+async def get_admin_user_stats(
+    session: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> AdminUserStats:
+    """Toplam, doğrulanmış, doğrulanmamış ve engelli kullanıcı sayılarını döndürür."""
+    base = and_(User.is_deleted == False, User.role != _PROTECTED_ROLE)
+
+    total = await session.scalar(select(func.count(User.id)).where(base))
+    verified = await session.scalar(
+        select(func.count(User.id)).where(and_(base, User.is_verified == True))
+    )
+    blocked = await session.scalar(
+        select(func.count(User.id)).where(and_(base, User.is_active == False))
+    )
+    unverified = await session.scalar(
+        select(func.count(User.id)).where(
+            and_(base, User.is_verified == False, User.is_active == True)
+        )
+    )
+
+    return AdminUserStats(
+        total=total or 0,
+        verified=verified or 0,
+        unverified=unverified or 0,
+        blocked=blocked or 0,
+    )
+
+
+@router.get("/admin/list", response_model=AdminUserListResponse)
+async def get_admin_users(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query("all"),
+    session: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> AdminUserListResponse:
+    """Tüm kullanıcıları sayfalanmış, filtrelenmiş ve aranmış şekilde listeler."""
+    stmt = (
+        select(User)
+        .options(selectinload(User.department_rel))
+        .where(User.is_deleted == False, User.role != _PROTECTED_ROLE)
+    )
+
+    if status == "verified":
+        stmt = stmt.where(User.is_verified == True)
+    elif status == "blocked":
+        stmt = stmt.where(User.is_active == False)
+    elif status == "unverified":
+        stmt = stmt.where(and_(User.is_verified == False, User.is_active == True))
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        stmt = stmt.where(
+            or_(
+                User.username.ilike(term),
+                User.email.ilike(term),
+                User.first_name.ilike(term),
+                User.last_name.ilike(term),
+            )
+        )
+
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = await session.scalar(count_stmt) or 0
+
+    stmt = stmt.order_by(desc(User.created_at)).offset((page - 1) * limit).limit(limit)
+    result = await session.execute(stmt)
+    users = result.scalars().all()
+
+    return AdminUserListResponse(
+        users=[
+            AdminUserItem(
+                id=u.id,
+                email=u.email,
+                username=u.username,
+                first_name=u.first_name,
+                last_name=u.last_name,
+                role=u.role.value if hasattr(u.role, "value") else u.role,
+                is_verified=u.is_verified,
+                is_active=u.is_active,
+                university=u.university,
+                department=u.department_rel.name if u.department_rel else None,
+                grade=u.grade,
+                profile_picture_url=u.profile_picture_url,
+                created_at=u.created_at,
+                last_login=u.last_login,
+            )
+            for u in users
+        ],
+        total=total,
+        page=page,
+        limit=limit,
+    )
+
+
+@router.get("/admin/{user_id}", response_model=AdminUserItem)
+async def get_admin_user_detail(
+    user_id: str,
+    session: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> AdminUserItem:
+    """Tek bir kullanıcının detay bilgilerini döndürür."""
+    result = await session.execute(
+        select(User)
+        .options(selectinload(User.department_rel))
+        .where(User.id == user_id, User.is_deleted == False)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+
+    return AdminUserItem(
+        id=user.id,
+        email=user.email,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        role=user.role.value if hasattr(user.role, "value") else user.role,
+        is_verified=user.is_verified,
+        is_active=user.is_active,
+        university=user.university,
+        department=user.department_rel.name if user.department_rel else None,
+        grade=user.grade,
+        profile_picture_url=user.profile_picture_url,
+        created_at=user.created_at,
+        last_login=user.last_login,
+    )
+
+
+@router.patch("/admin/{user_id}/block")
+async def toggle_user_block(
+    user_id: str,
+    data: UserBlockRequest,
+    session: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Kullanıcı hesabını engeller veya engeli kaldırır (is_active)."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Kendi hesabınızı engelleyemezsiniz.")
+
+    result = await session.execute(
+        select(User).where(User.id == user_id, User.is_deleted == False)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+
+    if user.role == _PROTECTED_ROLE:
+        raise HTTPException(status_code=403, detail="Bu kullanıcının hesabı yönetilemez.")
+
+    user.is_active = not data.block
+    session.add(user)
+    await session.commit()
+    return {"success": True, "is_active": user.is_active}
+
+
+@router.patch("/admin/{user_id}/verify")
+async def toggle_user_verification(
+    user_id: str,
+    data: UserVerifyRequest,
+    session: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Kullanıcının e-posta doğrulama durumunu günceller (is_verified)."""
+    result = await session.execute(
+        select(User).where(User.id == user_id, User.is_deleted == False)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+
+    user.is_verified = data.verified
+    session.add(user)
+    await session.commit()
+    return {"success": True, "is_verified": user.is_verified}
+
+
+@router.patch("/admin/{user_id}/role")
+async def change_user_role(
+    user_id: str,
+    data: UserRoleUpdateRequest,
+    session: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Kullanıcının rolünü günceller."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Kendi rolünüzü değiştiremezsiniz.")
+
+    if data.role == _PROTECTED_ROLE.value:
+        raise HTTPException(status_code=403, detail="Bu rol atanamaz.")
+
+    valid_roles = {r.value for r in UserRole if r != _PROTECTED_ROLE}
+    if data.role not in valid_roles:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Geçersiz rol. Geçerli roller: {', '.join(valid_roles)}",
+        )
+
+    result = await session.execute(
+        select(User).where(User.id == user_id, User.is_deleted == False)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+
+    if user.role == _PROTECTED_ROLE:
+        raise HTTPException(status_code=403, detail="Bu kullanıcının rolü değiştirilemez.")
+
+    user.role = UserRole(data.role)
+    session.add(user)
+    await session.commit()
+    return {"success": True, "role": user.role.value}
+
 
 @router.get("/{username}/activity")
 async def get_user_activity(username: str, session: AsyncSession = Depends(get_db)):
