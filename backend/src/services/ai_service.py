@@ -118,6 +118,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - Kullanıcı ders notu havuzları, ders kodu notları veya bir ders konusuyla ilgili not aradığında mutlaka `search_course_notes` aracını kullan.
 - Kullanıcı sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon veya akademik takvim tarihlerini sorduğunda MUTLAKA `get_academic_calendar` aracını kullan.
 - Artık tüm bölümlerin ve sınıfların ders programına, tüm üniversitelerin takvimine erişebilirsin. Kullanıcı başka bir sınıf, bölüm veya üniversite sorarsa ilgili `university`, `department`, `class_year`, `semester` parametrelerini açıkça araçlara geçir.
+- Öğrenci herhangi bir soru sorduğunda önce `search_knowledge_base` aracını dene; eşleşen bir yanıt dönerse o yanıtı doğrudan kullan.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
 - Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
 - Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …")."""
@@ -382,6 +383,11 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Takvim verisi istenen üniversite adı. "
                     "Belirtilmezse kullanıcının kendi üniversitesi kullanılır."
                 ),
+            )
+
+        class KnowledgeBaseSearchInput(BaseModel):
+            query: str = Field(
+                description="Öğrencinin sorusu veya aranacak anahtar kelime ifadesi."
             )
 
         class CourseNotesSearchInput(BaseModel):
@@ -878,6 +884,60 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             except Exception as exc:
                 return f"Ders notları aranırken bir hata oluştu: {str(exc)}"
 
+        # ---- Tool 8: Bilgi tabanı araması (AIKnowledgeBase) ----------- #
+
+        async def _search_knowledge_base(query: str) -> str:
+            """Admin tarafından oluşturulan özel SSS/bilgi tabanında arama yapar."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            from src.models.ai import AIKnowledgeBase  # yerel import – döngüsel bağımlılığı önler
+
+            result = await db.execute(
+                select(AIKnowledgeBase)
+                .where(AIKnowledgeBase.is_active.is_(True))
+                .order_by(AIKnowledgeBase.priority.desc())
+            )
+            entries = result.scalars().all()
+
+            if not entries:
+                return "Bilgi tabanında kayıt bulunamadı."
+
+            normalized_query = query.strip().lower()
+
+            matches: List[str] = []
+            for entry in entries:
+                # Safely parse keywords — DB stores a JSON string (VARCHAR column)
+                raw = entry.keywords
+                if isinstance(raw, str):
+                    try:
+                        raw = json.loads(raw)
+                    except (ValueError, TypeError):
+                        raw = []
+                if not isinstance(raw, list):
+                    raw = []
+
+                # Flatten: split comma-separated tags, strip, lowercase
+                # e.g. ["staj, zorunlu"] → ["staj", "zorunlu"]
+                flat_keywords: List[str] = []
+                for tag in raw:
+                    for part in str(tag).split(","):
+                        part = part.strip().lower()
+                        if part:
+                            flat_keywords.append(part)
+
+                # Bidirectional substring match: keyword ⊆ query OR query ⊆ keyword
+                if any(
+                    kw in normalized_query or normalized_query in kw
+                    for kw in flat_keywords
+                ):
+                    matches.append(entry.answer)
+
+            if not matches:
+                return "Bilgi tabanında eşleşen kayıt bulunamadı."
+
+            return "\n\n---\n\n".join(matches)
+
         # ---- StructuredTool sarmalayıcıları --------------------------- #
 
         tools: List[StructuredTool] = [
@@ -949,6 +1009,18 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Kullanıcı ders notu, özet not veya belirli konu notu istediğinde bu aracı kullan."
                 ),
                 args_schema=CourseNotesSearchInput,
+            ),
+            StructuredTool.from_function(
+                coroutine=_search_knowledge_base,
+                name="search_knowledge_base",
+                description=(
+                    "Yönetici tarafından oluşturulan özel soru-cevap (SSS) bilgi tabanında arama yapar. "
+                    "Kullanıcı üniversite kuralları, yönetmelikler, staj, kayıt, harç, burs veya kampüse "
+                    "özgü herhangi bir prosedür hakkında soru sorduğunda HER ZAMAN ÖNCE bu aracı çağır. "
+                    "Arama sorgusunu kısa ve tek kelime tut (örn. 'staj', 'kayıt', 'burs'). "
+                    "Eşleşen yanıt dönerse başka araç kullanmadan o yanıtı doğrudan kullan."
+                ),
+                args_schema=KnowledgeBaseSearchInput,
             ),
         ]
         return tools, retrieved_docs
