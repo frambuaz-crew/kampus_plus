@@ -12,7 +12,12 @@
       "Bash(npx --yes tsc --noEmit)",
       "Bash(python -c \"import ast, sys; ast.parse\\(open\\('backend/src/api/routes/forum.py'\\).read\\(\\)\\); print\\('forum.py: valid Python'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('backend/src/api/routes/forum.py', encoding='utf-8'\\).read\\(\\)\\); print\\('forum.py: valid Python'\\)\")",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import ast, sys; ast.parse\\(open\\('src/services/ai_service.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('src/services/ai_service.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('src/services/ai_service.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Backend OK'\\)\")",
+      "Bash(Select-String \"ChatInterface\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('src/services/ai_service.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }

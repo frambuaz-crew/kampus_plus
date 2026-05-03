@@ -116,6 +116,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - Öğrenciler forum gönderileri, diğer öğrencilerin tartışmaları veya platformdaki konular hakkında soru sorduğunda `search_forum_topics` aracını kullan. "En son neler paylaşıldı", "yeni ne var", "forumda neler oluyor" gibi genel sorularda `query` parametresini BOŞ ("") bırak — bu en yeni gönderileri kronolojik sırayla getirir. Yalnızca "yapay zeka hakkında ne yazıyor" gibi spesifik konu sorulduğunda ilgili kelimeyi `query`'e yaz.
 - Kullanıcı ders programını sorduğunda (örn. "bugün ne dersim var", "salı günkü derslerim") mutlaka `get_user_schedule` aracını kullan.
 - Kullanıcı ders notu havuzları, ders kodu notları veya bir ders konusuyla ilgili not aradığında mutlaka `search_course_notes` aracını kullan.
+- Kullanıcı iş ilanı, staj fırsatı, kariyer fırsatı, şirket ilanı veya proje arayışından bahsettiğinde mutlaka `get_career_listings` aracını kullan.
 - Kullanıcı sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon veya akademik takvim tarihlerini sorduğunda MUTLAKA `get_academic_calendar` aracını kullan.
 - Artık tüm bölümlerin ve sınıfların ders programına, tüm üniversitelerin takvimine erişebilirsin. Kullanıcı başka bir sınıf, bölüm veya üniversite sorarsa ilgili `university`, `department`, `class_year`, `semester` parametrelerini açıkça araçlara geçir.
 - Öğrenci herhangi bir soru sorduğunda önce `search_knowledge_base` aracını dene; eşleşen bir yanıt dönerse o yanıtı doğrudan kullan.
@@ -310,6 +311,14 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Tüm aktif ilanları görmek için boş bırak."
                 ),
             )
+            min_price: Optional[float] = Field(
+                default=None,
+                description="Minimum fiyat filtresi (TL). Örn: 50.0",
+            )
+            max_price: Optional[float] = Field(
+                default=None,
+                description="Maksimum fiyat filtresi (TL). Örn: 100.0",
+            )
 
         class SystemStatsInput(BaseModel):
             pass  # parametresiz araç
@@ -390,6 +399,24 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 description="Öğrencinin sorusu veya aranacak anahtar kelime ifadesi."
             )
 
+        class CareerInput(BaseModel):
+            keyword: Optional[str] = Field(
+                default=None,
+                description=(
+                    "İlan başlığı veya şirket adında aranacak anahtar kelime. "
+                    "Örn: 'yazılım', 'Google', 'pazarlama'."
+                ),
+            )
+            job_type: Optional[str] = Field(
+                default=None,
+                description=(
+                    "İlan türü filtresi. Kabul edilen Türkçe değerler: "
+                    "'staj' (internship), 'iş' veya 'tam zamanlı' (job), "
+                    "'proje' (project), 'startup'. "
+                    "Belirtilmezse tüm türler gösterilir."
+                ),
+            )
+
         class CourseNotesSearchInput(BaseModel):
             course_code: str = Field(
                 default="",
@@ -446,36 +473,62 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
         # ---- Tool 2: Aktif pazar yeri ilanları (SQLAlchemy) ----------- #
 
-        async def _get_active_marketplace_listings(category_keyword: str = "") -> str:
+        async def _get_active_marketplace_listings(
+            category_keyword: str = "",
+            min_price: Optional[float] = None,
+            max_price: Optional[float] = None,
+        ) -> str:
             """Aktif pazar yeri ilanlarını veritabanından getirir."""
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
 
-            from src.models.marketplace import MarketplaceListing  # yerel import – döngüsel bağımlılığı önler
+            from src.models.marketplace import MarketplaceCategory, MarketplaceListing  # yerel import – döngüsel bağımlılığı önler
 
-            stmt = select(MarketplaceListing).where(MarketplaceListing.status == "active")
+            stmt = (
+                select(MarketplaceListing)
+                .outerjoin(MarketplaceCategory, MarketplaceListing.category_id == MarketplaceCategory.id)
+                .where(MarketplaceListing.status == "active")
+                .options(selectinload(MarketplaceListing.category_rel))
+            )
+
             kw = (category_keyword or "").strip()
             if kw:
                 pattern = f"%{kw}%"
                 stmt = stmt.where(
                     or_(
-                        MarketplaceListing.category.ilike(pattern),
                         MarketplaceListing.title.ilike(pattern),
+                        func.coalesce(MarketplaceCategory.name, "").ilike(pattern),
                     )
                 )
+            if min_price is not None:
+                stmt = stmt.where(MarketplaceListing.price >= min_price)
+            if max_price is not None:
+                stmt = stmt.where(MarketplaceListing.price <= max_price)
+
             stmt = stmt.order_by(MarketplaceListing.created_at.desc()).limit(10)
 
             result = await db.execute(stmt)
             listings = result.scalars().all()
 
             if not listings:
-                suffix = f" '{category_keyword}' kategorisinde" if kw else ""
+                parts: List[str] = []
+                if kw:
+                    parts.append(f"'{category_keyword}' kategorisinde")
+                if max_price is not None:
+                    parts.append(f"{max_price} TL altında")
+                elif min_price is not None:
+                    parts.append(f"{min_price} TL üzerinde")
+                suffix = " " + " ve ".join(parts) if parts else ""
                 return f"Şu anda{suffix} aktif ilan bulunmuyor."
 
-            rows = [
-                f"- **{lst.title}** | Kategori: {lst.category} | Fiyat: {lst.price} TL | Durum: {lst.condition}"
-                for lst in listings
-            ]
+            rows = []
+            for lst in listings:
+                category_name = lst.category_rel.name if lst.category_rel else "Kategorisiz"
+                price_str = f"{lst.price:.2f}".rstrip("0").rstrip(".")
+                rows.append(
+                    f"- [{lst.title}](/marketplace/{lst.id}) "
+                    f"| Kategori: {category_name} | Fiyat: {price_str} TL | Durum: {lst.condition}"
+                )
             return f"Aktif ilanlar ({len(listings)} sonuç):\n" + "\n".join(rows)
 
         # ---- Tool 3: Sistem istatistikleri (SQLAlchemy) --------------- #
@@ -744,7 +797,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 if len(t.content) > 120:
                     snippet += "..."
                 rows.append(
-                    f"- **{t.title}** (Yazar: {author_name} | {t.reply_count} yorum)\n  {snippet}"
+                    f"- [{t.title}](/forum/{t.id}) (Yazar: {author_name} | {t.reply_count} yorum)\n  {snippet}"
                 )
 
             return f"{header} ({len(rows)} sonuç):\n" + "\n".join(rows)
@@ -884,7 +937,79 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             except Exception as exc:
                 return f"Ders notları aranırken bir hata oluştu: {str(exc)}"
 
-        # ---- Tool 8: Bilgi tabanı araması (AIKnowledgeBase) ----------- #
+        # ---- Tool 8: Kariyer ilanları (CareerListing) ----------------- #
+
+        _JOB_TYPE_MAP: Dict[str, str] = {
+            "staj": "internship",
+            "iş": "job",
+            "tam zamanlı": "job",
+            "proje": "project",
+            "startup": "startup",
+        }
+
+        async def _get_career_listings(
+            keyword: Optional[str] = None,
+            job_type: Optional[str] = None,
+        ) -> str:
+            """Aktif kariyer ilanlarını başlık/şirket ve ilan türüne göre getirir."""
+            if db is None:
+                return "Veritabanı bağlantısı mevcut değil."
+
+            from src.models.career import CareerListing  # yerel import – döngüsel bağımlılığı önler
+
+            stmt = select(CareerListing).where(CareerListing.status == "active")
+
+            kw = (keyword or "").strip()
+            if kw:
+                pattern = f"%{kw}%"
+                stmt = stmt.where(
+                    or_(
+                        CareerListing.title.ilike(pattern),
+                        func.coalesce(CareerListing.company_name, "").ilike(pattern),
+                    )
+                )
+
+            if job_type:
+                normalized_type = job_type.strip().lower()
+                mapped = next(
+                    (v for k, v in _JOB_TYPE_MAP.items() if k in normalized_type),
+                    None,
+                )
+                if mapped:
+                    stmt = stmt.where(CareerListing.type == mapped)
+
+            stmt = stmt.order_by(CareerListing.created_at.desc()).limit(10)
+            result = await db.execute(stmt)
+            listings = result.scalars().all()
+
+            if not listings:
+                parts: List[str] = []
+                if kw:
+                    parts.append(f"'{keyword}'")
+                if job_type:
+                    parts.append(f"tür: {job_type}")
+                suffix = " (" + ", ".join(parts) + ")" if parts else ""
+                return f"Şu anda aktif kariyer ilanı bulunamadı{suffix}."
+
+            _TYPE_LABELS: Dict[str, str] = {
+                "job": "İş İlanı",
+                "internship": "Staj",
+                "startup": "Startup",
+                "project": "Proje",
+            }
+            rows = []
+            for lst in listings:
+                company = lst.company_name or "Belirtilmemiş"
+                type_label = _TYPE_LABELS.get(lst.type, lst.type)
+                remote_tag = " 🌐 Uzaktan" if lst.is_remote else ""
+                location = f" | 📍 {lst.location}" if lst.location else ""
+                rows.append(
+                    f"- [{lst.title} — {company}](/career/{lst.id}) "
+                    f"| Tür: {type_label}{remote_tag}{location}"
+                )
+            return f"Kariyer ilanları ({len(listings)} sonuç):\n" + "\n".join(rows)
+
+        # ---- Tool 9: Bilgi tabanı araması (AIKnowledgeBase) ----------- #
 
         async def _search_knowledge_base(query: str) -> str:
             """Admin tarafından oluşturulan özel SSS/bilgi tabanında arama yapar."""
@@ -1021,6 +1146,17 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Eşleşen yanıt dönerse başka araç kullanmadan o yanıtı doğrudan kullan."
                 ),
                 args_schema=KnowledgeBaseSearchInput,
+            ),
+            StructuredTool.from_function(
+                coroutine=_get_career_listings,
+                name="get_career_listings",
+                description=(
+                    "Platformdaki aktif kariyer ilanlarını (iş, staj, proje, startup) listeler. "
+                    "Kullanıcı iş ilanı, staj fırsatı, kariyer, şirket ilanı veya proje arayışı "
+                    "hakkında soru sorduğunda bu aracı kullan. "
+                    "Anahtar kelime (şirket adı, pozisyon) ve ilan türü (staj, iş, proje) ile filtrelenebilir."
+                ),
+                args_schema=CareerInput,
             ),
         ]
         return tools, retrieved_docs
