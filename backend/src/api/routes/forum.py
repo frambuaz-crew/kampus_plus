@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.core.database import get_db
-from src.core.dependencies import get_current_user
+from src.core.dependencies import get_current_user, require_admin
 from src.models.user import User, UserRole
 from src.models.forum import ForumCategory, ForumTopic, ForumReply, ForumReport
 from src.models.favorite import UserFavorite
@@ -50,9 +50,29 @@ class CategoryResponse(BaseModel):
     name: str
     description: Optional[str]
     icon: Optional[str]
+    order_index: int = 0
+    is_active: bool = True
     topic_count: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class ForumCategoryCreate(BaseModel):
+    """Yeni kategori oluşturma request."""
+    name: str = Field(..., min_length=1, max_length=100, description="Kategori adı")
+    description: Optional[str] = Field(None, max_length=500, description="Açıklama")
+    icon: Optional[str] = Field(None, max_length=50, description="İkon (emoji veya lucide adı)")
+    order_index: int = Field(0, ge=0, description="Sıralama indexi")
+    is_active: bool = Field(True, description="Aktif mi?")
+
+
+class ForumCategoryUpdate(BaseModel):
+    """Kategori güncelleme request."""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    icon: Optional[str] = Field(None, max_length=50)
+    order_index: Optional[int] = Field(None, ge=0)
+    is_active: Optional[bool] = None
 
 
 class TopicAuthorResponse(BaseModel):
@@ -185,10 +205,11 @@ async def get_categories(
 
     Spec: GET /api/v1/forum/categories
     """
-    # Multi-tenant filtre: ADMIN tümünü görür, diğerleri kendi üniversitesi + global
-    cat_query = select(ForumCategory).where(ForumCategory.is_active == True)
-    if UserRole(current_user.role) != UserRole.ADMIN:
-        cat_query = cat_query.where(
+    # Multi-tenant filtre: ADMIN tümünü görür (inactive dahil), diğerleri sadece aktif + kendi üni/global
+    is_admin = UserRole(current_user.role) in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN}
+    cat_query = select(ForumCategory)
+    if not is_admin:
+        cat_query = cat_query.where(ForumCategory.is_active == True).where(
             or_(
                 ForumCategory.university_id == current_user.university_id,
                 ForumCategory.university_id.is_(None),
@@ -217,6 +238,8 @@ async def get_categories(
             "name": category.name,
             "description": category.description,
             "icon": category.icon,
+            "order_index": category.order_index,
+            "is_active": category.is_active,
             "topic_count": topic_count,
         })
 
@@ -1056,4 +1079,156 @@ async def resolve_report(
 
     await session.commit()
     return {"success": True, "status": report.status}
+
+
+# ============================================================================
+# ADMİN: KATEGORİ YÖNETİMİ
+# ============================================================================
+
+@router.post("/admin/categories", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_forum_category(
+    request: ForumCategoryCreate,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """Yeni forum kategorisi oluştur (admin)."""
+    existing = await session.execute(
+        select(ForumCategory).where(ForumCategory.name == request.name)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": {"code": "CONFLICT", "message": "Bu isimde bir kategori zaten mevcut"}}
+        )
+
+    category = ForumCategory(
+        id=str(uuid4()),
+        name=request.name,
+        description=request.description,
+        icon=request.icon,
+        order_index=request.order_index,
+        is_active=request.is_active,
+        university_id=current_user.university_id,
+        created_at=datetime.utcnow(),
+    )
+    session.add(category)
+    await session.commit()
+    await session.refresh(category)
+
+    return {
+        "success": True,
+        "category": {
+            "id": category.id,
+            "name": category.name,
+            "description": category.description,
+            "icon": category.icon,
+            "order_index": category.order_index,
+            "is_active": category.is_active,
+            "topic_count": 0,
+        }
+    }
+
+
+@router.put("/admin/categories/{category_id}", response_model=dict)
+async def update_forum_category(
+    category_id: str,
+    request: ForumCategoryUpdate,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """Forum kategorisini güncelle (admin)."""
+    result = await session.execute(
+        select(ForumCategory).where(ForumCategory.id == category_id)
+    )
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Kategori bulunamadı"}}
+        )
+
+    if request.name is not None:
+        dup = await session.execute(
+            select(ForumCategory).where(
+                ForumCategory.name == request.name,
+                ForumCategory.id != category_id,
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error": {"code": "CONFLICT", "message": "Bu isimde bir kategori zaten mevcut"}}
+            )
+        category.name = request.name
+
+    if request.description is not None:
+        category.description = request.description
+    if request.icon is not None:
+        category.icon = request.icon
+    if request.order_index is not None:
+        category.order_index = request.order_index
+    if request.is_active is not None:
+        category.is_active = request.is_active
+
+    await session.commit()
+    await session.refresh(category)
+
+    topic_count_result = await session.execute(
+        select(func.count(ForumTopic.id)).where(
+            and_(ForumTopic.category_id == category.id, ForumTopic.is_deleted == False)
+        )
+    )
+    topic_count = topic_count_result.scalar() or 0
+
+    return {
+        "success": True,
+        "category": {
+            "id": category.id,
+            "name": category.name,
+            "description": category.description,
+            "icon": category.icon,
+            "order_index": category.order_index,
+            "is_active": category.is_active,
+            "topic_count": topic_count,
+        }
+    }
+
+
+@router.delete("/admin/categories/{category_id}", response_model=dict)
+async def delete_forum_category(
+    category_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> dict:
+    """Forum kategorisini sil (admin). Bağlı konu varsa silmeye izin verilmez."""
+    result = await session.execute(
+        select(ForumCategory).where(ForumCategory.id == category_id)
+    )
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "Kategori bulunamadı"}}
+        )
+
+    topic_count_result = await session.execute(
+        select(func.count(ForumTopic.id)).where(
+            and_(ForumTopic.category_id == category_id, ForumTopic.is_deleted == False)
+        )
+    )
+    topic_count = topic_count_result.scalar() or 0
+    if topic_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": {
+                    "code": "CONFLICT",
+                    "message": f"Bu kategoride {topic_count} konu bulunuyor. Önce konuları silin veya taşıyın."
+                }
+            }
+        )
+
+    await session.delete(category)
+    await session.commit()
+    return {"success": True}
 

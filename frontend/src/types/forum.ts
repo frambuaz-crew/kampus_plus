@@ -9,6 +9,36 @@
  */
 
 
+export interface ForumCategory {
+  id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  order_index: number;
+  is_active: boolean;
+  topic_count: number;
+}
+
+export interface ForumCategoriesResponse {
+  categories: ForumCategory[];
+}
+
+export interface CreateCategoryPayload {
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  order_index?: number;
+  is_active?: boolean;
+}
+
+export interface UpdateCategoryPayload {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  order_index?: number;
+  is_active?: boolean;
+}
+
 export interface ForumAuthor {
   id: string;
   username: string;

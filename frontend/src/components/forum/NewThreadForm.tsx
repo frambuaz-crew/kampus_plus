@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, CheckCircle, AlertCircle, Calendar as CalendarIcon, Type, Plus, Trash2 } from 'lucide-react';
-import { uploadForumImages } from '../../api/forum';
+import { uploadForumImages, getForumCategories } from '../../api/forum';
+import type { ForumCategory } from '../../types/forum';
 
 interface NewThreadFormProps {
   onSubmit: (data: any) => Promise<void>;
@@ -18,12 +19,20 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
   const [content, setContent] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [categoryId, setCategoryId] = useState<string>('');
+  const [categories, setCategories] = useState<ForumCategory[]>([]);
 
   const [images, setImages] = useState<File[]>([]);
 
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getForumCategories()
+      .then(res => setCategories(res.categories.filter(c => c.is_active)))
+      .catch(() => {});
+  }, []);
 
   const MAX_TITLE = 255;
   const MAX_CONTENT = 10000;
@@ -45,6 +54,7 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
 
     if (!title.trim()) { setError(`Lütfen bir başlık giriniz.`); return; }
     if (!content.trim()) { setError(`Lütfen içerik detaylarını giriniz.`); return; }
+    if (categories.length > 0 && !categoryId) { setError('Lütfen bir kategori seçiniz.'); return; }
 
     try {
       setUploading(true);
@@ -65,6 +75,7 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
         title: title.trim(),
         content: content.trim(),
         topic_type: topicType,
+        ...(categoryId ? { category_id: categoryId } : {}),
       };
 
       if (topicType === 'event' && eventDate) {
@@ -126,6 +137,27 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
               </button>
             ))}
           </div>
+
+          {categories.length > 0 && (
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                Kategori <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={categoryId}
+                onChange={e => setCategoryId(e.target.value)}
+                required={categories.length > 0}
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-bold text-gray-700 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+              >
+                <option value="">Kategori seçin...</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Hashtagler (İsteğe Bağlı)</label>
@@ -228,7 +260,8 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
               disabled={
                 uploading ||
                 !title.trim() ||
-                !content.trim()
+                !content.trim() ||
+                (categories.length > 0 && !categoryId)
               }
               className="flex items-center gap-2 rounded-xl bg-indigo-600 px-8 py-3 text-sm font-black text-white shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:translate-y-0"
             >

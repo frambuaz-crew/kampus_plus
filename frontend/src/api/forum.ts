@@ -7,6 +7,10 @@ import type {
   ForumTopicDetailResponse,
   ForumTopicsResponse,
   ForumReportsResponse,
+  ForumCategoriesResponse,
+  ForumCategory,
+  CreateCategoryPayload,
+  UpdateCategoryPayload,
 } from '../types/forum';
 
 export const getForumTopics = async (params?: {
@@ -132,5 +136,40 @@ export const getAdminForumTopics = async (params?: {
   limit?: number;
 }): Promise<ForumTopicsResponse> => {
   const response = await apiClient.get<ForumTopicsResponse>('/forum/topics', { params: { ...params, sort: 'newest' } });
+  return response.data;
+};
+
+// ============================================================================
+// KATEGORİ API
+// ============================================================================
+
+export const getForumCategories = async (): Promise<ForumCategoriesResponse> => {
+  const response = await apiClient.get<ForumCategoriesResponse>('/forum/categories');
+  return response.data;
+};
+
+export const createForumCategory = async (
+  data: CreateCategoryPayload,
+): Promise<{ success: boolean; category: ForumCategory }> => {
+  const response = await apiClient.post<{ success: boolean; category: ForumCategory }>(
+    '/forum/admin/categories',
+    data,
+  );
+  return response.data;
+};
+
+export const updateForumCategory = async (
+  id: string,
+  data: UpdateCategoryPayload,
+): Promise<{ success: boolean; category: ForumCategory }> => {
+  const response = await apiClient.put<{ success: boolean; category: ForumCategory }>(
+    `/forum/admin/categories/${id}`,
+    data,
+  );
+  return response.data;
+};
+
+export const deleteForumCategory = async (id: string): Promise<{ success: boolean }> => {
+  const response = await apiClient.delete<{ success: boolean }>(`/forum/admin/categories/${id}`);
   return response.data;
 };
