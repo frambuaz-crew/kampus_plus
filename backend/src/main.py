@@ -33,6 +33,7 @@ from src.api.routes.friendships import router as friendships_router
 from src.api.routes.institutions import router as institutions_router
 from src.api.routes.course_notes import router as course_notes_router
 from src.api.routes.search import router as search_router
+from src.api.routes.admin_ai import router as admin_ai_router
 
 
 @asynccontextmanager
@@ -188,6 +189,7 @@ app.include_router(friendships_router, prefix="/api/v1")
 app.include_router(institutions_router, prefix="/api/v1")
 app.include_router(course_notes_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
+app.include_router(admin_ai_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

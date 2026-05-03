@@ -246,12 +246,27 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
     #  Dinamik system prompt oluşturma
     # ------------------------------------------------------------------ #
 
-    def _build_system_prompt(self, ctx: Optional[UserContext]) -> str:
+    async def _load_prompt_template(self, db: Optional[AsyncSession]) -> str:
+        """DB'den aktif system prompt şablonunu yükler; satır yoksa sabit şablonu döner."""
+        if db is None:
+            return self._AGENT_SYSTEM_PROMPT_TEMPLATE
+        try:
+            from src.models.ai import AISystemSettings  # yerel import – döngüsel bağımlılığı önler
+            from sqlalchemy import select as _select
+
+            result = await db.execute(_select(AISystemSettings).limit(1))
+            row = result.scalar_one_or_none()
+            if row is not None and row.system_prompt:
+                return row.system_prompt
+        except Exception as exc:
+            logger.warning("_load_prompt_template: DB okuma başarısız, sabit şablon kullanılıyor. hata=%s", repr(exc))
+        return self._AGENT_SYSTEM_PROMPT_TEMPLATE
+
+    def _build_system_prompt(self, ctx: Optional[UserContext], template: Optional[str] = None) -> str:
         """Kullanıcı bağlamına göre kişiselleştirilmiş system prompt oluşturur."""
+        base = template if template is not None else self._AGENT_SYSTEM_PROMPT_TEMPLATE
         if ctx is None:
-            return self._AGENT_SYSTEM_PROMPT_TEMPLATE.format(
-                user_context_block=self._DEFAULT_USER_CONTEXT_BLOCK
-            )
+            return base.format(user_context_block=self._DEFAULT_USER_CONTEXT_BLOCK)
 
         grade_str = ctx.grade if ctx.has_grade else "sınıfı belirtilmemiş"
         user_context_block = (
@@ -260,9 +275,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             f"Bölüm: {ctx.department} | Sınıf: {grade_str}. "
             f"Bu bilgileri kullanarak kişiselleştirilmiş yanıtlar ver."
         )
-        return self._AGENT_SYSTEM_PROMPT_TEMPLATE.format(
-            user_context_block=user_context_block
-        )
+        return base.format(user_context_block=user_context_block)
 
     # ------------------------------------------------------------------ #
     #  Araç Çantası (Tools) – closure tabanlı, db'ye erişimli
@@ -1047,7 +1060,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             # ---- 3. Agent kurulumu ----------------------------------- #
             chat_history = self._format_chat_history(session_history or [])
             tools, retrieved_docs = self._build_tools(db, user_ctx)
-            system_prompt = self._build_system_prompt(user_ctx)
+            prompt_template = await self._load_prompt_template(db)
+            system_prompt = self._build_system_prompt(user_ctx, template=prompt_template)
             prompt = self._build_agent_prompt(system_prompt)
 
             agent = create_tool_calling_agent(self.llm, tools, prompt)
