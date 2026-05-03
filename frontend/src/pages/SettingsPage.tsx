@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
+import {
+  getContactHistory,
+  submitContactMessage,
+  type ContactMessageResponse,
+} from '../api/contact';
 import {
   Lock,
   Mail,
@@ -13,6 +18,9 @@ import {
   EyeOff,
   Check,
   AlertTriangle,
+  HeadphonesIcon,
+  Send,
+  Clock,
 } from 'lucide-react';
 
 // ── Yardımcı bileşenler ─────────────────────────────────────────────────────
@@ -136,6 +144,36 @@ export const SettingsPage: React.FC = () => {
   const [deleteMsg, setDeleteMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const deletePw = usePasswordToggle();
   const [showDeleteSection, setShowDeleteSection] = useState(false);
+
+  // Destek & İletişim
+  const [contactForm, setContactForm] = useState({ subject: '', message: '' });
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactMsg, setContactMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [contactHistory, setContactHistory] = useState<ContactMessageResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  useEffect(() => {
+    getContactHistory()
+      .then((res) => setContactHistory(res.messages))
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
+  }, []);
+
+  const handleSubmitContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactMsg(null);
+    try {
+      setContactLoading(true);
+      const created = await submitContactMessage(contactForm);
+      setContactHistory((prev) => [created, ...prev]);
+      setContactMsg({ type: 'ok', text: 'Mesajınız iletildi. En kısa sürede yanıtlayacağız.' });
+      setContactForm({ subject: '', message: '' });
+    } catch {
+      setContactMsg({ type: 'err', text: 'Mesaj gönderilemedi. Lütfen tekrar deneyin.' });
+    } finally {
+      setContactLoading(false);
+    }
+  };
 
   const handleDeleteAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -305,6 +343,78 @@ export const SettingsPage: React.FC = () => {
               </button>
             </Section>
 
+            {/* ── Destek & İletişim ── */}
+            <Section
+              title="Destek & İletişim"
+              description="Sorun bildirin veya geri bildirim gönderin. Ekibimiz en kısa sürede yanıtlar."
+            >
+              {/* Yeni mesaj formu */}
+              <div className="px-6 py-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <HeadphonesIcon className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-800">Mesaj Gönder</span>
+                </div>
+                <form onSubmit={handleSubmitContact} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Konu</label>
+                    <input
+                      type="text"
+                      value={contactForm.subject}
+                      onChange={(e) => setContactForm((f) => ({ ...f, subject: e.target.value }))}
+                      placeholder="Konuyu kısaca özetleyin"
+                      maxLength={100}
+                      required
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Mesajınız</label>
+                    <textarea
+                      value={contactForm.message}
+                      onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))}
+                      placeholder="Sorununuzu veya geri bildiriminizi detaylıca açıklayın..."
+                      maxLength={2000}
+                      required
+                      rows={4}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent resize-none"
+                    />
+                    <p className="text-right text-xs text-slate-400 mt-0.5">
+                      {contactForm.message.length}/2000
+                    </p>
+                  </div>
+                  {contactMsg && <FeedbackBanner type={contactMsg.type} text={contactMsg.text} />}
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={contactLoading || contactForm.subject.length < 3 || contactForm.message.length < 10}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      {contactLoading ? 'Gönderiliyor...' : 'Gönder'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Önceki mesajlar */}
+              <div className="px-6 py-4 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                  Önceki Mesajlarım
+                </p>
+                {historyLoading ? (
+                  <p className="text-xs text-slate-400 py-2">Yükleniyor...</p>
+                ) : contactHistory.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-2">Henüz mesaj göndermediniz.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {contactHistory.map((item) => (
+                      <ContactHistoryRow key={item.id} item={item} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
+
             {/* ── Tehlike Bölgesi ── */}
             <div className="bg-white border border-red-200 rounded-xl overflow-hidden">
               <div className="px-6 py-4 border-b border-red-100">
@@ -423,3 +533,30 @@ const FeedbackBanner: React.FC<{ type: 'ok' | 'err'; text: string }> = ({ type, 
     {text}
   </div>
 );
+
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  pending:  { label: 'Bekliyor',   className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  answered: { label: 'Yanıtlandı', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  spam:     { label: 'Spam',       className: 'bg-red-50 text-red-600 border-red-200' },
+};
+
+const ContactHistoryRow: React.FC<{ item: ContactMessageResponse }> = ({ item }) => {
+  const meta = STATUS_META[item.status] ?? STATUS_META.pending;
+  const date = new Date(item.created_at).toLocaleDateString('tr-TR', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-slate-100 last:border-0">
+      <div className="flex items-start gap-2 min-w-0">
+        <Clock className="w-3.5 h-3.5 text-slate-300 mt-0.5 flex-shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-800 truncate">{item.subject}</p>
+          <p className="text-xs text-slate-400">{date}</p>
+        </div>
+      </div>
+      <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${meta.className}`}>
+        {meta.label}
+      </span>
+    </div>
+  );
+};
