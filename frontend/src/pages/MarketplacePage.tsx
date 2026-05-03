@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiClient } from '../api/config';
+import { getMarketplaceCategories } from '../api/marketplace';
 import { MainLayout } from '../components/layout/MainLayout';
 import { NewListingForm } from '../components/marketplace/NewListingForm';
 import { ListingDetailView } from '../components/marketplace/ListingDetailView';
-import type { MarketplaceListing } from '../types/marketplace';
+import type { MarketplaceCategory, MarketplaceListing } from '../types/marketplace';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -57,8 +58,6 @@ const categoryColors: Record<string, string> = {
   'Diğer': 'bg-slate-100 text-slate-600',
 };
 
-const CATEGORIES = ['Kitap', 'Elektronik', 'Eşya', 'Giyim', 'Hobi', 'Diğer'];
-
 export const MarketplacePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -74,6 +73,7 @@ export const MarketplacePage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
 
   const getCurrentUserId = () => {
     try {
@@ -109,6 +109,9 @@ export const MarketplacePage: React.FC = () => {
 
   useEffect(() => {
     void loadListings();
+    getMarketplaceCategories()
+      .then(res => setCategories(res.categories.filter(c => c.is_active)))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -164,7 +167,7 @@ export const MarketplacePage: React.FC = () => {
   };
 
   const filteredListings = listings.filter((listing) => {
-    const matchesCategory = categoryFilter === 'all' || listing.category === categoryFilter;
+    const matchesCategory = categoryFilter === 'all' || listing.category_id === categoryFilter;
     const matchesSearch =
       !searchQuery ||
       listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -274,8 +277,8 @@ export const MarketplacePage: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tüm Kategoriler</SelectItem>
-                  {CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -360,9 +363,9 @@ export const MarketplacePage: React.FC = () => {
 
                         {/* Category + Condition badges */}
                         <div className="flex flex-wrap gap-1.5 mb-3">
-                          {listing.category && (
-                            <Badge className={`text-xs border-0 font-medium ${categoryColors[listing.category] || categoryColors['Diğer']}`}>
-                              {listing.category}
+                          {listing.category?.name && (
+                            <Badge className={`text-xs border-0 font-medium ${categoryColors[listing.category.name] || categoryColors['Diğer']}`}>
+                              {listing.category.name}
                             </Badge>
                           )}
                           {listing.condition && (

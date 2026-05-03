@@ -1,38 +1,66 @@
 import { apiClient } from './config';
+import type {
+  MarketplaceListing,
+  MarketplaceCreator,
+  MarketplaceCategory,
+  MarketplaceCategoriesResponse,
+  CreateCategoryPayload,
+  UpdateCategoryPayload,
+} from '../types/marketplace';
 
-export interface MarketplaceCreator {
-  id: string;
-  username: string;
-  first_name?: string | null;
-  last_name?: string | null;
-  university?: string | null;
-  profile_picture_url?: string | null;
-}
+// Re-export types that admin page imports from this module directly
+export type { MarketplaceCreator, MarketplaceListing };
 
-export interface MarketplaceListing {
-  id: string;
-  title: string;
-  description: string;
-  price: string; // Decimal serialises to string in JSON
-  category: string;
-  condition: string;
-  status: string;
-  view_count: number;
-  image_urls?: string | null; // JSON-encoded string array stored in DB
-  created_at: string;
-  seller_id: string;
-  creator?: MarketplaceCreator | null;
-}
+// ============================================================================
+// İLAN
+// ============================================================================
 
 export const getAdminMarketplaceListings = async (
-  category?: string,
+  categoryId?: string,
 ): Promise<MarketplaceListing[]> => {
   const response = await apiClient.get<MarketplaceListing[]>('/marketplace/admin/listings', {
-    params: category ? { category } : undefined,
+    params: categoryId ? { category_id: categoryId } : undefined,
   });
   return response.data;
 };
 
 export const deleteMarketplaceListing = async (listingId: string): Promise<void> => {
   await apiClient.delete(`/marketplace/${listingId}`);
+};
+
+// ============================================================================
+// KATEGORİ
+// ============================================================================
+
+export const getMarketplaceCategories = async (): Promise<MarketplaceCategoriesResponse> => {
+  const response = await apiClient.get<MarketplaceCategoriesResponse>('/marketplace/categories');
+  return response.data;
+};
+
+export const createMarketplaceCategory = async (
+  data: CreateCategoryPayload,
+): Promise<{ success: boolean; category: MarketplaceCategory }> => {
+  const response = await apiClient.post<{ success: boolean; category: MarketplaceCategory }>(
+    '/marketplace/admin/categories',
+    data,
+  );
+  return response.data;
+};
+
+export const updateMarketplaceCategory = async (
+  id: string,
+  data: UpdateCategoryPayload,
+): Promise<{ success: boolean; category: MarketplaceCategory }> => {
+  const response = await apiClient.put<{ success: boolean; category: MarketplaceCategory }>(
+    `/marketplace/admin/categories/${id}`,
+    data,
+  );
+  return response.data;
+};
+
+export const deleteMarketplaceCategory = async (id: string): Promise<{ success: boolean }> => {
+  const response = await apiClient.delete<{ success: boolean }>(
+    `/marketplace/admin/categories/${id}`,
+  );
+  return response.data;
 };

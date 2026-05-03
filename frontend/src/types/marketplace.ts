@@ -1,9 +1,39 @@
+export interface MarketplaceCategory {
+  id: string;
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  order_index: number;
+  is_active: boolean;
+  listing_count: number;
+}
+
+export interface MarketplaceCategoriesResponse {
+  categories: MarketplaceCategory[];
+}
+
+export interface CreateCategoryPayload {
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  order_index?: number;
+  is_active?: boolean;
+}
+
+export interface UpdateCategoryPayload {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  order_index?: number;
+  is_active?: boolean;
+}
+
 export interface MarketplaceCreator {
   id: string;
   username: string;
-  first_name: string;
-  last_name: string;
-  university?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  university?: string | null;
   profile_picture_url?: string | null;
 }
 
@@ -12,7 +42,8 @@ export interface MarketplaceListing {
   title: string;
   description: string;
   price: number | string;
-  category?: string;
+  category_id?: string | null;
+  category?: MarketplaceCategory | null;
   condition?: string;
   university?: string;
   seller_id: string;

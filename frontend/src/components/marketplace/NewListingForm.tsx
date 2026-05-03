@@ -1,5 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { getMarketplaceCategories } from '../../api/marketplace';
+import type { MarketplaceCategory } from '../../types/marketplace';
 
 interface NewListingFormProps {
   onSubmit: (data: FormData) => Promise<void>;
@@ -7,11 +9,25 @@ interface NewListingFormProps {
   isSubmitting?: boolean;
 }
 
-const CATEGORIES = ['Kitap', 'Elektronik', 'Eşya', 'Giyim', 'Hobi', 'Diğer'];
-const CONDITIONS = ['Sıfır', 'Az Kullanılmış', 'Kullanılmış'];
+const CONDITIONS: { value: string; label: string }[] = [
+  { value: 'new',      label: 'Sıfır' },
+  { value: 'like_new', label: 'Yeni Gibi' },
+  { value: 'good',     label: 'İyi' },
+  { value: 'fair',     label: 'Orta' },
+];
 
-const inputStyle = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/15 transition-all';
-const selectStyle = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/15 transition-all bg-white appearance-none cursor-pointer';
+const inputStyle =
+  'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/15 transition-all';
+const selectStyle =
+  'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/15 transition-all bg-white appearance-none cursor-pointer';
+
+const ChevronDown = () => (
+  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  </div>
+);
 
 export const NewListingForm: React.FC<NewListingFormProps> = ({
   onSubmit,
@@ -22,14 +38,21 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
     title: '',
     description: '',
     price: '',
-    category: '',
+    category_id: '',
     condition: '',
   });
+  const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }));
+  useEffect(() => {
+    getMarketplaceCategories()
+      .then(res => setCategories(res.categories.filter(c => c.is_active)))
+      .catch(() => {});
+  }, []);
+
+  const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -37,15 +60,15 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
       alert('En fazla 3 fotoğraf yükleyebilirsiniz.');
       return;
     }
-    setFiles((prev) => [...prev, ...selected]);
-    setPreviews((prev) => [...prev, ...selected.map((f) => URL.createObjectURL(f))]);
+    setFiles(prev => [...prev, ...selected]);
+    setPreviews(prev => [...prev, ...selected.map(f => URL.createObjectURL(f))]);
     e.target.value = '';
   };
 
   const removeFile = (i: number) => {
     URL.revokeObjectURL(previews[i]);
-    setFiles((prev) => prev.filter((_, idx) => idx !== i));
-    setPreviews((prev) => prev.filter((_, idx) => idx !== i));
+    setFiles(prev => prev.filter((_, idx) => idx !== i));
+    setPreviews(prev => prev.filter((_, idx) => idx !== i));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,13 +77,13 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
     data.append('title', form.title);
     data.append('description', form.description);
     data.append('price', form.price);
-    data.append('category', form.category);
-    data.append('condition', form.condition || 'Kullanılmış');
-    files.forEach((file) => data.append('files', file));
+    if (form.category_id) data.append('category_id', form.category_id);
+    data.append('condition', form.condition || 'good');
+    files.forEach(file => data.append('files', file));
     await onSubmit(data);
   };
 
-  const isValid = form.title.trim() && form.description.trim() && form.price && form.category;
+  const isValid = form.title.trim() && form.description.trim() && form.price && form.condition;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 pt-1">
@@ -73,7 +96,7 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
         <input
           type="text"
           value={form.title}
-          onChange={(e) => set('title', e.target.value)}
+          onChange={e => set('title', e.target.value)}
           placeholder="Ürün başlığını girin"
           className={inputStyle}
           autoFocus
@@ -87,7 +110,7 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
         </label>
         <textarea
           value={form.description}
-          onChange={(e) => set('description', e.target.value)}
+          onChange={e => set('description', e.target.value)}
           placeholder="Ürün hakkında detaylı bilgi verin"
           rows={3}
           className={`${inputStyle} resize-none`}
@@ -104,29 +127,32 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
             type="number"
             min="0"
             value={form.price}
-            onChange={(e) => set('price', e.target.value)}
+            onChange={e => set('price', e.target.value)}
             placeholder="0"
             className={inputStyle}
           />
         </div>
         <div>
           <label className="block text-sm font-semibold text-slate-800 mb-2">
-            Kategori <span className="text-red-400">*</span>
+            Kategori
           </label>
           <div className="relative">
             <select
-              value={form.category}
-              onChange={(e) => set('category', e.target.value)}
+              value={form.category_id}
+              onChange={e => set('category_id', e.target.value)}
               className={selectStyle}
+              disabled={categories.length === 0}
             >
-              <option value="">Seçin</option>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="">
+                {categories.length === 0 ? 'Yükleniyor...' : 'Seçin'}
+              </option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
             </select>
-            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+            <ChevronDown />
           </div>
         </div>
       </div>
@@ -139,17 +165,15 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
         <div className="relative">
           <select
             value={form.condition}
-            onChange={(e) => set('condition', e.target.value)}
+            onChange={e => set('condition', e.target.value)}
             className={selectStyle}
           >
             <option value="">Seçin</option>
-            {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CONDITIONS.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
           </select>
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
+          <ChevronDown />
         </div>
       </div>
 
@@ -159,7 +183,6 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
           Fotoğraflar (Maks. 3)
         </label>
 
-        {/* Preview row */}
         {previews.length > 0 && (
           <div className="flex gap-2 mb-3">
             {previews.map((src, i) => (
@@ -177,7 +200,6 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
           </div>
         )}
 
-        {/* Upload zone */}
         {files.length < 3 && (
           <button
             type="button"
