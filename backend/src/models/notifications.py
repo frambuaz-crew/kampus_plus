@@ -63,6 +63,6 @@ class Notification(Base):
         index=True,
     )
     
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], overlaps="notifications")
     actor = relationship("User", foreign_keys=[actor_id])
 

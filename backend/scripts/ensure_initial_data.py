@@ -30,7 +30,7 @@ from src.models.course_notes import CourseNoteEntry, CourseNoteTopic
 from src.models.department import Department
 from src.models.faculty import Faculty
 from src.models.forum import ForumCategory, ForumTopic
-from src.models.marketplace import MarketplaceListing
+from src.models.marketplace import MarketplaceCategory, MarketplaceListing
 from src.models.university import University
 from src.models.user import User, UserRole
 
@@ -486,6 +486,34 @@ async def seed_dummy_content() -> None:
                 print(f"[SKIP] ForumTopic zaten mevcut: {td['title'][:55]}")
 
         # ─────────────────────────────────────────────
+        # MARKETPLACE KATEGORİLERİ (idempotent)
+        # ─────────────────────────────────────────────
+        category_defs = [
+            {"name": "Elektronik",            "icon": "laptop",     "order_index": 1},
+            {"name": "Kitap & Ders Materyali","icon": "book-open",  "order_index": 2},
+            {"name": "Kırtasiye & Eğitim",    "icon": "pencil",     "order_index": 3},
+        ]
+        category_map: dict[str, str] = {}
+        for cdef in category_defs:
+            cat = (await session.execute(
+                select(MarketplaceCategory).where(MarketplaceCategory.name == cdef["name"])
+            )).scalars().first()
+            if not cat:
+                cat = MarketplaceCategory(
+                    id=str(uuid4()),
+                    name=cdef["name"],
+                    icon=cdef["icon"],
+                    order_index=cdef["order_index"],
+                    is_active=True,
+                )
+                session.add(cat)
+                await session.flush()
+                print(f"[OK] MarketplaceCategory oluşturuldu: {cdef['name']}")
+            else:
+                print(f"[SKIP] MarketplaceCategory zaten mevcut: {cdef['name']}")
+            category_map[cdef["name"]] = cat.id
+
+        # ─────────────────────────────────────────────
         # MARKETPLACE
         # ─────────────────────────────────────────────
         marketplace_listings = [
@@ -538,7 +566,7 @@ async def seed_dummy_content() -> None:
                     title=md["title"],
                     description=md["description"],
                     price=md["price"],
-                    category=md["category"],
+                    category_id=category_map.get(md["category"]),
                     condition=md["condition"],
                     status="active",
                     view_count=0,

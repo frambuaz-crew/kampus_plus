@@ -106,7 +106,7 @@ class ForumTopic(Base):
     )
     
     category = relationship("ForumCategory", back_populates="topics")
-    author = relationship("User", foreign_keys=[author_id])
+    author = relationship("User", foreign_keys=[author_id], overlaps="forum_topics")
     replies = relationship("ForumReply", back_populates="topic", cascade="all, delete-orphan")
 
 
@@ -159,7 +159,7 @@ class ForumReply(Base):
     )
     
     topic = relationship("ForumTopic", back_populates="replies")
-    author = relationship("User", foreign_keys=[author_id])
+    author = relationship("User", foreign_keys=[author_id], overlaps="forum_replies")
     
     # Kendi kendine ilişki (Self-referential)
     replies = relationship("ForumReply", back_populates="parent", cascade="all, delete-orphan")

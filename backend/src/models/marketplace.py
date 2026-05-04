@@ -112,7 +112,7 @@ class MarketplaceListing(Base):
         nullable=False,
     )
 
-    seller = relationship("User", foreign_keys=[seller_id])
+    seller = relationship("User", foreign_keys=[seller_id], overlaps="marketplace_listings")
     category_rel = relationship("MarketplaceCategory", back_populates="listings")
     reports = relationship("MarketplaceReport", back_populates="listing", cascade="all, delete-orphan")
     messages = relationship("MarketplaceMessage", back_populates="listing", cascade="all, delete-orphan")

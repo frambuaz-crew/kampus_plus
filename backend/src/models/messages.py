@@ -64,8 +64,8 @@ class Conversation(Base):
         nullable=False,
     )
     
-    user1 = relationship("User", foreign_keys=[user1_id])
-    user2 = relationship("User", foreign_keys=[user2_id])
+    user1 = relationship("User", foreign_keys=[user1_id], overlaps="conversations_as_user1")
+    user2 = relationship("User", foreign_keys=[user2_id], overlaps="conversations_as_user2")
     marketplace_messages = relationship("MarketplaceMessage", back_populates="conversation")
     career_messages = relationship("CareerMessage", back_populates="conversation")
     career_applications = relationship("CareerApplication", back_populates="conversation")

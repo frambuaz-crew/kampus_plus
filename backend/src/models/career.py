@@ -80,7 +80,7 @@ class CareerListing(Base):
         nullable=False,
     )
     
-    posted_by_user = relationship("User", foreign_keys=[posted_by])
+    posted_by_user = relationship("User", foreign_keys=[posted_by], overlaps="career_listings")
     applications = relationship("CareerApplication", back_populates="listing", cascade="all, delete-orphan")
     reports = relationship("CareerReport", back_populates="listing", cascade="all, delete-orphan")
     messages = relationship("CareerMessage", back_populates="listing", cascade="all, delete-orphan")
@@ -124,7 +124,7 @@ class CareerApplication(Base):
     )
     
     listing = relationship("CareerListing", back_populates="applications")
-    applicant = relationship("User", foreign_keys=[applicant_id])
+    applicant = relationship("User", foreign_keys=[applicant_id], overlaps="career_applications")
     conversation = relationship("Conversation", foreign_keys=[dm_conversation_id], back_populates="career_applications")
     
     __table_args__ = (

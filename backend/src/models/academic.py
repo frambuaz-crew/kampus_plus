@@ -216,6 +216,6 @@ class AcademicContribution(Base):
         nullable=False,
     )
     
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], overlaps="academic_contributions")
     reviewer = relationship("User", foreign_keys=[reviewed_by])
 

@@ -49,7 +49,7 @@ class AIConversation(Base):
         nullable=False,
     )
     
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], overlaps="ai_conversations")
     messages = relationship("AIMessage", back_populates="conversation", cascade="all, delete-orphan")
 
 
