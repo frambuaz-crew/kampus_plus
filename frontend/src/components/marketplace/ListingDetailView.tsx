@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, MessageCircle, Trash2, MapPin, Tag } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, MessageCircle, Trash2, MapPin, Tag, Heart } from 'lucide-react';
 import type { MarketplaceCreator, MarketplaceListing } from '../../types/marketplace';
 import { getImageUrl } from '../../utils/imageUrl';
 import { Badge } from '../ui/badge';
@@ -13,6 +13,8 @@ interface ListingDetailViewProps {
   onContact: (creator: MarketplaceCreator | null | undefined) => void;
   onDelete?: (listingId: string) => Promise<void>;
   currentUserId?: string;
+  isFavorited?: boolean;
+  onToggleFavorite?: (e: React.MouseEvent) => void;
 }
 
 const conditionColors: Record<string, string> = {
@@ -37,6 +39,8 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
   onContact,
   onDelete,
   currentUserId,
+  isFavorited,
+  onToggleFavorite,
 }) => {
   const [activeIdx, setActiveIdx] = useState(0);
 
@@ -133,15 +137,32 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
                 <ArrowLeft className="w-4 h-4" />
                 Geri Dön
               </button>
-              <span className="text-xs text-slate-400">{timeAgo}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">{timeAgo}</span>
+                {onToggleFavorite && (
+                  <button
+                    className={`p-1.5 rounded-md transition-colors ${
+                      isFavorited
+                        ? 'text-red-500 hover:bg-red-50'
+                        : 'text-slate-300 hover:text-red-500 hover:bg-red-50'
+                    }`}
+                    onClick={onToggleFavorite}
+                  >
+                    <Heart 
+                      className="h-4 w-4" 
+                      fill={isFavorited ? "currentColor" : "none"} 
+                    />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Badges */}
             <div className="flex flex-wrap gap-2 mb-4">
-              {listing.category && (
-                <Badge className={`text-xs border-0 font-medium ${categoryColors[listing.category] || categoryColors['Diğer']}`}>
+              {listing.category?.name && (
+                <Badge className={`text-xs border-0 font-medium ${categoryColors[listing.category.name] || categoryColors['Diğer']}`}>
                   <Tag className="w-3 h-3 mr-1" />
-                  {listing.category}
+                  {listing.category.name}
                 </Badge>
               )}
               {listing.condition && (

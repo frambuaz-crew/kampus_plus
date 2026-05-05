@@ -13,7 +13,7 @@ import { Input } from '../components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Search, Plus, ShoppingBag, Bookmark, ArrowLeft } from 'lucide-react';
+import { Search, Plus, ShoppingBag, Heart, ArrowLeft } from 'lucide-react';
 import { getImageUrl } from '../utils/imageUrl';
 
 interface BackState {
@@ -74,6 +74,7 @@ export const MarketplacePage: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   const getCurrentUserId = () => {
     try {
@@ -112,7 +113,37 @@ export const MarketplacePage: React.FC = () => {
     getMarketplaceCategories()
       .then(res => setCategories(res.categories.filter(c => c.is_active)))
       .catch(() => {});
+      
+    apiClient.get('/users/favorites/all')
+      .then(res => {
+        const favIds = new Set<string>(
+          (res.data.favorites || [])
+            .filter((f: any) => f.target_type === 'marketplace_listing')
+            .map((f: any) => f.target_id)
+        );
+        setFavorites(favIds);
+      })
+      .catch(() => {});
   }, []);
+
+  const toggleFavorite = async (e: React.MouseEvent, listingId: string) => {
+    e.stopPropagation();
+    try {
+      const isFav = favorites.has(listingId);
+      setFavorites(prev => {
+        const next = new Set(prev);
+        if (isFav) next.delete(listingId);
+        else next.add(listingId);
+        return next;
+      });
+      await apiClient.post('/users/favorites/toggle', {
+        target_type: 'marketplace_listing',
+        target_id: listingId
+      });
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (!id || listings.length === 0) return;
@@ -254,6 +285,8 @@ export const MarketplacePage: React.FC = () => {
             onContact={(creator) => {
               if (selectedListing) setContactListing(selectedListing);
             }}
+            isFavorited={favorites.has(selectedListing.id)}
+            onToggleFavorite={(e) => toggleFavorite(e, selectedListing.id)}
           />
         )}
 
@@ -401,10 +434,17 @@ export const MarketplacePage: React.FC = () => {
                             {timeAgo(listing.created_at)}
                           </span>
                           <button
-                            className="text-slate-300 hover:text-[#0ea5e9] hover:bg-sky-50 p-1 rounded-md transition-colors"
-                            onClick={(e) => e.stopPropagation()}
+                            className={`p-1 rounded-md transition-colors ${
+                              favorites.has(listing.id)
+                                ? 'text-red-500 hover:bg-red-50'
+                                : 'text-slate-300 hover:text-red-500 hover:bg-red-50'
+                            }`}
+                            onClick={(e) => toggleFavorite(e, listing.id)}
                           >
-                            <Bookmark className="h-3.5 w-3.5" />
+                            <Heart 
+                              className="h-4 w-4" 
+                              fill={favorites.has(listing.id) ? "currentColor" : "none"} 
+                            />
                           </button>
                         </div>
                       </div>
