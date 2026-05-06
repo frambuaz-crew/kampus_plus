@@ -14,6 +14,7 @@ from src.models.career import CareerListing
 from src.models.forum import ForumTopic
 from src.models.marketplace import MarketplaceListing
 from src.models.user import User, UserRole
+from src.schemas.search import GlobalSearchResponse
 
 router = APIRouter(prefix="/search", tags=["Search"])
 
@@ -163,7 +164,7 @@ async def _search_core_async(
     ft_res = await session.execute(ft_q)
     forum_results = [
         {
-            "id": t.id,
+            "id": str(t.id),
             "title": t.title,
             "snippet": _snippet(t.content),
             "type": "forum",
@@ -179,7 +180,6 @@ async def _search_core_async(
             or_(
                 MarketplaceListing.title.ilike(pattern),
                 MarketplaceListing.description.ilike(pattern),
-                MarketplaceListing.category.ilike(pattern),
             )
         )
         .order_by(MarketplaceListing.created_at.desc())
@@ -187,7 +187,7 @@ async def _search_core_async(
     )
     marketplace_results = [
         {
-            "id": l.id,
+            "id": str(l.id),
             "title": l.title,
             "snippet": _snippet(l.description),
             "type": "marketplace",
@@ -214,7 +214,7 @@ async def _search_core_async(
     )
     career_results = [
         {
-            "id": l.id,
+            "id": str(l.id),
             "title": l.title,
             "snippet": _snippet(l.description),
             "type": "career",
@@ -245,7 +245,7 @@ async def _search_core_async(
     )
     user_results = [
         {
-            "id": u.id,
+            "id": str(u.id),
             "title": f"{u.first_name} {u.last_name}".strip() or u.username,
             "snippet": f"@{u.username}" + (f" · {u.university}" if u.university else ""),
             "type": "user",
@@ -255,19 +255,39 @@ async def _search_core_async(
     ]
 
     pages = _quick_hits_for_query(term)
-    content_total = len(forum_results) + len(marketplace_results) + len(career_results) + len(user_results)
     return {
         "query": term,
-        "total": content_total + len(pages),
-        "pages": pages,
-        "forum": forum_results,
-        "marketplace": marketplace_results,
-        "career": career_results,
-        "users": user_results,
+        "results": {
+            "pages": {
+                "title": "Sayfalar",
+                "hits": pages,
+                "total": len(pages),
+            },
+            "forum": {
+                "title": "Forum",
+                "hits": forum_results,
+                "total": len(forum_results),
+            },
+            "marketplace": {
+                "title": "Pazar",
+                "hits": marketplace_results,
+                "total": len(marketplace_results),
+            },
+            "career": {
+                "title": "Kariyer",
+                "hits": career_results,
+                "total": len(career_results),
+            },
+            "users": {
+                "title": "Kullanıcı",
+                "hits": user_results,
+                "total": len(user_results),
+            },
+        },
     }
 
 
-@router.get("", response_model=dict)
+@router.get("", response_model=GlobalSearchResponse)
 async def global_search(
     q: str = Query(..., min_length=2, description="Arama metni"),
     limit: int = Query(8, ge=1, le=30, description="Her kategori için max sonuç"),
@@ -277,7 +297,7 @@ async def global_search(
     return await _search_core_async(q.strip(), limit, session, current_user)
 
 
-@router.get("/suggest", response_model=dict)
+@router.get("/suggest", response_model=GlobalSearchResponse)
 async def search_suggest(
     q: str = Query(..., min_length=1, description="Öneri (1+ karakter)"),
     limit: int = Query(5, ge=1, le=10),
@@ -286,17 +306,22 @@ async def search_suggest(
 ) -> dict[str, Any]:
     """Header / otomatik tamamlama: sayfa önerileri + az içerik sonucu."""
     term = q.strip()
+    _empty_results = {
+        "pages": {"title": "Sayfalar", "hits": [], "total": 0},
+        "forum": {"title": "Forum", "hits": [], "total": 0},
+        "marketplace": {"title": "Pazar", "hits": [], "total": 0},
+        "career": {"title": "Kariyer", "hits": [], "total": 0},
+        "users": {"title": "Kullanıcı", "hits": [], "total": 0},
+    }
     if len(term) < 1:
-        return {"query": term, "pages": [], "forum": [], "marketplace": [], "career": [], "users": []}
+        return {"query": term, "results": _empty_results}
     if len(term) < 2:
         pages_only = _quick_hits_for_query(term)
         return {
             "query": term,
-            "total": len(pages_only),
-            "pages": pages_only,
-            "forum": [],
-            "marketplace": [],
-            "career": [],
-            "users": [],
+            "results": {
+                **_empty_results,
+                "pages": {"title": "Sayfalar", "hits": pages_only, "total": len(pages_only)},
+            },
         }
     return await _search_core_async(term, limit, session, current_user)

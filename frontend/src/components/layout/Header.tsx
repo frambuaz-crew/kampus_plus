@@ -89,24 +89,22 @@ export const Header: React.FC = () => {
     setSuggestLoading(true);
     try {
       const res = await apiClient.get<{
-        pages?: { id: string; title: string; href: string; type: string }[];
-        forum?: { id: string; title: string; href: string; type: string }[];
-        marketplace?: { id: string; title: string; href: string; type: string }[];
-        career?: { id: string; title: string; href: string; type: string }[];
-        users?: { id: string; title: string; href: string; type: string }[];
+        query: string;
+        results: Record<
+          string,
+          {
+            title: string;
+            hits: { id: string; title: string; href: string; type: string }[];
+            total: number;
+          }
+        >;
       }>('/search/suggest', { params: { q, limit: 5 } });
-      const d = res.data;
       const rows: { id: string; title: string; href: string; type: string; group: string }[] = [];
-      const add = (arr: typeof d.forum, group: string) => {
-        (arr || []).forEach((h) =>
-          rows.push({ id: h.id, title: h.title, href: h.href, type: h.type, group })
-        );
-      };
-      add(d.pages, 'Sayfalar');
-      add(d.forum, 'Forum');
-      add(d.marketplace, 'Pazar');
-      add(d.career, 'Kariyer');
-      add(d.users, 'Kullanıcı');
+      for (const section of Object.values(res.data.results ?? {})) {
+        for (const hit of section.hits ?? []) {
+          rows.push({ id: hit.id, title: hit.title, href: hit.href, type: hit.type, group: section.title });
+        }
+      }
       setSuggestRows(rows.slice(0, 12));
     } catch {
       setSuggestRows([]);

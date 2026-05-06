@@ -13,32 +13,25 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 
-interface Hit {
+interface SearchHit {
   id: string;
   title: string;
-  snippet: string;
-  type: string;
+  snippet?: string | null;
   href: string;
+  type: string;
+  image_url?: string | null;
 }
 
-interface SearchResponse {
-  query: string;
+interface SearchSection {
+  title: string;
+  hits: SearchHit[];
   total: number;
-  pages: Hit[];
-  forum: Hit[];
-  marketplace: Hit[];
-  career: Hit[];
-  users: Hit[];
 }
 
-const labels: Record<string, string> = {
-  pages: 'Sayfalar',
-  forum: 'Forum',
-  marketplace: 'Pazar',
-  career: 'Kariyer',
-  user: 'Kullanıcı',
-  page: 'Sayfa',
-};
+interface GlobalSearchResponse {
+  query: string;
+  results: Record<string, SearchSection>;
+}
 
 const icons: Record<string, React.FC<{ className?: string }>> = {
   forum: MessageSquare,
@@ -49,20 +42,12 @@ const icons: Record<string, React.FC<{ className?: string }>> = {
   pages: LayoutDashboard,
 };
 
-const sectionOrder: (keyof SearchResponse)[] = [
-  'pages',
-  'forum',
-  'marketplace',
-  'career',
-  'users',
-];
-
 export const GlobalSearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const paramQuery = useMemo(() => searchParams.get('q')?.trim() || '', [searchParams]);
 
   const [input, setInput] = useState(paramQuery);
-  const [data, setData] = useState<SearchResponse | null>(null);
+  const [data, setData] = useState<GlobalSearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -79,7 +64,7 @@ export const GlobalSearchPage: React.FC = () => {
     setLoading(true);
     setErr(null);
     try {
-      const res = await apiClient.get<SearchResponse>('/search', { params: { q, limit: 10 } });
+      const res = await apiClient.get<GlobalSearchResponse>('/search', { params: { q, limit: 10 } });
       setData(res.data);
     } catch (e) {
       console.error('Search error:', e);
@@ -152,11 +137,16 @@ export const GlobalSearchPage: React.FC = () => {
 
           {!loading && data && paramQuery.length >= 2 && (
             <>
-              <p className="text-sm text-slate-500 mb-4">
-                <strong className="text-slate-800">{data.total}</strong> sonuç: &ldquo;{data.query}&rdquo;
-              </p>
+              {(() => {
+                const totalHits = Object.values(data.results).reduce((sum, s) => sum + s.total, 0);
+                return (
+                  <p className="text-sm text-slate-500 mb-4">
+                    <strong className="text-slate-800">{totalHits}</strong> sonuç: &ldquo;{data.query}&rdquo;
+                  </p>
+                );
+              })()}
 
-              {data.total === 0 ? (
+              {Object.values(data.results).every((s) => s.hits.length === 0) ? (
                 <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
                   <Search className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                   <p className="text-slate-600 font-medium">Sonuç bulunamadı</p>
@@ -164,17 +154,15 @@ export const GlobalSearchPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {sectionOrder.map((key) => {
-                    const raw = data[key];
-                    const hits: Hit[] = Array.isArray(raw) ? (raw as Hit[]) : [];
-                    if (hits.length === 0) return null;
+                  {Object.entries(data.results).map(([key, section]) => {
+                    if (section.hits.length === 0) return null;
                     return (
-                      <div key={key as string}>
+                      <div key={key}>
                         <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                          {labels[key] ?? (key as string)}
+                          {section.title}
                         </h2>
                         <ul className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
-                          {hits.map((hit) => {
+                          {section.hits.map((hit) => {
                             const iconKey = hit.type === 'page' ? 'page' : hit.type;
                             const Icon = icons[iconKey] || Search;
                             return (
