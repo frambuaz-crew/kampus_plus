@@ -37,6 +37,7 @@ from src.api.routes.admin_ai import router as admin_ai_router
 from src.api.routes.contact import router as contact_router
 from src.api.routes.admin_contact import router as admin_contact_router
 from src.api.routes.admin_dashboard import router as admin_dashboard_router
+from src.api.routes.dashboard import router as dashboard_router
 
 
 @asynccontextmanager
@@ -196,6 +197,7 @@ app.include_router(admin_ai_router, prefix="/api/v1")
 app.include_router(contact_router, prefix="/api/v1")
 app.include_router(admin_contact_router, prefix="/api/v1")
 app.include_router(admin_dashboard_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
