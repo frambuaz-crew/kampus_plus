@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(xargs grep *)",
-      "Bash(python -c \"import sqlite3; conn = sqlite3.connect\\('kampus.db'\\); cur = conn.cursor\\(\\); cur.execute\\('SELECT * FROM alembic_version'\\); print\\(cur.fetchall\\(\\)\\); conn.close\\(\\)\")",
-      "Read(//c/c/Users/emrem/Desktop/kampus/kampus_plus/backend/**)"
-    ]
-  }
-}
