@@ -18,7 +18,7 @@ from sqlalchemy.orm import selectinload
 from src.core.database import get_db
 from src.core.dependencies import require_admin
 from src.models.ai import AIConversation, AIKnowledgeBase, AIMessage, AISystemSettings
-from src.models.user import User
+from src.models.user import User, UserRole
 from src.schemas.ai_admin import (
     AIKnowledgeBaseCreate,
     AIKnowledgeBaseEntry,
@@ -62,11 +62,26 @@ async def _get_or_create_settings(session: AsyncSession) -> AISystemSettings:
     return row
 
 
+def _require_super_admin(admin: User) -> None:
+    """Raises 403 if the caller is not a super admin (university_admin is excluded)."""
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "AI sistem ayarları yalnızca süper admin tarafından yönetilebilir.",
+                }
+            },
+        )
+
+
 @router.get("/settings", response_model=AISettingsResponse)
 async def get_ai_settings(
     session: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> AISettingsResponse:
+    _require_super_admin(admin)
     row = await _get_or_create_settings(session)
     return AISettingsResponse(
         id=row.id,
@@ -83,6 +98,7 @@ async def update_ai_settings(
     session: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ) -> AISettingsResponse:
+    _require_super_admin(admin)
     if payload.system_prompt is None and payload.rate_limit_per_day is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -197,26 +213,42 @@ def _kb_keywords(raw: object) -> list[str]:
             return []
     return []
 
+def _assert_kb_access(admin: User, row: AIKnowledgeBase) -> None:
+    """Raises 403 if a university_admin tries to access a KB entry from another university."""
+    if admin.role == UserRole.UNIVERSITY_ADMIN and row.university_id != admin.university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "Sadece kendi üniversitenize ait kayıtlarda işlem yapabilirsiniz.",
+                }
+            },
+        )
+
+
+def _build_kb_entry(row: AIKnowledgeBase) -> AIKnowledgeBaseEntry:
+    return AIKnowledgeBaseEntry(
+        id=row.id,
+        university_id=row.university_id,
+        keywords=_kb_keywords(row.keywords),
+        answer=row.answer,
+        priority=row.priority,
+        is_active=row.is_active,
+        created_at=row.created_at,
+    )
+
+
 @router.get("/knowledge-base", response_model=list[AIKnowledgeBaseEntry])
 async def list_knowledge_base(
     session: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> list[AIKnowledgeBaseEntry]:
-    result = await session.execute(
-        select(AIKnowledgeBase).order_by(AIKnowledgeBase.priority.desc())
-    )
-    rows = result.scalars().all()
-    return [
-        AIKnowledgeBaseEntry(
-            id=row.id,
-            keywords=_kb_keywords(row.keywords),
-            answer=row.answer,
-            priority=row.priority,
-            is_active=row.is_active,
-            created_at=row.created_at,
-        )
-        for row in rows
-    ]
+    stmt = select(AIKnowledgeBase).order_by(AIKnowledgeBase.priority.desc())
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        stmt = stmt.where(AIKnowledgeBase.university_id == admin.university_id)
+    result = await session.execute(stmt)
+    return [_build_kb_entry(row) for row in result.scalars().all()]
 
 
 @router.post("/knowledge-base", response_model=AIKnowledgeBaseEntry, status_code=status.HTTP_201_CREATED)
@@ -225,8 +257,15 @@ async def create_knowledge_base_entry(
     session: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ) -> AIKnowledgeBaseEntry:
+    if admin.role == UserRole.UNIVERSITY_ADMIN and not admin.university_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": {"code": "NO_UNIVERSITY", "message": "Üniversite bilginiz tanımlı değil."}},
+        )
+    effective_university_id = admin.university_id if admin.role == UserRole.UNIVERSITY_ADMIN else None
     row = AIKnowledgeBase(
         id=str(uuid4()),
+        university_id=effective_university_id,
         keywords=json.dumps(payload.keywords),
         answer=payload.answer,
         priority=payload.priority,
@@ -238,14 +277,7 @@ async def create_knowledge_base_entry(
     session.add(row)
     await session.commit()
     await session.refresh(row)
-    return AIKnowledgeBaseEntry(
-        id=row.id,
-        keywords=_kb_keywords(row.keywords),
-        answer=row.answer,
-        priority=row.priority,
-        is_active=row.is_active,
-        created_at=row.created_at,
-    )
+    return _build_kb_entry(row)
 
 
 @router.put("/knowledge-base/{entry_id}", response_model=AIKnowledgeBaseEntry)
@@ -253,7 +285,7 @@ async def update_knowledge_base_entry(
     entry_id: str,
     payload: AIKnowledgeBaseUpdate,
     session: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> AIKnowledgeBaseEntry:
     result = await session.execute(
         select(AIKnowledgeBase).where(AIKnowledgeBase.id == entry_id)
@@ -264,6 +296,7 @@ async def update_knowledge_base_entry(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": "Kayıt bulunamadı."}},
         )
+    _assert_kb_access(admin, row)
 
     if payload.keywords is not None:
         row.keywords = json.dumps(payload.keywords)
@@ -277,21 +310,14 @@ async def update_knowledge_base_entry(
 
     await session.commit()
     await session.refresh(row)
-    return AIKnowledgeBaseEntry(
-        id=row.id,
-        keywords=_kb_keywords(row.keywords),
-        answer=row.answer,
-        priority=row.priority,
-        is_active=row.is_active,
-        created_at=row.created_at,
-    )
+    return _build_kb_entry(row)
 
 
 @router.delete("/knowledge-base/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_knowledge_base_entry(
     entry_id: str,
     session: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> None:
     result = await session.execute(
         select(AIKnowledgeBase).where(AIKnowledgeBase.id == entry_id)
@@ -302,5 +328,6 @@ async def delete_knowledge_base_entry(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": "Kayıt bulunamadı."}},
         )
+    _assert_kb_access(admin, row)
     await session.delete(row)
     await session.commit()

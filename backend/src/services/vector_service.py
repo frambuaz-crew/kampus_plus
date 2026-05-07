@@ -54,7 +54,7 @@ class VectorStoreService:
             len(self.official_metadata),
         )
     
-    def _load_or_create_index(self, path: Path, name: str) -> faiss.IndexFlatL2:
+    def _load_or_create_index(self, path: Path, name: str) -> faiss.IndexFlatIP:
         """Mevcut FAISS index'i yükle veya yeni oluştur."""
         if path.exists():
             try:
@@ -65,13 +65,13 @@ class VectorStoreService:
                         "Index sıfırdan oluşturuluyor.",
                         name, index.d, self.EMBEDDING_DIMENSION,
                     )
-                    return faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
+                    return faiss.IndexFlatIP(self.EMBEDDING_DIMENSION)
                 logger.info("%s yüklendi: %s vektör.", name, index.ntotal)
                 return index
             except Exception as e:
                 logger.warning("%s yüklenemedi: %s. Yeni index oluşturuluyor.", name, e)
-        
-        index = faiss.IndexFlatL2(self.EMBEDDING_DIMENSION)
+
+        index = faiss.IndexFlatIP(self.EMBEDDING_DIMENSION)
         logger.info("Yeni %s indeşi oluşturuldu.", name)
         return index
     
@@ -161,7 +161,8 @@ class VectorStoreService:
             vectors_np = vectors_np.reshape(1, -1)
         
         current_size = self.vdb_official.ntotal
-        
+
+        faiss.normalize_L2(vectors_np)
         self.vdb_official.add(vectors_np)
         
         assigned_ids = list(range(current_size, current_size + len(texts)))
@@ -183,36 +184,51 @@ class VectorStoreService:
     async def search_official(
         self,
         query_text: str,
-        k: int = 5
+        k: int = 5,
+        university_id: Optional[str] = None,
+        fetch_k: int = 20,
     ) -> List[Tuple[int, float]]:
-        """Resmi dokümanlarda benzerlik araması yap.
-        
+        """Resmi dokümanlarda kosinüs benzerliği araması yap.
+
         Args:
             query_text: Arama sorgusu
-            k: Döndürülecek sonuç sayısı (varsayılan 5)
-        
+            k: Döndürülecek nihai sonuç sayısı (varsayılan 5)
+            university_id: Çok kiracılı filtreleme için üniversite ID'si.
+                           Verilirse yalnızca eşleşen veya university_id'si None olan
+                           chunk'lar döndürülür.
+            fetch_k: FAISS'ten çekilecek aday havuzu büyüklüğü (varsayılan 20).
+                     Filtreleme sonrası en iyi k tanesi seçilir.
+
         Returns:
-            (index_id, distance) tuple'ları listesi, benzerliğe göre sıralı
+            (index_id, score) tuple'ları listesi; score büyüdükçe benzerlik artar
+            (IndexFlatIP ile inner product = normalize edilmiş vektörlerde kosinüs skoru).
         """
         if self.vdb_official.ntotal == 0:
             return []
-        
+
         try:
             query_embedding = await self.generate_embedding(query_text)
             query_vector = np.array([query_embedding], dtype=np.float32)
-            
-            distances, indices = self.vdb_official.search(query_vector, k)
+            faiss.normalize_L2(query_vector)
+
+            actual_fetch = min(fetch_k, self.vdb_official.ntotal)
+            distances, indices = self.vdb_official.search(query_vector, actual_fetch)
         except Exception as e:
             logger.warning("Embedding hatası, mock mod kullanılıyor: %s", e)
-            results = [(i, float(i) * 0.1) for i in range(min(k, self.vdb_official.ntotal))]
-            return results
-        
-        results = [
-            (int(idx), float(dist))
-            for idx, dist in zip(indices[0], distances[0])
-            if idx != -1
-        ]
-        
+            return [(i, 1.0 - float(i) * 0.1) for i in range(min(k, self.vdb_official.ntotal))]
+
+        results: List[Tuple[int, float]] = []
+        for idx, score in zip(indices[0], distances[0]):
+            if idx == -1:
+                continue
+            if university_id is not None:
+                chunk_uni = self.official_metadata.get(int(idx), {}).get("university_id")
+                if chunk_uni is not None and chunk_uni != university_id:
+                    continue
+            results.append((int(idx), float(score)))
+            if len(results) >= k:
+                break
+
         return results
     
     def get_official_stats(self) -> Dict[str, int]:

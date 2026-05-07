@@ -1,16 +1,14 @@
-# KAMPUS+ - AI Destekli Ogrenci Platformu
+﻿# KAMPUS+ - AI Destekli Ogrenci Platformu
 
-Versiyon: 1.1  
-Durum: Development  
-Son Guncelleme: 20 Nisan 2026
-
----
+**Versiyon:** 1.1  
+**Durum:** Development  
+**Son Guncelleme:** 20 Nisan 2026
 
 ## Hakkinda
 
 KAMPUS+, universite ogrencileri icin tasarlanmis modern bir ogrenme ve sosyal platformdur. AI asistan, forum, marketplace, kariyer ve akademik ozellikleri tek cati altinda sunar.
 
-## Hızlı Başlangıç (Quick Start)
+## Hizli Baslangic (Quick Start)
 
 Tek komut, sifir surpriz: Bu projede onboarding tek komutluk yapidadir. Lokal gelistirmede veritabani olarak SQLite kullanilir; lokal PostgreSQL kurulumu gerekmez.
 
@@ -28,13 +26,13 @@ cd kampus_plus
 
 ### 2) One-click calistir
 
-- Windows: koydeki setup.bat dosyasina cift tikla (veya terminalden setup.bat calistir).
-- Mac/Linux: terminalde make up (alternatif: make install) calistir.
+- **Windows:** koydeki `setup.bat` dosyasina cift tikla (veya terminalden `setup.bat` calistir).
+- **Mac/Linux:** terminalde `make up` (alternatif: `make install`) calistir.
 
 ### 3) Uygulamayi ac
 
-- Frontend: http://localhost:5174
-- Backend API Docs (Swagger): http://localhost:8001/docs
+- **Frontend:** http://localhost:5174
+- **Backend API Docs (Swagger):** http://localhost:8001/docs
 
 ### Bu tek komut neyi otomatik yapar?
 
@@ -42,16 +40,21 @@ cd kampus_plus
 - Konya normalize seed'ini calistirir ve 5 Konya universitesinin guncel verilerini ekler.
 - Baslangic test hesaplarini idempotent sekilde garanti eder.
 
-## Test Hesapları (Test Accounts)
+## Test Hesaplari (Test Accounts)
 
-| Rol | E-posta | Şifre | Açıklama |
-| :--- | :--- | :--- | :--- |
-| **Süper Admin** | admin@abc.com | admin123 | Tüm üniversiteleri yöneten en yetkili hesap. |
-| **Üniversite Admini** | kgtu_admin@kgtu.edu.tr | admin123 | Sadece KGTÜ verilerini yöneten kısıtlı admin. |
-| **Öğrenci (KGTÜ)** | kgtu_student@kgtu.edu.tr | student123 | KGTÜ ders programı ve takvimini gören kullanıcı. |
-| **Öğrenci (Selçuk)** | selcuk_student@selcuk.edu.tr | student123 | Selçuk Üniversitesi verilerini gören kullanıcı. |
+| Rol | E-posta | Sifre | Aciklama |
+|-----|---------|-------|----------|
+| Super Admin | admin@abc.com | admin123 | Tum universiteleri yoneten en yetkili hesap. |
+| Universite Admini (KGTU) | kgtu_admin1@kgtu.edu.tr | admin123 | KGTU verilerini yoneten admin (1). |
+| Universite Admini (KGTU) | kgtu_admin2@kgtu.edu.tr | admin123 | KGTU verilerini yoneten admin (2). |
+| Ogrenci - 3. sinif (KGTU) | kgtu_student1@kgtu.edu.tr | student123 | KGTU ders programi ve takvimini goren kullanici. |
+| Ogrenci - 2. sinif (KGTU) | kgtu_student2@kgtu.edu.tr | student123 | KGTU ders programi ve takvimini goren kullanici. |
+| Universite Admini (Selcuk) | selcuk_admin1@selcuk.edu.tr | admin123 | Selcuk verilerini yoneten admin (1). |
+| Universite Admini (Selcuk) | selcuk_admin2@selcuk.edu.tr | admin123 | Selcuk verilerini yoneten admin (2). |
+| Ogrenci - 3. sinif (Selcuk) | selcuk_student1@selcuk.edu.tr | student123 | Selcuk Universitesi verilerini goren kullanici. |
+| Ogrenci - 2. sinif (Selcuk) | selcuk_student2@selcuk.edu.tr | student123 | Selcuk Universitesi verilerini goren kullanici. |
 
-Not: Bu hesaplar `setup.bat` veya `make up` komutu calisirken `backend/scripts/ensure_initial_data.py` scripti ile otomatik olarak olusturulur.
+> **Not:** Bu hesaplar `setup.bat` veya `make up` komutu calisirken `backend/scripts/ensure_initial_data.py` scripti ile otomatik olarak olusturulur.
 
 ## Gelistirme Komutlari
 
@@ -71,14 +74,14 @@ docker compose down
 
 ## Teknoloji Ozeti
 
-- Backend: FastAPI, SQLAlchemy, Alembic
-- Veritabani: SQLite
-- Frontend: React + TypeScript + Vite
-- Konteyner: Docker + Docker Compose
+- **Backend:** FastAPI, SQLAlchemy, Alembic
+- **Veritabani:** SQLite
+- **Frontend:** React + TypeScript + Vite
+- **Konteyner:** Docker + Docker Compose
 
 ## Proje Yapisi
 
-```text
+```
 kampus_plus/
 ├── backend/
 ├── frontend/
@@ -92,9 +95,8 @@ kampus_plus/
 
 ## Referans
 
-- Sistem mimarisi: [specs/SYSTEM_OVERVIEW.md](specs/SYSTEM_OVERVIEW.md)
+- Sistem mimarisi: `specs/SYSTEM_OVERVIEW.md`
 
 ## Lisans
 
 Bu proje mezuniyet projesi kapsaminda gelistirilmistir.
-

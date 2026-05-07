@@ -120,6 +120,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - Kullanıcı sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon veya akademik takvim tarihlerini sorduğunda MUTLAKA `get_academic_calendar` aracını kullan.
 - Artık tüm bölümlerin ve sınıfların ders programına, tüm üniversitelerin takvimine erişebilirsin. Kullanıcı başka bir sınıf, bölüm veya üniversite sorarsa ilgili `university`, `department`, `class_year`, `semester` parametrelerini açıkça araçlara geçir.
 - Öğrenci herhangi bir soru sorduğunda önce `search_knowledge_base` aracını dene; eşleşen bir yanıt dönerse o yanıtı doğrudan kullan.
+- TOOL FALLBACK RULE: If a user asks about an event, deadline, or campus information, and your first tool search returns no results, DO NOT give up immediately. You MUST try querying another relevant tool (e.g., if the calendar is empty, search the knowledge base or forum) before telling the user you couldn't find it.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
 - Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
 - Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …")."""
@@ -438,7 +439,9 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
         async def _search_official_documents(query: str) -> str:
             """FAISS vektör araması ile kampüs resmi belgelerini sorgular."""
             results = await self.vector_service.search_official(
-                query, k=settings.vector_search_k
+                query,
+                k=settings.vector_search_k,
+                university_id=user_ctx.university_id if user_ctx else None,
             )
             docs: List[Document] = []
             for idx, distance in results:
@@ -458,7 +461,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                         )
                     )
 
-            docs.sort(key=lambda d: d.metadata.get("distance", float("inf")))
+            # IndexFlatIP returns cosine scores — higher = more similar, so sort descending.
+            docs.sort(key=lambda d: d.metadata.get("distance", float("-inf")), reverse=True)
             top_docs = docs[: settings.vector_search_k]
             retrieved_docs.extend(top_docs)
 
@@ -560,21 +564,30 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
 
+            import re as _re
+            from datetime import date as _date
+
             eff_university_id = user_ctx.university_id if user_ctx else None
             eff_university_name = user_ctx.university if user_ctx else "Belirtilmemiş"
-            eff_department = department or (user_ctx.department if user_ctx else None)
             eff_grade = class_year or (user_ctx.grade if user_ctx else None)
+
+            # Normalize semester; auto-infer from current month when LLM omits it.
+            _raw_semester = (semester or "").strip().lower()
+            if not _raw_semester:
+                _month = _date.today().month
+                _raw_semester = "bahar" if 2 <= _month <= 6 else "güz"
+            eff_semester = _raw_semester
+
             if not academic_year:
-                from datetime import date as _d
-                _m, _y = _d.today().month, _d.today().year
+                _m, _y = _date.today().month, _date.today().year
                 eff_year = f"{_y-1}-{_y}" if _m <= 6 else f"{_y}-{_y+1}"
             else:
                 eff_year = academic_year
 
-            if not eff_university_id or not eff_department:
+            if not eff_university_id:
                 return (
-                    "Ders programını görebilmek için üniversite ve bölüm bilgisi gerekiyor. "
-                    "Profilinde bu bilgiler eksikse profil ayarlarından tamamlayabilirsin."
+                    "Ders programını görebilmek için üniversite bilgisi gerekiyor. "
+                    "Profilinde bu bilgi eksikse profil ayarlarından tamamlayabilirsin."
                 )
 
             if not eff_grade:
@@ -585,54 +598,107 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             from src.models.academic import CourseSchedule  # yerel import
 
-            # Sınıf numarasını normalize et: "3.sınıf" / "3sınıf" / "3" → "3"
-            # DB'de "3. Sınıf" formatı kullanıldığından rakamı çıkarıp ilike ile eşleştir
-            grade_digit_match = re.search(r"\d+", eff_grade or "")
-            grade_pattern = f"{grade_digit_match.group()}.%" if grade_digit_match else f"%{eff_grade}%"
+            # ---- Grade pattern -----------------------------------------------
+            # DB stores class_year as bare digit "2", but LLM might send "2. Sınıf"
+            # or "2.Sınıf". Extract only the leading digit and match loosely.
+            _grade_match = _re.search(r"\d+", eff_grade or "")
+            grade_digit = _grade_match.group() if _grade_match else ""
+            # Pattern "2%" matches "2", "2. Sınıf", "2.sınıf" — no literal dot.
+            grade_pattern = f"{grade_digit}%" if grade_digit else f"%{eff_grade}%"
 
-            # Bölüm için her iki taraftaki boşluk ve büyük/küçük harf farklılıklarını tolere et
-            dept_words = [w for w in re.split(r"\s+", eff_department.strip()) if w]
-            # En az ilk anlamlı kelimeyi içeren kayıt eşleşsin (kısa kısaltmalar için tek kelime yeterli)
-            dept_pattern = f"%{dept_words[0]}%" if dept_words else f"%{eff_department}%"
-
-            conditions = [
-                CourseSchedule.university_id == eff_university_id,
-                CourseSchedule.department.ilike(dept_pattern),
-                CourseSchedule.class_year.ilike(grade_pattern),
-                CourseSchedule.academic_year == eff_year,
-                CourseSchedule.is_approved.is_(True),
-            ]
-            if semester:
-                conditions.append(CourseSchedule.semester.ilike(f"%{semester}%"))
-
-            stmt = (
-                select(CourseSchedule)
-                .where(*conditions)
-                .order_by(CourseSchedule.created_at.desc())
-                .limit(1)
+            # ---- Department name resolution ----------------------------------
+            # CourseSchedule.department is a plain name string (no FK).
+            # The LLM may pass either a UUID (wrong, but possible) or a name string.
+            _UUID_RE = _re.compile(
+                r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                _re.IGNORECASE,
             )
-            result = await db.execute(stmt)
-            schedule = result.scalar_one_or_none()
+            _dept_arg = department or (user_ctx.department if user_ctx else None) or ""
+            if _UUID_RE.match(_dept_arg.strip()):
+                # Received a UUID — look up the real name from the departments table.
+                from src.models.department import Department as _Dept
+                _dept_row = await db.execute(
+                    select(_Dept.name).where(_Dept.id == _dept_arg.strip())
+                )
+                _dept_name = _dept_row.scalar_one_or_none() or ""
+            else:
+                _dept_name = _dept_arg.strip()
 
-            # academic_year eşleşmezse en güncel onaylı kaydı dene
-            if schedule is None:
-                stmt_fb = (
+            eff_department = _dept_name  # display / error message label
+
+            # Match on the first whitespace token: "Elektrik-Elektronik Mühendisliği" →
+            # "%Elektrik-Elektronik%"  (hyphenated first word stays intact)
+            _dept_words = [w for w in _re.split(r"\s+", _dept_name) if w]
+            dept_pattern = f"%{_dept_words[0]}%" if _dept_words else None
+
+            logger.debug(
+                "[DEBUG SCHEDULE] Inferred Parameters -> "
+                "Dept Pattern: %s, Grade Digit: %s, Semester: %s",
+                dept_pattern, grade_digit, eff_semester,
+            )
+
+            # ---- Query helpers -----------------------------------------------
+            def _base_conditions(*, include_dept: bool, include_year: bool) -> list:
+                conds = [
+                    CourseSchedule.university_id == eff_university_id,
+                    CourseSchedule.class_year.ilike(grade_pattern),
+                    CourseSchedule.semester.ilike(f"%{eff_semester}%"),
+                    CourseSchedule.is_approved.is_(True),
+                ]
+                if include_dept and dept_pattern:
+                    conds.append(CourseSchedule.department.ilike(dept_pattern))
+                if include_year:
+                    conds.append(CourseSchedule.academic_year == eff_year)
+                return conds
+
+            async def _run_query(*, include_dept: bool, include_year: bool):
+                _stmt = (
                     select(CourseSchedule)
-                    .where(
-                        CourseSchedule.university_id == eff_university_id,
-                        CourseSchedule.department.ilike(dept_pattern),
-                        CourseSchedule.class_year.ilike(grade_pattern),
-                        CourseSchedule.is_approved.is_(True),
-                    )
+                    .where(*_base_conditions(include_dept=include_dept, include_year=include_year))
                     .order_by(CourseSchedule.academic_year.desc(), CourseSchedule.created_at.desc())
                     .limit(1)
                 )
-                result = await db.execute(stmt_fb)
-                schedule = result.scalar_one_or_none()
+                return (await db.execute(_stmt)).scalar_one_or_none()
+
+            # Pass 1 — exact year + department
+            schedule = await _run_query(include_dept=True, include_year=True)
+            logger.debug("[DEBUG SCHEDULE] Pass 1 (dept+year): %s", "FOUND id=" + str(schedule.id) if schedule else "NOT FOUND")
+
+            # Pass 2 — any year, still filter by department
+            if schedule is None:
+                schedule = await _run_query(include_dept=True, include_year=False)
+                logger.debug("[DEBUG SCHEDULE] Pass 2 (dept, no year): %s", "FOUND id=" + str(schedule.id) if schedule else "NOT FOUND")
+
+            # Pass 3 — loose: university + semester + grade only (department may be mismatched)
+            if schedule is None:
+                schedule = await _run_query(include_dept=False, include_year=False)
+                logger.debug("[DEBUG SCHEDULE] Pass 3 (loose, no dept/year): %s", "FOUND id=" + str(schedule.id) if schedule else "NOT FOUND")
 
             if schedule is None:
+                # Diagnostic: show what records exist so mismatches are immediately visible.
+                _diag_stmt = (
+                    select(
+                        CourseSchedule.department,
+                        CourseSchedule.class_year,
+                        CourseSchedule.semester,
+                        CourseSchedule.academic_year,
+                    )
+                    .where(
+                        CourseSchedule.university_id == eff_university_id,
+                        CourseSchedule.is_approved.is_(True),
+                    )
+                    .limit(5)
+                )
+                _diag_rows = (await db.execute(_diag_stmt)).all()
+                if _diag_rows:
+                    logger.debug("[DEBUG SCHEDULE] University %s has %d approved schedule(s):", eff_university_id, len(_diag_rows))
+                    for _r in _diag_rows:
+                        logger.debug("  - dept=%r, class_year=%r, semester=%r, acad_year=%r", _r[0], _r[1], _r[2], _r[3])
+                else:
+                    logger.debug("[DEBUG SCHEDULE] No approved schedules at all for university_id=%r", eff_university_id)
+
                 return (
-                    f"{eff_university_name} üniversitesi, {eff_department} bölümü, "
+                    f"{eff_university_name} üniversitesi, {eff_department or 'belirtilen bölüm'}, "
                     f"{eff_grade} için sisteme henüz onaylı ders programı yüklenmemiş. "
                     "Akademik sayfasından katkıda bulunabilirsin!"
                 )
@@ -844,7 +910,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     )
                 )
 
-            stmt = stmt.order_by(AcademicCalendarEvent.start_date.asc()).limit(30)
+            stmt = stmt.order_by(AcademicCalendarEvent.start_date.asc()).limit(15)
             result = await db.execute(stmt)
             events = result.scalars().all()
 
@@ -1013,55 +1079,66 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
         async def _search_knowledge_base(query: str) -> str:
             """Admin tarafından oluşturulan özel SSS/bilgi tabanında arama yapar."""
+            logger.debug("[DEBUG RAG] KB Search triggered with query argument: %r", query)
+
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
 
             from src.models.ai import AIKnowledgeBase  # yerel import – döngüsel bağımlılığı önler
 
-            result = await db.execute(
-                select(AIKnowledgeBase)
-                .where(AIKnowledgeBase.is_active.is_(True))
-                .order_by(AIKnowledgeBase.priority.desc())
-            )
-            entries = result.scalars().all()
-
-            if not entries:
-                return "Bilgi tabanında kayıt bulunamadı."
-
             normalized_query = query.strip().lower()
 
-            matches: List[str] = []
-            for entry in entries:
-                # Safely parse keywords — DB stores a JSON string (VARCHAR column)
-                raw = entry.keywords
-                if isinstance(raw, str):
-                    try:
-                        raw = json.loads(raw)
-                    except (ValueError, TypeError):
-                        raw = []
-                if not isinstance(raw, list):
-                    raw = []
+            # Stop-words that carry no matching signal — skip them so a sentence like
+            # "bahar şenliği ne zaman" doesn't reduce to zero meaningful tokens.
+            _STOP_WORDS = frozenset({
+                "ne", "nerede", "nedir", "neden", "nasıl", "kim", "kaç", "kaçta",
+                "zaman", "var", "mı", "mi", "mu", "mü", "bir", "bu",
+                "şu", "da", "de", "ve", "ile", "için", "gibi", "çok", "en",
+                "hakkında", "olan",
+            })
 
-                # Flatten: split comma-separated tags, strip, lowercase
-                # e.g. ["staj, zorunlu"] → ["staj", "zorunlu"]
-                flat_keywords: List[str] = []
-                for tag in raw:
-                    for part in str(tag).split(","):
-                        part = part.strip().lower()
-                        if part:
-                            flat_keywords.append(part)
+            # Tokenize: split on whitespace/punctuation, drop stop-words and single-char
+            # tokens. Threshold is > 1 (not > 2) so valid 2-char words like "iş", "ev"
+            # are kept — dropping them would silently break job/career queries.
+            raw_tokens = re.split(r"[\s,;.!?]+", normalized_query)
+            tokens = [t for t in raw_tokens if len(t) > 1 and t not in _STOP_WORDS]
 
-                # Bidirectional substring match: keyword ⊆ query OR query ⊆ keyword
-                if any(
-                    kw in normalized_query or normalized_query in kw
-                    for kw in flat_keywords
-                ):
-                    matches.append(entry.answer)
+            # Fallback: if all tokens were filtered out, use the full phrase as-is.
+            if not tokens and normalized_query:
+                tokens = [normalized_query]
 
-            if not matches:
+            logger.debug("[DEBUG RAG] KB Search tokens after stop-word filter: %s", tokens)
+
+            stmt = select(AIKnowledgeBase).where(AIKnowledgeBase.is_active.is_(True))
+
+            if tokens:
+                # Each token generates its own ilike pair; rows matching ANY token are
+                # returned (OR logic), so "bahar" alone is enough to hit "bahar şenliği".
+                token_clauses = [
+                    or_(
+                        AIKnowledgeBase.keywords.ilike(f"%{token}%"),
+                        AIKnowledgeBase.answer.ilike(f"%{token}%"),
+                    )
+                    for token in tokens
+                ]
+                stmt = stmt.where(or_(*token_clauses))
+
+            stmt = stmt.order_by(AIKnowledgeBase.priority.desc()).limit(20)
+
+            result = await db.execute(stmt)
+            entries = result.scalars().all()
+
+            logger.debug("[DEBUG RAG] KB Search found %d results from DB", len(entries))
+
+            if not entries:
                 return "Bilgi tabanında eşleşen kayıt bulunamadı."
 
-            return "\n\n---\n\n".join(matches)
+            # Cap each answer to 600 chars so a single verbose KB entry can't
+            # consume a disproportionate share of the LLM context window.
+            def _cap(text: str, limit: int = 600) -> str:
+                return text[:limit] + "…" if len(text) > limit else text
+
+            return "\n\n---\n\n".join(_cap(entry.answer) for entry in entries)
 
         # ---- StructuredTool sarmalayıcıları --------------------------- #
 
@@ -1119,9 +1196,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 name="get_academic_calendar",
                 description=(
                     "Kullanıcının üniversitesine ait onaylı akademik takvim etkinliklerini getirir. "
-                    "Sınav, vize, final, yarıyıl/yıl sonu sınavı, tatil, bayram, kayıt, oryantasyon "
-                    "tarihleri sorulduğunda MUTLAKA bu aracı kullan. "
-                    "İsteğe bağlı olarak 'sınav', 'tatil', 'kayıt' gibi bir anahtar kelimeyle filtrelenebilir."
+                    "Use ONLY for official academic dates (e.g., exams, course registrations, official holidays, graduation). "
+                    "DO NOT use this for campus life events, festivals (şenlik), concerts, or student club activities."
                 ),
                 args_schema=AcademicCalendarInput,
             ),
@@ -1139,11 +1215,9 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 coroutine=_search_knowledge_base,
                 name="search_knowledge_base",
                 description=(
-                    "Yönetici tarafından oluşturulan özel soru-cevap (SSS) bilgi tabanında arama yapar. "
-                    "Kullanıcı üniversite kuralları, yönetmelikler, staj, kayıt, harç, burs veya kampüse "
-                    "özgü herhangi bir prosedür hakkında soru sorduğunda HER ZAMAN ÖNCE bu aracı çağır. "
-                    "Arama sorgusunu kısa ve tek kelime tut (örn. 'staj', 'kayıt', 'burs'). "
-                    "Eşleşen yanıt dönerse başka araç kullanmadan o yanıtı doğrudan kullan."
+                    "Search the university's general knowledge base. "
+                    "Use this for campus life, transportation, festivals (şenlik), concerts, food services, and FAQs. "
+                    "If a user asks about an event and it's not in the academic calendar, you MUST search here."
                 ),
                 args_schema=KnowledgeBaseSearchInput,
             ),

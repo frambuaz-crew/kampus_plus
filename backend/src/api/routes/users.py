@@ -120,10 +120,12 @@ async def upload_profile_picture(
 @router.get("/admin/stats", response_model=AdminUserStats)
 async def get_admin_user_stats(
     session: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> AdminUserStats:
     """Toplam, doğrulanmış, doğrulanmamış ve engelli kullanıcı sayılarını döndürür."""
     base = and_(User.is_deleted == False, User.role != _PROTECTED_ROLE)
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        base = and_(base, User.university_id == admin.university_id)
 
     total = await session.scalar(select(func.count(User.id)).where(base))
     verified = await session.scalar(
@@ -153,7 +155,7 @@ async def get_admin_users(
     search: Optional[str] = Query(None),
     status: Optional[str] = Query("all"),
     session: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> AdminUserListResponse:
     """Tüm kullanıcıları sayfalanmış, filtrelenmiş ve aranmış şekilde listeler."""
     stmt = (
@@ -161,6 +163,8 @@ async def get_admin_users(
         .options(selectinload(User.department_rel))
         .where(User.is_deleted == False, User.role != _PROTECTED_ROLE)
     )
+    if admin.role == UserRole.UNIVERSITY_ADMIN:
+        stmt = stmt.where(User.university_id == admin.university_id)
 
     if status == "verified":
         stmt = stmt.where(User.is_verified == True)
@@ -217,7 +221,7 @@ async def get_admin_users(
 async def get_admin_user_detail(
     user_id: str,
     session: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> AdminUserItem:
     """Tek bir kullanıcının detay bilgilerini döndürür."""
     result = await session.execute(
@@ -228,6 +232,8 @@ async def get_admin_user_detail(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    if admin.role == UserRole.UNIVERSITY_ADMIN and user.university_id != admin.university_id:
+        raise HTTPException(status_code=403, detail="Bu kullanıcıya erişim izniniz yok.")
 
     return AdminUserItem(
         id=user.id,
@@ -265,6 +271,9 @@ async def toggle_user_block(
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
 
+    if admin.role == UserRole.UNIVERSITY_ADMIN and user.university_id != admin.university_id:
+        raise HTTPException(status_code=403, detail="Bu kullanıcıyı yönetme izniniz yok.")
+
     if user.role == _PROTECTED_ROLE:
         raise HTTPException(status_code=403, detail="Bu kullanıcının hesabı yönetilemez.")
 
@@ -279,7 +288,7 @@ async def toggle_user_verification(
     user_id: str,
     data: UserVerifyRequest,
     session: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ):
     """Kullanıcının e-posta doğrulama durumunu günceller (is_verified)."""
     result = await session.execute(
@@ -288,6 +297,8 @@ async def toggle_user_verification(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+    if admin.role == UserRole.UNIVERSITY_ADMIN and user.university_id != admin.university_id:
+        raise HTTPException(status_code=403, detail="Bu kullanıcıyı yönetme izniniz yok.")
 
     user.is_verified = data.verified
     session.add(user)
@@ -309,6 +320,10 @@ async def change_user_role(
     if data.role == _PROTECTED_ROLE.value:
         raise HTTPException(status_code=403, detail="Bu rol atanamaz.")
 
+    # university_admin can only assign roles that are not above their own level
+    if admin.role == UserRole.UNIVERSITY_ADMIN and data.role == UserRole.UNIVERSITY_ADMIN.value:
+        raise HTTPException(status_code=403, detail="Üniversite admini başka bir üniversite admini atayamaz.")
+
     valid_roles = {r.value for r in UserRole if r != _PROTECTED_ROLE}
     if data.role not in valid_roles:
         raise HTTPException(
@@ -323,8 +338,17 @@ async def change_user_role(
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
 
+    if admin.role == UserRole.UNIVERSITY_ADMIN and user.university_id != admin.university_id:
+        raise HTTPException(status_code=403, detail="Sadece kendi üniversitenizin kullanıcılarının rolünü değiştirebilirsiniz.")
+
     if user.role == _PROTECTED_ROLE:
         raise HTTPException(status_code=403, detail="Bu kullanıcının rolü değiştirilemez.")
+
+    if data.role == UserRole.UNIVERSITY_ADMIN.value and not user.university_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Kullanıcıya 'university_admin' rolü atanabilmesi için önce bir üniversite atanması gerekir.",
+        )
 
     user.role = UserRole(data.role)
     session.add(user)

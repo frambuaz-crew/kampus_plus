@@ -35,6 +35,7 @@ class AIStatsResponse(BaseModel):
 
 class AIKnowledgeBaseEntry(BaseModel):
     id: str
+    university_id: Optional[str] = None
     keywords: List[str]
     answer: str
     priority: int

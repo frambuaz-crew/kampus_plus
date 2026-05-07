@@ -1,6 +1,17 @@
 @echo off
 setlocal
 
+IF "%1"=="clean" (
+    echo [CLEAN MODE] Eski veriler, volume'ler ve FAISS indeksleri siliniyor...
+    docker compose down -v
+    IF EXIST backend\data\vectors rmdir /s /q backend\data\vectors
+    IF EXIST backend\uploads rmdir /s /q backend\uploads
+    IF EXIST backend\data\kampus_plus.db del /f /q backend\data\kampus_plus.db
+    echo [CLEAN MODE] Temizlik tamamlandi.
+) ELSE (
+    echo [SETUP] Normal baslatma. Temiz kurulum icin "setup.bat clean" komutunu kullanabilirsiniz.
+)
+
 if not exist backend\.env (
     copy backend\.env.example backend\.env
     echo [SETUP] backend\.env dosyasi .env.example'dan olusturuldu.

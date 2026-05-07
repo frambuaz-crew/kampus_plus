@@ -114,20 +114,27 @@ class AISystemSettings(Base):
 
 class AIKnowledgeBase(Base):
     """AI knowledge base modeli."""
-    
+
     __tablename__ = "ai_knowledge_base"
-    
+
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
         default=lambda: str(uuid4()),
     )
-    
+
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("universities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     keywords: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string (array)
     answer: Mapped[str] = mapped_column(Text, nullable=False)
     priority: Mapped[int] = mapped_column(Integer, server_default=text("1"), nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False, index=True)
-    
+
     created_by: Mapped[Optional[str]] = mapped_column(
         String(36),
         ForeignKey("users.id"),

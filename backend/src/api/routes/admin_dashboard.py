@@ -13,12 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.core.dependencies import require_admin
 from src.models.academic import AcademicContribution
-from src.models.ai import AIMessage
-from src.models.career import CareerReport
-from src.models.forum import ForumReport
-from src.models.marketplace import MarketplaceReport
+from src.models.ai import AIConversation, AIMessage
+from src.models.career import CareerListing, CareerReport
+from src.models.forum import ForumReport, ForumTopic
+from src.models.marketplace import MarketplaceListing, MarketplaceReport
 from src.models.settings import ContactMessage
-from src.models.user import User
+from src.models.user import User, UserRole
 from src.schemas.admin_dashboard import DashboardStatsResponse
 
 router = APIRouter(prefix="/admin/dashboard", tags=["Admin – Dashboard"])
@@ -32,67 +32,151 @@ def _today_midnight_utc() -> datetime:
 @router.get("", response_model=DashboardStatsResponse)
 async def get_dashboard_stats(
     session: AsyncSession = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> DashboardStatsResponse:
-    pending_contributions = (
-        await session.execute(
+    is_uni_admin = admin.role == UserRole.UNIVERSITY_ADMIN
+    uid = admin.university_id if is_uni_admin else None
+
+    # ── pending_contributions ─────────────────────────────────────────────── #
+    if is_uni_admin:
+        pending_stmt = (
+            select(func.count())
+            .select_from(AcademicContribution)
+            .join(User, AcademicContribution.user_id == User.id)
+            .where(
+                AcademicContribution.status == "pending",
+                User.university_id == uid,
+            )
+        )
+    else:
+        pending_stmt = (
             select(func.count())
             .select_from(AcademicContribution)
             .where(AcademicContribution.status == "pending")
         )
-    ).scalar_one()
+    pending_contributions = (await session.execute(pending_stmt)).scalar_one()
 
-    approved_data = (
-        await session.execute(
+    # ── approved_data ─────────────────────────────────────────────────────── #
+    if is_uni_admin:
+        approved_stmt = (
+            select(func.count())
+            .select_from(AcademicContribution)
+            .join(User, AcademicContribution.user_id == User.id)
+            .where(
+                AcademicContribution.status == "approved",
+                User.university_id == uid,
+            )
+        )
+    else:
+        approved_stmt = (
             select(func.count())
             .select_from(AcademicContribution)
             .where(AcademicContribution.status == "approved")
         )
-    ).scalar_one()
+    approved_data = (await session.execute(approved_stmt)).scalar_one()
 
-    forum_reports = (
-        await session.execute(
+    # ── forum_reports ─────────────────────────────────────────────────────── #
+    if is_uni_admin:
+        forum_stmt = (
+            select(func.count())
+            .select_from(ForumReport)
+            .join(ForumTopic, ForumReport.topic_id == ForumTopic.id)
+            .where(
+                ForumReport.status == "pending",
+                ForumTopic.university_id == uid,
+            )
+        )
+    else:
+        forum_stmt = (
             select(func.count())
             .select_from(ForumReport)
             .where(ForumReport.status == "pending")
         )
-    ).scalar_one()
+    forum_reports = (await session.execute(forum_stmt)).scalar_one()
 
-    marketplace_reports = (
-        await session.execute(
+    # ── marketplace_reports ───────────────────────────────────────────────── #
+    if is_uni_admin:
+        marketplace_stmt = (
+            select(func.count())
+            .select_from(MarketplaceReport)
+            .join(MarketplaceListing, MarketplaceReport.listing_id == MarketplaceListing.id)
+            .join(User, MarketplaceListing.seller_id == User.id)
+            .where(
+                MarketplaceReport.status == "pending",
+                User.university_id == uid,
+            )
+        )
+    else:
+        marketplace_stmt = (
             select(func.count())
             .select_from(MarketplaceReport)
             .where(MarketplaceReport.status == "pending")
         )
-    ).scalar_one()
+    marketplace_reports = (await session.execute(marketplace_stmt)).scalar_one()
 
-    career_reports = (
-        await session.execute(
+    # ── career_reports ────────────────────────────────────────────────────── #
+    if is_uni_admin:
+        career_stmt = (
+            select(func.count())
+            .select_from(CareerReport)
+            .join(CareerListing, CareerReport.listing_id == CareerListing.id)
+            .join(User, CareerListing.posted_by == User.id)
+            .where(
+                CareerReport.status == "pending",
+                User.university_id == uid,
+            )
+        )
+    else:
+        career_stmt = (
             select(func.count())
             .select_from(CareerReport)
             .where(CareerReport.status == "pending")
         )
-    ).scalar_one()
+    career_reports = (await session.execute(career_stmt)).scalar_one()
 
-    new_messages = (
-        await session.execute(
+    # ── new_messages — ContactMessage has no university_id ───────────────── #
+    # university_admin receives 0 because contact messages are platform-wide
+    if is_uni_admin:
+        new_messages = 0
+    else:
+        new_messages = (
+            await session.execute(
+                select(func.count())
+                .select_from(ContactMessage)
+                .where(ContactMessage.status == "pending")
+            )
+        ).scalar_one()
+
+    # ── total_users ───────────────────────────────────────────────────────── #
+    if is_uni_admin:
+        total_users_stmt = (
             select(func.count())
-            .select_from(ContactMessage)
-            .where(ContactMessage.status == "pending")
+            .select_from(User)
+            .where(User.university_id == uid)
         )
-    ).scalar_one()
+    else:
+        total_users_stmt = select(func.count()).select_from(User)
+    total_users = (await session.execute(total_users_stmt)).scalar_one()
 
-    total_users = (
-        await session.execute(select(func.count()).select_from(User))
-    ).scalar_one()
-
-    ai_messages_today = (
-        await session.execute(
+    # ── ai_messages_today ─────────────────────────────────────────────────── #
+    if is_uni_admin:
+        ai_stmt = (
+            select(func.count())
+            .select_from(AIMessage)
+            .join(AIConversation, AIMessage.conversation_id == AIConversation.id)
+            .join(User, AIConversation.user_id == User.id)
+            .where(
+                AIMessage.created_at >= _today_midnight_utc(),
+                User.university_id == uid,
+            )
+        )
+    else:
+        ai_stmt = (
             select(func.count())
             .select_from(AIMessage)
             .where(AIMessage.created_at >= _today_midnight_utc())
         )
-    ).scalar_one()
+    ai_messages_today = (await session.execute(ai_stmt)).scalar_one()
 
     return DashboardStatsResponse(
         pending_contributions=pending_contributions,
