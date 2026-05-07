@@ -59,13 +59,13 @@ class ForumTopic(Base):
     
     category_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("forum_categories.id"),
+        ForeignKey("forum_categories.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
     author_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
@@ -129,11 +129,11 @@ class ForumReply(Base):
     )
     author_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
-    
+
     # SARI YENİ: Threaded comments için üst yorum referansı
     parent_id: Mapped[Optional[str]] = mapped_column(
         String(36),
@@ -191,7 +191,7 @@ class ForumReport(Base):
     )
     reporter_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     announcements_rss_url: str = ""
     schedule_csv_url: str = ""
     
+    # Redis
+    redis_url: str = "redis://localhost:6379/0"
+
     # Güvenlik
     # Tüm yaygın geliştirme portları hem localhost hem 127.0.0.1 üzerinden dahil edildi.
     # Docker compose CORS_ORIGINS env var'ı ile üzerine yazılabilir.

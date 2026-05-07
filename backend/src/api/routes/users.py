@@ -32,7 +32,11 @@ router = APIRouter(prefix="/users", tags=["Users"])
 _PROTECTED_ROLE = UserRole.ADMIN
 
 @router.get("/profile/{username}")
-async def get_user_profile(username: str, session: AsyncSession = Depends(get_db)):
+async def get_user_profile(
+    username: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
     # Kullanıcıyı kullanıcı adına göre, bölüm bilgisiyle birlikte getiriyoruz
     stmt = (
         select(User)
@@ -357,7 +361,11 @@ async def change_user_role(
 
 
 @router.get("/{username}/activity")
-async def get_user_activity(username: str, session: AsyncSession = Depends(get_db)):
+async def get_user_activity(
+    username: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
     """Kullanıcının yaptığı tüm paylaşımları (Forum, Pazar vs.) getirir."""
     stmt = select(User).where(User.username == username)
     result = await session.execute(stmt)

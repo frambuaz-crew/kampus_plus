@@ -13,12 +13,11 @@ Endpoints:
 
 import logging
 import traceback
-from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Optional, Dict
+from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Cookie, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.user import User, UserRole
@@ -27,11 +26,11 @@ from src.services.university_service import get_university_service
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
 from src.core.config import get_settings
+from src.core.rate_limit import limiter
 from src.services.auth_service import AuthService
 from src.services.email_service import get_email_service
 from src.models.user import User
 
-from sqlalchemy import select
 from src.models.department import Department
 
 logger = logging.getLogger(__name__)
@@ -53,13 +52,6 @@ def _refresh_cookie_settings() -> dict:
         "samesite": "strict" if is_production else "lax",
         "path": "/api/v1/auth",
     }
-
-# Rate limiting for resend verification (in-memory cache)
-# Format: {email: [timestamp1, timestamp2, ...]}
-resend_verification_attempts: Dict[str, list] = defaultdict(list)
-RESEND_VERIFICATION_LIMIT = 3  # Max 3 attempts
-RESEND_VERIFICATION_WINDOW = 3600  # 1 hour in seconds
-
 
 # ============================================================================
 # REQUEST/RESPONSE MODELS
@@ -236,20 +228,22 @@ class ErrorResponse(BaseModel):
         409: {"model": ErrorResponse, "description": "Conflict - Email already exists"}
     }
 )
+@limiter.limit("10/minute")
 async def register(
-    request: RegisterRequest,
+    request: Request,
+    data: RegisterRequest,
     session: AsyncSession = Depends(get_db)
 ) -> RegisterResponse:
     """Register new student user with university email."""
     try:
         user = await auth_service.register_user(
             session=session,
-            email=request.email,
-            password=request.password,
-            first_name=request.first_name,
-            last_name=request.last_name,
-            university=request.university,
-            department_id=request.department_id,
+            email=data.email,
+            password=data.password,
+            first_name=data.first_name,
+            last_name=data.last_name,
+            university=data.university,
+            department_id=data.department_id,
             terms_accepted_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
         
@@ -272,7 +266,7 @@ async def register(
             email=user.email,
             message="Kayıt başarılı. Lütfen email'inizi kontrol edin."
         )
-    
+
     except ValueError as e:
         if "already exists" in str(e).lower():
             raise HTTPException(
@@ -300,8 +294,10 @@ async def register(
         403: {"model": ErrorResponse, "description": "Forbidden - Account inactive"}
     }
 )
+@limiter.limit("5/minute")
 async def login(
-    request: LoginRequest,
+    request: Request,
+    data: LoginRequest,
     response: Response,
     session: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
@@ -310,22 +306,22 @@ async def login(
         # 1. Kullanıcıyı doğrula ve tokenları al
         user, access_token, refresh_token = await auth_service.authenticate_user(
             session=session,
-            email=request.email,
-            password=request.password,
-            remember_me=request.remember_me
+            email=data.email,
+            password=data.password,
+            remember_me=data.remember_me
         )
-        
+
         # 2. Üniversite servisini çağır ve resmi ismi çöz
         uni_service = get_university_service()
         official_university_name = await uni_service.get_university_from_email(
-            user.email, 
+            user.email,
             session
         )
 
         # 3. Refresh Token için Cookie ayarları
         refresh_token_days = (
-            auth_service.settings.jwt_refresh_token_expire_days_remember_me 
-            if request.remember_me 
+            auth_service.settings.jwt_refresh_token_expire_days_remember_me
+            if data.remember_me
             else auth_service.settings.jwt_refresh_token_expire_days
         )
         
@@ -370,7 +366,7 @@ async def login(
                     "error": {
                         "code": "EMAIL_NOT_VERIFIED",
                         "message": "Email adresiniz doğrulanmamış. Lütfen email'inizi kontrol edin.",
-                        "email": request.email
+                        "email": data.email
                     }
                 }
             )
@@ -442,15 +438,17 @@ async def validate_reset_token(
     
 
 @router.post(
-    "/admin/login", 
+    "/admin/login",
     response_model=LoginResponse,
     responses={
         401: {"model": ErrorResponse, "description": "Hatalı kimlik bilgileri"},
         403: {"model": ErrorResponse, "description": "Erişim reddedildi - Admin veya Üniversite Admin yetkisi gerekli"}
     }
 )
+@limiter.limit("5/minute")
 async def admin_login(
-    request: LoginRequest,
+    request: Request,
+    data: LoginRequest,
     response: Response,
     session: AsyncSession = Depends(get_db)
 ) -> LoginResponse:
@@ -459,14 +457,14 @@ async def admin_login(
         # 1. Normal kimlik doğrulama (Email/Şifre)
         user, access_token, refresh_token = await auth_service.authenticate_user(
             session=session,
-            email=request.email,
-            password=request.password,
-            remember_me=request.remember_me
+            email=data.email,
+            password=data.password,
+            remember_me=data.remember_me
         )
-        
+
         # 2. KRİTİK: Admin portalı rol kontrolü
         if user.role not in (UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN):
-            logger.warning(f"Yetkisiz admin giriş denemesi: {user.email} (role={user.role})") # Audit Log
+            logger.warning(f"Yetkisiz admin giriş denemesi: {user.email} (role={user.role})")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
@@ -486,11 +484,11 @@ async def admin_login(
 
         # 4. Refresh Token için Cookie ayarları
         refresh_token_days = (
-            auth_service.settings.jwt_refresh_token_expire_days_remember_me 
-            if request.remember_me 
+            auth_service.settings.jwt_refresh_token_expire_days_remember_me
+            if data.remember_me
             else auth_service.settings.jwt_refresh_token_expire_days
         )
-        
+
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
@@ -528,7 +526,7 @@ async def admin_login(
                     "error": {
                         "code": "EMAIL_NOT_VERIFIED",
                         "message": "Email adresiniz doğrulanmamış. Lütfen email'inizi kontrol edin.",
-                        "email": request.email,
+                        "email": data.email,
                     }
                 },
             )
@@ -691,41 +689,21 @@ async def verify_email(
         429: {"model": ErrorResponse, "description": "Too Many Requests - Rate limit exceeded"}
     }
 )
+@limiter.limit("3/hour")
 async def resend_verification(
-    request: ResendVerificationRequest,
+    request: Request,
+    data: ResendVerificationRequest,
     session: AsyncSession = Depends(get_db)
 ):
-    """Resend verification email to user. Rate limited to 3 attempts per hour per email."""
-    now = datetime.now(timezone.utc)
-    email_lower = request.email.lower()
-    
-    resend_verification_attempts[email_lower] = [
-        ts for ts in resend_verification_attempts[email_lower]
-        if (now - ts).total_seconds() < RESEND_VERIFICATION_WINDOW
-    ]
-    
-    if len(resend_verification_attempts[email_lower]) >= RESEND_VERIFICATION_LIMIT:
-        oldest_attempt = min(resend_verification_attempts[email_lower])
-        retry_after = int(RESEND_VERIFICATION_WINDOW - (now - oldest_attempt).total_seconds())
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": {
-                    "code": "RATE_LIMIT_EXCEEDED",
-                    "message": f"Çok fazla deneme yaptınız. Lütfen {retry_after} saniye sonra tekrar deneyin.",
-                    "retry_after": retry_after
-                }
-            }
-        )
-    
-    user = await auth_service.get_user_by_email(session=session, email=request.email)
-    
+    """Resend verification email to user. Rate limited to 3 attempts per hour per IP."""
+    user = await auth_service.get_user_by_email(session=session, email=data.email)
+
     if not user or user.is_verified:
         return {
             "success": True,
             "message": "Eğer email adresiniz kayıtlı ve doğrulanmamışsa, size yeni bir doğrulama linki gönderildi."
         }
-    
+
     try:
         verification_token = auth_service.generate_verification_token(user.id)
         email_service = get_email_service()
@@ -734,7 +712,6 @@ async def resend_verification(
             verification_token=verification_token,
             user_name=user.first_name
         )
-        resend_verification_attempts[email_lower].append(now)
         return {
             "success": True,
             "message": "Doğrulama email'i tekrar gönderildi. Lütfen email'inizi kontrol edin."
@@ -751,13 +728,15 @@ async def resend_verification(
     "/forgot-password",
     status_code=status.HTTP_200_OK
 )
+@limiter.limit("3/hour")
 async def forgot_password(
-    request: ForgotPasswordRequest,
+    request: Request,
+    data: ForgotPasswordRequest,
     session: AsyncSession = Depends(get_db)
 ):
     """Şifre sıfırlama maili isteği. Güvenlik için her zaman 200 döner."""
     try:
-        user = await auth_service.get_user_by_email(session=session, email=request.email)
+        user = await auth_service.get_user_by_email(session=session, email=data.email)
         
         if user:
             # 💡 DÜZELTME: user.email yerine user.id gönderilmeli

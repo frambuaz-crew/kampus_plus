@@ -24,6 +24,22 @@ services:
       - kampus-network
     restart: unless-stopped
 
+  # Redis (Rate Limiting - SlowAPI)
+  redis:
+    image: redis:7-alpine
+    container_name: kampus-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - kampus-network
+    restart: unless-stopped
+
   # Backend API (FastAPI)
   backend:
     build:
@@ -36,10 +52,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - ENVIRONMENT=development
       - DEBUG=true
       - CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174
+      - REDIS_URL=redis://redis:6379/0
     ports:
       - "8001:8000"
     volumes:

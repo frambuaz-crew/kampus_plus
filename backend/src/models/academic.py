@@ -61,10 +61,10 @@ class AcademicCalendarEvent(Base):
     
     created_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
@@ -75,7 +75,7 @@ class AcademicCalendarEvent(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
-    
+
     creator = relationship("User", foreign_keys=[created_by])
 
 
@@ -106,10 +106,10 @@ class CourseSchedule(Base):
 
     created_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
@@ -120,9 +120,9 @@ class CourseSchedule(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
-    
+
     creator = relationship("User", foreign_keys=[created_by])
-    
+
     __table_args__ = (
         UniqueConstraint('university_id', 'department', 'class_year', 'semester', 'academic_year', 
                         name='uq_course_schedules_unique'),
@@ -142,7 +142,7 @@ class PersonalSchedule(Base):
 
     user_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
         index=True,
@@ -150,7 +150,7 @@ class PersonalSchedule(Base):
 
     base_schedule_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("course_schedules.id"),
+        ForeignKey("course_schedules.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -184,11 +184,11 @@ class AcademicContribution(Base):
     
     user_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    
+
     type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     
     university: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -205,17 +205,17 @@ class AcademicContribution(Base):
     
     reviewed_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
-    
+
     user = relationship("User", foreign_keys=[user_id], overlaps="academic_contributions")
     reviewer = relationship("User", foreign_keys=[reviewed_by])
 

@@ -33,6 +33,10 @@ httpx
 beautifulsoup4
 email-validator
 
+# Rate Limiting
+slowapi
+redis
+
 # Dev
 pytest
 pytest-asyncio

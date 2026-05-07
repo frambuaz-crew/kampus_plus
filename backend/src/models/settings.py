@@ -32,10 +32,10 @@ class ContactMessage(Base):
         default=lambda: str(uuid4()),
     )
     
-    user_id: Mapped[str] = mapped_column(
+    user_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
-        nullable=False,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     
@@ -46,7 +46,7 @@ class ContactMessage(Base):
     answered_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     answered_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     

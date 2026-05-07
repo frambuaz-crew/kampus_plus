@@ -14,6 +14,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+from src.core.rate_limit import limiter
 
 from src.core.config import get_settings
 from src.core.database import close_db, init_db
@@ -69,6 +74,11 @@ app = FastAPI(
 )
 
 settings = get_settings()
+
+# Rate limiter state (must be set before middleware registration)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Request ID middleware (tüm istekleri takip etmek için ilk sırada olmalı)
 app.add_middleware(RequestIDMiddleware)

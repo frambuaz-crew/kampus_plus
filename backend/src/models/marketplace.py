@@ -74,7 +74,7 @@ class MarketplaceListing(Base):
 
     seller_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -82,7 +82,7 @@ class MarketplaceListing(Base):
     # Relational category (replaces the old plain String column)
     category_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("marketplace_categories.id"),
+        ForeignKey("marketplace_categories.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
@@ -131,12 +131,12 @@ class MarketplaceReport(Base):
 
     listing_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("marketplace_listings.id"),
+        ForeignKey("marketplace_listings.id", ondelete="CASCADE"),
         nullable=False,
     )
     reporter_user_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
 
@@ -145,7 +145,7 @@ class MarketplaceReport(Base):
 
     reviewed_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
@@ -174,25 +174,25 @@ class MarketplaceMessage(Base):
 
     conversation_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("conversations.id"),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
     sender_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     receiver_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     listing_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("marketplace_listings.id"),
+        ForeignKey("marketplace_listings.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

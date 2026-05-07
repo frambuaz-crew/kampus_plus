@@ -23,19 +23,19 @@ class DirectMessage(Base):
 
     conversation_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("conversations.id"),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     sender_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     receiver_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

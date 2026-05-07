@@ -10,10 +10,9 @@ import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
-from collections import defaultdict
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, UploadFile, File
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +20,7 @@ from sqlalchemy.orm import selectinload
 
 from src.core.database import get_db
 from src.core.dependencies import get_current_user, require_admin
+from src.core.rate_limit import limiter
 from src.models.user import User, UserRole
 from src.models.forum import ForumCategory, ForumTopic, ForumReply, ForumReport
 from src.models.favorite import UserFavorite
@@ -28,16 +28,6 @@ from src.models.favorite import UserFavorite
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/forum", tags=["Forum"])
-
-# Rate limiting (in-memory)
-topic_creation_attempts: dict = defaultdict(list)
-reply_creation_attempts: dict = defaultdict(list)
-helpful_attempts: dict = defaultdict(list)
-
-TOPIC_RATE_LIMIT = 10      # 10 konu / 1 saat
-REPLY_RATE_LIMIT = 30      # 30 cevap / 1 saat
-HELPFUL_RATE_LIMIT = 50    # 50 beğeni / 1 saat
-RATE_LIMIT_WINDOW = 3600   # 1 saat
 
 
 # ============================================================================
@@ -479,35 +469,22 @@ async def get_topic_detail(
 
 
 @router.post("/topics", response_model=dict, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/hour")
 async def create_topic(
-    request: CreateTopicRequest,
+    request: Request,
+    data: CreateTopicRequest,
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Yeni konu oluştur.
 
     Spec: POST /api/v1/forum/topics
-    Rate Limit: 10 konu / 1 saat / user
+    Rate Limit: 10 konu / 1 saat / IP
     """
-    now = datetime.utcnow().timestamp()
-    user_attempts = topic_creation_attempts[current_user.id]
-    user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
-
-    if len(user_attempts) >= TOPIC_RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": {
-                    "code": "RATE_LIMIT_EXCEEDED",
-                    "message": f"Çok fazla konu oluşturdunuz. Lütfen {RATE_LIMIT_WINDOW // 60} dakika sonra tekrar deneyin."
-                }
-            }
-        )
-
     # Kategori verilmişse kontrol et
-    if request.category_id:
+    if data.category_id:
         category_result = await session.execute(
-            select(ForumCategory).where(ForumCategory.id == request.category_id)
+            select(ForumCategory).where(ForumCategory.id == data.category_id)
         )
         category = category_result.scalar_one_or_none()
         if not category or not category.is_active:
@@ -518,15 +495,15 @@ async def create_topic(
 
     topic = ForumTopic(
         id=str(uuid4()),
-        category_id=request.category_id,
+        category_id=data.category_id,
         author_id=current_user.id,
         university_id=current_user.university_id,
-        title=request.title,
-        content=request.content,
-        topic_type=request.topic_type,
-        tags=request.tags,
-        image_urls=request.image_urls,
-        event_date=request.event_date,
+        title=data.title,
+        content=data.content,
+        topic_type=data.topic_type,
+        tags=data.tags,
+        image_urls=data.image_urls,
+        event_date=data.event_date,
         is_pinned=False,
         is_deleted=False,
         view_count=0,
@@ -540,38 +517,23 @@ async def create_topic(
     await session.commit()
     await session.refresh(topic)
 
-    topic_creation_attempts[current_user.id].append(now)
-
     return {"success": True, "topic_id": topic.id}
 
 
 @router.post("/topics/{topic_id}/replies", response_model=dict, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/hour")
 async def create_reply(
+    request: Request,
     topic_id: str,
-    request: CreateReplyRequest,
+    data: CreateReplyRequest,
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Konuya cevap yaz.
 
     Spec: POST /api/v1/forum/topics/{topic_id}/replies
-    Rate Limit: 30 cevap / 1 saat / user
+    Rate Limit: 30 cevap / 1 saat / IP
     """
-    now = datetime.utcnow().timestamp()
-    user_attempts = reply_creation_attempts[current_user.id]
-    user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
-
-    if len(user_attempts) >= REPLY_RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": {
-                    "code": "RATE_LIMIT_EXCEEDED",
-                    "message": f"Çok fazla cevap yazdınız. Lütfen {RATE_LIMIT_WINDOW // 60} dakika sonra tekrar deneyin."
-                }
-            }
-        )
-
     topic_result = await session.execute(
         select(ForumTopic).where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
     )
@@ -584,10 +546,10 @@ async def create_reply(
         )
 
     # parent_id varsa geçerli bir reply olduğunu doğrula
-    if request.parent_id:
+    if data.parent_id:
         parent_result = await session.execute(
             select(ForumReply).where(
-                and_(ForumReply.id == request.parent_id, ForumReply.is_deleted == False)
+                and_(ForumReply.id == data.parent_id, ForumReply.is_deleted == False)
             )
         )
         if not parent_result.scalar_one_or_none():
@@ -600,8 +562,8 @@ async def create_reply(
         id=str(uuid4()),
         topic_id=topic_id,
         author_id=current_user.id,
-        content=request.content,
-        parent_id=request.parent_id,
+        content=data.content,
+        parent_id=data.parent_id,
         helpful_count=0,
         is_deleted=False,
         created_at=datetime.utcnow(),
@@ -617,13 +579,13 @@ async def create_reply(
     await session.commit()
     await session.refresh(reply)
 
-    reply_creation_attempts[current_user.id].append(now)
-
     return {"success": True, "reply_id": reply.id}
 
 
 @router.post("/topics/{topic_id}/helpful", response_model=dict)
+@limiter.limit("50/hour")
 async def toggle_topic_helpful(
+    request: Request,
     topic_id: str,
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -631,23 +593,8 @@ async def toggle_topic_helpful(
     """Topic beğeni toggle (like/unlike).
 
     Spec: POST /api/v1/forum/topics/{topic_id}/helpful
-    Rate Limit: 50 beğeni / 1 saat / user
+    Rate Limit: 50 beğeni / 1 saat / IP
     """
-    now = datetime.utcnow().timestamp()
-    user_attempts = helpful_attempts[current_user.id]
-    user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
-
-    if len(user_attempts) >= HELPFUL_RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": {
-                    "code": "RATE_LIMIT_EXCEEDED",
-                    "message": "Çok fazla beğeni yaptınız. Lütfen daha sonra tekrar deneyin."
-                }
-            }
-        )
-
     topic_result = await session.execute(
         select(ForumTopic).where(and_(ForumTopic.id == topic_id, ForumTopic.is_deleted == False))
     )
@@ -683,8 +630,6 @@ async def toggle_topic_helpful(
     topic.updated_at = datetime.utcnow()
     await session.commit()
     await session.refresh(topic)
-
-    helpful_attempts[current_user.id].append(now)
 
     return {"success": True, "action": action, "helpful_count": topic.helpful_count, "is_liked": action == "liked"}
 
@@ -734,7 +679,9 @@ async def get_topic_likers(
 
 
 @router.post("/replies/{reply_id}/helpful", response_model=dict)
+@limiter.limit("50/hour")
 async def toggle_reply_helpful(
+    request: Request,
     reply_id: str,
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -742,23 +689,8 @@ async def toggle_reply_helpful(
     """Reply beğeni toggle (like/unlike).
 
     Spec: POST /api/v1/forum/replies/{reply_id}/helpful
-    Rate Limit: 50 beğeni / 1 saat / user
+    Rate Limit: 50 beğeni / 1 saat / IP
     """
-    now = datetime.utcnow().timestamp()
-    user_attempts = helpful_attempts[current_user.id]
-    user_attempts[:] = [ts for ts in user_attempts if now - ts < RATE_LIMIT_WINDOW]
-
-    if len(user_attempts) >= HELPFUL_RATE_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error": {
-                    "code": "RATE_LIMIT_EXCEEDED",
-                    "message": "Çok fazla beğeni yaptınız. Lütfen daha sonra tekrar deneyin."
-                }
-            }
-        )
-
     reply_result = await session.execute(
         select(ForumReply).where(and_(ForumReply.id == reply_id, ForumReply.is_deleted == False))
     )
@@ -794,8 +726,6 @@ async def toggle_reply_helpful(
     reply.updated_at = datetime.utcnow()
     await session.commit()
     await session.refresh(reply)
-
-    helpful_attempts[current_user.id].append(now)
 
     return {"success": True, "action": action, "helpful_count": reply.helpful_count, "is_liked": action == "liked"}
 

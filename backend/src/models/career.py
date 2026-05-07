@@ -40,10 +40,10 @@ class CareerListing(Base):
     )
     
     type: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    posted_by: Mapped[str] = mapped_column(
+    posted_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
-        nullable=False,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     
@@ -99,21 +99,21 @@ class CareerApplication(Base):
     
     listing_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("career_listings.id"),
+        ForeignKey("career_listings.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     applicant_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    
+
     application_type: Mapped[str] = mapped_column(String(20), nullable=False)
     dm_conversation_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("conversations.id"),
+        ForeignKey("conversations.id", ondelete="SET NULL"),
         nullable=True,
     )
     
@@ -145,21 +145,21 @@ class CareerReport(Base):
     
     listing_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("career_listings.id"),
+        ForeignKey("career_listings.id", ondelete="CASCADE"),
         nullable=False,
     )
     reporter_user_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    
+
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(20), server_default="pending", nullable=False)
-    
+
     reviewed_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
@@ -188,25 +188,25 @@ class CareerMessage(Base):
     
     conversation_id: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("conversations.id"),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
     sender_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     receiver_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     listing_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("career_listings.id"),
+        ForeignKey("career_listings.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

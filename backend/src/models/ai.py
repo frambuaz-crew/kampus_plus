@@ -100,7 +100,7 @@ class AISystemSettings(Base):
     
     updated_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     updated_at: Mapped[datetime] = mapped_column(
@@ -137,7 +137,7 @@ class AIKnowledgeBase(Base):
 
     created_by: Mapped[Optional[str]] = mapped_column(
         String(36),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
     
