@@ -94,8 +94,8 @@ class Settings(BaseSettings):
     # PDF İşleme
     max_file_size_mb: int = 25
     allowed_file_types: str = "pdf"
-    pdf_chunk_size: int = 512
-    pdf_chunk_overlap: int = 50
+    pdf_chunk_size: int = 1024
+    pdf_chunk_overlap: int = 150
     
     @property
     def max_file_size_bytes(self) -> int:

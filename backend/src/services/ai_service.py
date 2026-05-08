@@ -485,6 +485,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             """Aktif pazar yeri ilanlarını veritabanından getirir."""
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
+            if not user_ctx or not user_ctx.university_id:
+                return "Hata: Kullanıcı bağlamı bulunamadı veya üniversite bilgisi eksik."
 
             from src.models.marketplace import MarketplaceCategory, MarketplaceListing  # yerel import – döngüsel bağımlılığı önler
 
@@ -492,6 +494,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 select(MarketplaceListing)
                 .outerjoin(MarketplaceCategory, MarketplaceListing.category_id == MarketplaceCategory.id)
                 .where(MarketplaceListing.status == "active")
+                .where(MarketplaceListing.university_id == user_ctx.university_id)
                 .options(selectinload(MarketplaceListing.category_rel))
             )
 
@@ -1020,10 +1023,15 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             """Aktif kariyer ilanlarını başlık/şirket ve ilan türüne göre getirir."""
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
+            if not user_ctx or not user_ctx.university_id:
+                return "Hata: Kullanıcı bağlamı bulunamadı veya üniversite bilgisi eksik."
 
             from src.models.career import CareerListing  # yerel import – döngüsel bağımlılığı önler
 
-            stmt = select(CareerListing).where(CareerListing.status == "active")
+            stmt = select(CareerListing).where(
+                CareerListing.status == "active",
+                CareerListing.university_id == user_ctx.university_id,
+            )
 
             kw = (keyword or "").strip()
             if kw:
