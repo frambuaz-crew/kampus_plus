@@ -11,6 +11,9 @@ Mimari: LangChain AgentExecutor + Gemini 2.5 Flash Tool Calling
   - get_user_schedule          : Kullanıcının ders programı (CourseSchedule tablosu)
 """
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="langchain_google_genai")
+
 import asyncio
 import json
 import logging
@@ -38,6 +41,7 @@ from src.services.vector_service import VectorStoreService
 
 
 logger = logging.getLogger(__name__)
+logging.getLogger("langchain_google_genai").setLevel(logging.ERROR)
 
 
 # ------------------------------------------------------------------ #
@@ -123,7 +127,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - TOOL FALLBACK RULE: If a user asks about an event, deadline, or campus information, and your first tool search returns no results, DO NOT give up immediately. You MUST try querying another relevant tool (e.g., if the calendar is empty, search the knowledge base or forum) before telling the user you couldn't find it.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
 - Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
-- Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …")."""
+- Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …").
+- CRITICAL RULE: You are strictly a university campus assistant. You MUST REFUSE to answer any general knowledge, history, geography, trivia, or non-university related questions. If the user asks something outside the scope of the campus, gently decline and guide them back to campus topics."""
 
     # Kullanıcı bağlamı bilinmiyorken kullanılan blok
     _DEFAULT_USER_CONTEXT_BLOCK = "Sen KAMPÜS+ asistanısın."
@@ -489,12 +494,14 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 return "Hata: Kullanıcı bağlamı bulunamadı veya üniversite bilgisi eksik."
 
             from src.models.marketplace import MarketplaceCategory, MarketplaceListing  # yerel import – döngüsel bağımlılığı önler
+            from src.models.user import User  # yerel import
 
             stmt = (
                 select(MarketplaceListing)
+                .join(User, MarketplaceListing.seller_id == User.id)
                 .outerjoin(MarketplaceCategory, MarketplaceListing.category_id == MarketplaceCategory.id)
                 .where(MarketplaceListing.status == "active")
-                .where(MarketplaceListing.university_id == user_ctx.university_id)
+                .where(User.university_id == user_ctx.university_id)
                 .options(selectinload(MarketplaceListing.category_rel))
             )
 
@@ -1027,10 +1034,13 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 return "Hata: Kullanıcı bağlamı bulunamadı veya üniversite bilgisi eksik."
 
             from src.models.career import CareerListing  # yerel import – döngüsel bağımlılığı önler
+            from src.models.user import User  # yerel import
 
-            stmt = select(CareerListing).where(
-                CareerListing.status == "active",
-                CareerListing.university_id == user_ctx.university_id,
+            stmt = (
+                select(CareerListing)
+                .join(User, CareerListing.posted_by == User.id)
+                .where(CareerListing.status == "active")
+                .where(User.university_id == user_ctx.university_id)
             )
 
             kw = (keyword or "").strip()
@@ -1165,8 +1175,9 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 coroutine=_search_official_documents,
                 name="search_official_documents",
                 description=(
-                    "Kampüs kuralları, şenlikler, akademik takvim ve diğer resmi kampüs belgelerini arar. "
-                    "Resmi veya kurumsal kampüs bilgisi sorulduğunda bu aracı kullan."
+                    "Sadece resmi yönetmelikler, yönergeler ve kurumsal kampüs belgeleri için kullan. "
+                    "'Nasıl yapılır' veya SSS gibi basit rehberlik soruları için kullanma; "
+                    "onlar için search_knowledge_base'i tercih et."
                 ),
                 args_schema=SearchDocsInput,
             ),
@@ -1194,8 +1205,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 description=(
                     "Kullanıcının ders programını getirir. Gün adı (Pazartesi, Salı vb.) veya "
                     "'tümü' ile tüm hafta gösterilebilir. "
-                    "Kullanıcı 'bugün ne dersim var', 'salı günü derslerim', 'ders programım' "
-                    "gibi bir şey sorduğunda MUTLAKA bu aracı kullan."
+                    "Kullanıcı 'bugün', 'yarın' veya belirli bir günde hangi dersi olduğunu sorarsa "
+                    "doğrudan bu aracı kullan. Günü hesaplamak için sistem saatini kullan."
                 ),
                 args_schema=UserScheduleInput,
             ),
@@ -1223,9 +1234,10 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 coroutine=_search_knowledge_base,
                 name="search_knowledge_base",
                 description=(
-                    "Search the university's general knowledge base. "
-                    "Use this for campus life, transportation, festivals (şenlik), concerts, food services, and FAQs. "
-                    "If a user asks about an event and it's not in the academic calendar, you MUST search here."
+                    "Kritik: 'Nasıl yaparım', 'ders kaydı', 'şifremi unuttum' gibi Sık Sorulan Sorular (SSS) "
+                    "ve rehberlik gerektiren durumlarda İLK ÖNCE bu aracı kullan. "
+                    "Kampüs yaşamı, ulaşım, yemek, şenlik, konser ve etkinlik soruları için de bu aracı kullan. "
+                    "Akademik takvimde bulunamayan etkinlikler için buraya bak."
                 ),
                 args_schema=KnowledgeBaseSearchInput,
             ),
@@ -1352,6 +1364,17 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             tools, retrieved_docs = self._build_tools(db, user_ctx)
             prompt_template = await self._load_prompt_template(db)
             system_prompt = self._build_system_prompt(user_ctx, template=prompt_template)
+
+            from datetime import datetime as _dt
+            _now = _dt.now()
+            _TR_DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+            _day_tr = _TR_DAYS[_now.weekday()]
+            system_prompt += (
+                f"\n\nSİSTEM BİLGİSİ: Şu anki gerçek zaman: "
+                f"{_now.strftime('%Y-%m-%d')} {_day_tr} {_now.strftime('%H:%M')}. "
+                f"'Yarın', 'bugün', 'bu hafta' gibi göreceli zaman ifadelerini buna göre hesapla."
+            )
+
             prompt = self._build_agent_prompt(system_prompt)
 
             agent = create_tool_calling_agent(self.llm, tools, prompt)
