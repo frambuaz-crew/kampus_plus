@@ -1215,8 +1215,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 name="get_academic_calendar",
                 description=(
                     "Kullanıcının üniversitesine ait onaylı akademik takvim etkinliklerini getirir. "
-                    "Use ONLY for official academic dates (e.g., exams, course registrations, official holidays, graduation). "
-                    "DO NOT use this for campus life events, festivals (şenlik), concerts, or student club activities."
+                    "Sınav tarihleri, tatiller, kampüs etkinlikleri, şenlikler ve festivaller sorulduğunda KESİNLİKLE bu aracı kullan."
                 ),
                 args_schema=AcademicCalendarInput,
             ),
