@@ -27,6 +27,7 @@ import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, LoaderCircle, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface ChatInterfaceProps {
   reloadKey?: number;
@@ -306,16 +307,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
                 thead: ({ children }) => <thead className="bg-slate-100 text-slate-700">{children}</thead>,
                 th: ({ children }) => <th className="border-b border-slate-200 px-3 py-2 font-semibold">{children}</th>,
                 td: ({ children }) => <td className="border-b border-slate-100 px-3 py-2 align-top">{children}</td>,
-                a: ({ href, children }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={isUser ? 'font-medium underline decoration-white/50 underline-offset-2' : 'font-medium text-[#0ea5e9] underline underline-offset-2'}
-                  >
-                    {children}
-                  </a>
-                ),
+                a: ({ href = '', children }) => {
+                  if (!href) {
+                    return <span>{children}</span>;
+                  }
+                  if (href.startsWith('/')) {
+                    return (
+                      <Link
+                        to={href}
+                        className={isUser ? 'font-medium underline decoration-white/50 underline-offset-2' : 'font-medium text-[#0ea5e9] underline underline-offset-2'}
+                      >
+                        {children}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={isUser ? 'font-medium underline decoration-white/50 underline-offset-2' : 'font-medium text-[#0ea5e9] underline underline-offset-2'}
+                    >
+                      {children}
+                    </a>
+                  );
+                },
               }}
             >
               {displayContent}

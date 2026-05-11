@@ -6,6 +6,9 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Link } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { apiClient } from '../api/config';
 import { Button } from '../components/ui/button';
@@ -54,60 +57,63 @@ function formatTime(iso: string): string {
   }
 }
 
-/** Very basic markdown renderer: bold, inline code, code blocks, bullet lists */
-function renderContent(text: string) {
-  const blocks = text.split(/\n\n+/);
-  return blocks.map((block, bi) => {
-    // Code block
-    if (block.startsWith('```')) {
-      const code = block.replace(/^```\w*\n?/, '').replace(/```$/, '');
+const markdownComponents = {
+  p: ({ children }: { children?: React.ReactNode }) => (
+    <p className="text-sm text-slate-700 my-1.5 leading-relaxed">{children}</p>
+  ),
+  strong: ({ children }: { children?: React.ReactNode }) => (
+    <strong className="font-semibold text-slate-900">{children}</strong>
+  ),
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul className="list-disc list-inside space-y-0.5 my-2 text-sm text-slate-700">{children}</ul>
+  ),
+  ol: ({ children }: { children?: React.ReactNode }) => (
+    <ol className="list-decimal list-inside space-y-0.5 my-2 text-sm text-slate-700">{children}</ol>
+  ),
+  li: ({ children }: { children?: React.ReactNode }) => <li>{children}</li>,
+  pre: ({ children }: { children?: React.ReactNode }) => (
+    <pre className="bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-x-auto text-xs font-mono my-2">
+      {children}
+    </pre>
+  ),
+  code: ({ className, children }: { className?: string; children?: React.ReactNode }) => {
+    const isCodeBlock = Boolean(className?.includes('language-'));
+    if (isCodeBlock) {
       return (
-        <pre key={bi} className="bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-x-auto text-xs font-mono my-2">
-          <code>{code}</code>
-        </pre>
+        <code className="font-mono text-xs">
+          {children}
+        </code>
       );
     }
-
-    // Bullet list lines
-    const lines = block.split('\n');
-    const isList = lines.every((l) => l.trim().startsWith('-') || l.trim().startsWith('*') || l.trim() === '');
-    if (isList && lines.some((l) => l.trim().startsWith('-') || l.trim().startsWith('*'))) {
-      return (
-        <ul key={bi} className="list-disc list-inside space-y-0.5 my-2 text-sm text-slate-700">
-          {lines.filter((l) => l.trim()).map((l, li) => (
-            <li key={li}>{renderInline(l.replace(/^[\s\-*]+/, ''))}</li>
-          ))}
-        </ul>
-      );
-    }
-
-    // Normal paragraph (may span multiple lines)
     return (
-      <p key={bi} className="text-sm text-slate-700 my-1.5 leading-relaxed">
-        {lines.map((line, li) => (
-          <React.Fragment key={li}>
-            {li > 0 && <br />}
-            {renderInline(line)}
-          </React.Fragment>
-        ))}
-      </p>
+      <code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded text-xs font-mono">
+        {children}
+      </code>
     );
-  });
-}
-
-function renderInline(text: string): React.ReactNode {
-  // bold (**text**) and inline code (`code`)
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>;
+  },
+  a: ({ href = '', children }: { href?: string; children?: React.ReactNode }) => {
+    if (!href) {
+      return <span>{children}</span>;
     }
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return <code key={i} className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
+    if (href.startsWith('/')) {
+      return (
+        <Link to={href} className="font-medium text-[#0ea5e9] underline underline-offset-2">
+          {children}
+        </Link>
+      );
     }
-    return part;
-  });
-}
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-[#0ea5e9] underline underline-offset-2"
+      >
+        {children}
+      </a>
+    );
+  },
+};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -399,7 +405,9 @@ export const AIAssistantPage: React.FC = () => {
                     <div className="max-w-2xl w-full">
                       <div className="bg-white border border-slate-200 shadow-sm rounded-2xl rounded-bl-sm px-5 py-4">
                         <div className="space-y-0">
-                          {renderContent(msg.content)}
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            {msg.content}
+                          </ReactMarkdown>
                         </div>
                       </div>
 

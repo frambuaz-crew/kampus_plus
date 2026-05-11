@@ -127,6 +127,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - TOOL FALLBACK RULE: If a user asks about an event, deadline, or campus information, and your first tool search returns no results, DO NOT give up immediately. You MUST try querying another relevant tool (e.g., if the calendar is empty, search the knowledge base or forum) before telling the user you couldn't find it.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
 - Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
+- Platform içi linkleri HER ZAMAN standart Markdown formatında yaz: [Başlık](/dashboard/forum/{id}), [Başlık](/dashboard/marketplace/{id}), [Başlık](/dashboard/career/{id}), [Başlık](/dashboard/course-notes/{id}). URL'lerde asla domain (örn. localhost) kullanma; sadece göreli path yaz.
 - Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …").
 - CRITICAL RULE: You are strictly a university campus assistant. You MUST REFUSE to answer any general knowledge, history, geography, trivia, or non-university related questions. If the user asks something outside the scope of the campus, gently decline and guide them back to campus topics."""
 
@@ -303,6 +304,49 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             (tools, retrieved_docs): Araç listesi + bu çağrıda doldurulan belge listesi.
         """
         retrieved_docs: List[Document] = []  # agent çalıştıkça doldurulur
+
+        # ---- Fuzzy search helper ------------------------------------ #
+
+        _VOWELS = frozenset("aeiouıöü")
+
+        def _tokenize_query(raw: str) -> List[str]:
+            if not raw:
+                return []
+            cleaned = re.sub(r"[^\w\s]+", " ", raw, flags=re.UNICODE)
+            tokens = [t for t in cleaned.casefold().split() if t]
+            if not tokens:
+                fallback = raw.strip().casefold()
+                if fallback:
+                    tokens = [fallback]
+            return tokens
+
+        def _build_fuzzy_conditions(raw_query: str, *columns: Any) -> List[Any]:
+            tokens = _tokenize_query(raw_query)
+            if not tokens:
+                return []
+
+            conditions: List[Any] = []
+            for token in tokens:
+                if not token:
+                    continue
+                patterns: List[str] = [f"%{token}%"]
+
+                if len(token) >= 4:
+                    patterns.append("%" + "%".join(token) + "%")
+
+                consonant = "".join(ch for ch in token if ch not in _VOWELS)
+                if len(consonant) >= 3 and consonant != token:
+                    patterns.append("%" + "%".join(consonant) + "%")
+
+                seen = set()
+                for pat in patterns:
+                    if pat in seen:
+                        continue
+                    seen.add(pat)
+                    for col in columns:
+                        conditions.append(col.ilike(pat))
+
+            return conditions
 
         # ---- Pydantic giriş şemaları ---------------------------------- #
 
@@ -507,13 +551,13 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             kw = (category_keyword or "").strip()
             if kw:
-                pattern = f"%{kw}%"
-                stmt = stmt.where(
-                    or_(
-                        MarketplaceListing.title.ilike(pattern),
-                        func.coalesce(MarketplaceCategory.name, "").ilike(pattern),
-                    )
+                conditions = _build_fuzzy_conditions(
+                    kw,
+                    MarketplaceListing.title,
+                    func.coalesce(MarketplaceCategory.name, ""),
                 )
+                if conditions:
+                    stmt = stmt.where(or_(*conditions))
             if min_price is not None:
                 stmt = stmt.where(MarketplaceListing.price >= min_price)
             if max_price is not None:
@@ -540,7 +584,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 category_name = lst.category_rel.name if lst.category_rel else "Kategorisiz"
                 price_str = f"{lst.price:.2f}".rstrip("0").rstrip(".")
                 rows.append(
-                    f"- [{lst.title}](/marketplace/{lst.id}) "
+                    f"- [{lst.title}](/dashboard/marketplace/{lst.id}) "
                     f"| Kategori: {category_name} | Fiyat: {price_str} TL | Durum: {lst.condition}"
                 )
             return f"Aktif ilanlar ({len(listings)} sonuç):\n" + "\n".join(rows)
@@ -847,13 +891,15 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 stmt = base_stmt.limit(5)
                 header = "Forum'daki en yeni 5 gönderi"
             else:
-                pattern = f"%{kw}%"
-                stmt = base_stmt.where(
-                    or_(
-                        ForumTopic.title.ilike(pattern),
-                        ForumTopic.content.ilike(pattern),
-                    )
-                ).limit(6)
+                conditions = _build_fuzzy_conditions(
+                    kw,
+                    ForumTopic.title,
+                    ForumTopic.content,
+                )
+                if conditions:
+                    stmt = base_stmt.where(or_(*conditions)).limit(6)
+                else:
+                    stmt = base_stmt.limit(6)
                 header = f"Forum'da '{query}' için sonuçlar"
 
             result = await db.execute(stmt)
@@ -873,7 +919,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 if len(t.content) > 120:
                     snippet += "..."
                 rows.append(
-                    f"- [{t.title}](/forum/{t.id}) (Yazar: {author_name} | {t.reply_count} yorum)\n  {snippet}"
+                    f"- [{t.title}](/dashboard/forum/{t.id}) (Yazar: {author_name} | {t.reply_count} yorum)\n  {snippet}"
                 )
 
             return f"{header} ({len(rows)} sonuç):\n" + "\n".join(rows)
@@ -912,13 +958,13 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             if mapped_type:
                 stmt = stmt.where(AcademicCalendarEvent.event_type == mapped_type)
             elif kw:
-                pattern = f"%{kw}%"
-                stmt = stmt.where(
-                    or_(
-                        AcademicCalendarEvent.title.ilike(pattern),
-                        AcademicCalendarEvent.description.ilike(pattern),
-                    )
+                conditions = _build_fuzzy_conditions(
+                    kw,
+                    AcademicCalendarEvent.title,
+                    AcademicCalendarEvent.description,
                 )
+                if conditions:
+                    stmt = stmt.where(or_(*conditions))
 
             stmt = stmt.order_by(AcademicCalendarEvent.start_date.asc()).limit(15)
             result = await db.execute(stmt)
@@ -968,15 +1014,22 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 )
 
                 if course_code:
-                    stmt = stmt.where(CourseNoteTopic.course_code.ilike(f"%{course_code}%"))
+                    code_conditions = _build_fuzzy_conditions(
+                        course_code,
+                        CourseNoteTopic.course_code,
+                    )
+                    if code_conditions:
+                        stmt = stmt.where(or_(*code_conditions))
 
                 if query:
-                    stmt = stmt.join(CourseNoteEntry, isouter=True).where(
-                        or_(
-                            CourseNoteTopic.title.ilike(f"%{query}%"),
-                            CourseNoteEntry.content.ilike(f"%{query}%"),
-                        )
+                    stmt = stmt.join(CourseNoteEntry, isouter=True)
+                    query_conditions = _build_fuzzy_conditions(
+                        query,
+                        CourseNoteTopic.title,
+                        CourseNoteEntry.content,
                     )
+                    if query_conditions:
+                        stmt = stmt.where(or_(*query_conditions))
 
                 stmt = stmt.distinct().limit(5)
                 result = await db.execute(stmt)
@@ -990,7 +1043,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
                 output = "Bulunan Ders Notu Havuzları:\n\n"
                 for topic in topics:
-                    output += f"- Ders: {topic.course_code} | Başlık: {topic.title}\n"
+                    output += f"- [{topic.title}](/dashboard/course-notes/{topic.id}) | Ders: {topic.course_code}\n"
 
                     entries_stmt = (
                         select(CourseNoteEntry)
@@ -1045,13 +1098,13 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             kw = (keyword or "").strip()
             if kw:
-                pattern = f"%{kw}%"
-                stmt = stmt.where(
-                    or_(
-                        CareerListing.title.ilike(pattern),
-                        func.coalesce(CareerListing.company_name, "").ilike(pattern),
-                    )
+                conditions = _build_fuzzy_conditions(
+                    kw,
+                    CareerListing.title,
+                    func.coalesce(CareerListing.company_name, ""),
                 )
+                if conditions:
+                    stmt = stmt.where(or_(*conditions))
 
             if job_type:
                 normalized_type = job_type.strip().lower()
@@ -1088,7 +1141,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 remote_tag = " 🌐 Uzaktan" if lst.is_remote else ""
                 location = f" | 📍 {lst.location}" if lst.location else ""
                 rows.append(
-                    f"- [{lst.title} — {company}](/career/{lst.id}) "
+                    f"- [{lst.title} — {company}](/dashboard/career/{lst.id}) "
                     f"| Tür: {type_label}{remote_tag}{location}"
                 )
             return f"Kariyer ilanları ({len(listings)} sonuç):\n" + "\n".join(rows)
@@ -1231,7 +1284,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 description=(
                     "Öğrencilerin forum'da paylaştığı konuları ve tartışmaları arar. "
                     "Öğrenciler forum gönderileri, diğer öğrencilerin yazdıkları veya "
-                    "platformdaki tartışmalar hakkında soru sorduğunda bu aracı kullan."
+                    "platformdaki tartışmalar hakkında soru sorduğunda bu aracı kullan. "
+                    "Sonuç linklerini [Başlık](/dashboard/forum/{id}) formatında üret."
                 ),
                 args_schema=SearchForumInput,
             ),
@@ -1250,7 +1304,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 name="get_active_marketplace_listings",
                 description=(
                     "Pazar yeri aktif ilanlarını kategori veya anahtar kelimeye göre listeler. "
-                    "Satılık eşya, ilan veya pazar yeri konusu sorulduğunda kullan."
+                    "Satılık eşya, ilan veya pazar yeri konusu sorulduğunda kullan. "
+                    "Sonuç linklerini [Başlık](/dashboard/marketplace/{id}) formatında üret."
                 ),
                 args_schema=MarketplaceInput,
             ),
@@ -1289,7 +1344,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 description=(
                     "Kullanıcının üniversitesindeki ders notu havuzlarında arama yapar. "
                     "Ders koduna göre veya konu ifadesine göre topic ve entry içeriklerini bulur. "
-                    "Kullanıcı ders notu, özet not veya belirli konu notu istediğinde bu aracı kullan."
+                    "Kullanıcı ders notu, özet not veya belirli konu notu istediğinde bu aracı kullan. "
+                    "Sonuç linklerini [Başlık](/dashboard/course-notes/{id}) formatında üret."
                 ),
                 args_schema=CourseNotesSearchInput,
             ),
@@ -1312,7 +1368,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Platformdaki aktif kariyer ilanlarını (iş, staj, proje, startup) listeler. "
                     "Kullanıcı iş ilanı, staj fırsatı, kariyer, şirket ilanı veya proje arayışı "
                     "hakkında soru sorduğunda bu aracı kullan. "
-                    "Anahtar kelime (şirket adı, pozisyon) ve ilan türü (staj, iş, proje) ile filtrelenebilir."
+                    "Anahtar kelime (şirket adı, pozisyon) ve ilan türü (staj, iş, proje) ile filtrelenebilir. "
+                    "Sonuç linklerini [Başlık](/dashboard/career/{id}) formatında üret."
                 ),
                 args_schema=CareerInput,
             ),
