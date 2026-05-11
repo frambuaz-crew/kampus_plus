@@ -80,16 +80,18 @@ class CreateCareerListingRequest(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_title(cls, v: str) -> str:
-        if len(v) < 10 or len(v) > 100:
-            raise ValueError("Başlık 10-100 karakter arasında olmalıdır.")
-        return v
+        s = (v or "").strip()
+        if len(s) < 5 or len(s) > 100:
+            raise ValueError("Başlık 5–100 karakter arasında olmalıdır (baş/son boşluk sayılmaz).")
+        return s
 
     @field_validator("description")
     @classmethod
     def validate_description(cls, v: str) -> str:
-        if len(v) < 50 or len(v) > 2000:
-            raise ValueError("Açıklama 50-2000 karakter arasında olmalıdır.")
-        return v
+        s = (v or "").strip()
+        if len(s) < 10 or len(s) > 2000:
+            raise ValueError("Açıklama 10–2000 karakter arasında olmalıdır (baş/son boşluk sayılmaz).")
+        return s
 
 
 class ReportRequest(BaseModel):

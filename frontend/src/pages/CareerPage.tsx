@@ -597,8 +597,14 @@ const NewListingFormView: React.FC<{
   const validate = (): boolean => {
     const e: Partial<Record<keyof NewListingForm, string>> = {};
     if (!form.listing_type) e.listing_type = 'İlan türü seçiniz.';
-    if (!form.title.trim()) e.title = 'Başlık giriniz.';
-    if (!form.description.trim()) e.description = 'Açıklama giriniz.';
+    const t = form.title.trim();
+    const d = form.description.trim();
+    if (!t) e.title = 'Başlık giriniz.';
+    else if (t.length < 5) e.title = 'Başlık en az 5 karakter olmalıdır.';
+    else if (t.length > 100) e.title = 'Başlık en fazla 100 karakter olabilir.';
+    if (!d) e.description = 'Açıklama giriniz.';
+    else if (d.length < 10) e.description = 'Açıklama en az 10 karakter olmalıdır.';
+    else if (d.length > 2000) e.description = 'Açıklama en fazla 2000 karakter olabilir.';
     if (!form.sector) e.sector = 'Sektör giriniz.';
     if (!form.location) e.location = 'Lokasyon giriniz.';
     if ((form.listing_type === 'startup' || form.listing_type === 'project') && !form.required_position)
@@ -613,11 +619,29 @@ const NewListingFormView: React.FC<{
     try {
       setSubmitting(true);
       const payload: Record<string, string> = {};
-      Object.entries(form).forEach(([k, v]) => { if (v) payload[k] = v; });
+      Object.entries(form).forEach(([k, v]) => {
+        if (v) payload[k] = v;
+      });
+      payload.title = form.title.trim();
+      payload.description = form.description.trim();
       await apiClient.post('/career/listings', payload);
       setSuccess(true);
-    } catch { alert('İlan oluşturulamadı. Lütfen tekrar deneyin.'); }
-    finally { setSubmitting(false); }
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { detail?: unknown }; status?: number } };
+      const detail = ax.response?.data?.detail;
+      let msg = 'İlan oluşturulamadı. Lütfen tekrar deneyin.';
+      if (Array.isArray(detail)) {
+        const parts = detail
+          .map((item: { msg?: string }) => (typeof item?.msg === 'string' ? item.msg : ''))
+          .filter(Boolean);
+        if (parts.length) msg = parts.join(' ');
+      } else if (typeof detail === 'string') {
+        msg = detail;
+      }
+      alert(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const resetForm = () => {
@@ -634,8 +658,11 @@ const NewListingFormView: React.FC<{
   const step3Ready = step2Ready && !!form.title && !!form.description && !!form.sector && !!form.location;
 
   const isFormValid = () => {
-    if (!form.listing_type || !form.title.trim() || !form.description.trim() || !form.sector || !form.location) return false;
-    if (isStartupOrProject) return !!form.required_position;
+    const t = form.title.trim();
+    const d = form.description.trim();
+    if (!form.listing_type || !t || !d || !form.sector || !form.location) return false;
+    if (t.length < 5 || t.length > 100 || d.length < 10 || d.length > 2000) return false;
+    if (isStartupOrProject) return !!form.required_position.trim();
     return true;
   };
 
@@ -717,6 +744,7 @@ const NewListingFormView: React.FC<{
           placeholder="Pozisyon başlığını girin"
           className={inputStyle(errors.title)}
         />
+        <p className="mt-1 text-xs text-slate-500">{form.title.trim().length}/100 · en az 5 karakter</p>
         {errors.title && <p className="text-xs text-red-500 mt-1">⚠ {errors.title}</p>}
       </div>
 
@@ -732,6 +760,7 @@ const NewListingFormView: React.FC<{
           rows={4}
           className={`${inputStyle(errors.description)} resize-none`}
         />
+        <p className="mt-1 text-xs text-slate-500">{form.description.trim().length}/2000 · en az 10 karakter</p>
         {errors.description && <p className="text-xs text-red-500 mt-1">⚠ {errors.description}</p>}
       </div>
 

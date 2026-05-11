@@ -19,9 +19,17 @@ interface PostCardProps {
     onClick: (id: string) => void;
     onCommentClick?: (id: string) => void;
     onDeleted?: (id: string) => void;
+    /** false: konu detayında kart tıklanabilir görünmez */
+    interactive?: boolean;
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClick, onDeleted }) => {
+export const PostCard: React.FC<PostCardProps> = ({
+    post,
+    onClick,
+    onCommentClick,
+    onDeleted,
+    interactive = true,
+}) => {
     const { user } = useAuth();
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [helpfulCount, setHelpfulCount] = useState(post.helpful_count);
@@ -158,17 +166,24 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
 
     return (
         <div
-            className="bg-white rounded-3xl p-5 mb-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => !isEditing && onClick(post.id)}
+            className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow ${
+                interactive && !isEditing
+                    ? 'cursor-pointer hover:border-indigo-200 hover:shadow-md'
+                    : 'cursor-default'
+            }`}
+            onClick={() => {
+                if (!isEditing && interactive) onClick(post.id);
+            }}
+            role={interactive && !isEditing ? 'button' : undefined}
         >
             {/* HEADER: Author & Time */}
             <div className="flex items-center justify-between mb-4">
-                <Link to={`/dashboard/profile/${post.author?.username || ''}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 group">
+                <Link to={`/dashboard/profile/${post.author?.username || ''}`} onClick={(e) => e.stopPropagation()} className="group flex items-center gap-3">
                     {post.author?.profile_picture_url ? (
                         <img
                             src={post.author.profile_picture_url.startsWith('http') ? post.author.profile_picture_url : `${assetBaseUrl}${post.author.profile_picture_url}`}
                             alt={post.author.username}
-                            className="w-12 h-12 rounded-full object-cover shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
+                            className="h-11 w-11 rounded-full object-cover shadow-sm ring-1 ring-slate-100 transition-all group-hover:ring-indigo-300"
                             onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = 'none';
@@ -177,16 +192,16 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                         />
                     ) : null}
                     <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-lg shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all ${post.author?.profile_picture_url ? 'hidden' : ''}`}
+                        className={`flex h-11 w-11 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-700 shadow-sm ring-1 ring-slate-100 transition-all group-hover:ring-indigo-300 ${post.author?.profile_picture_url ? 'hidden' : ''}`}
                     >
                         {authorInitials.toUpperCase()}
                     </div>
 
                     <div>
-                        <h3 className="font-bold text-gray-900 leading-tight group-hover:text-indigo-600 transition-colors">
+                        <h3 className="font-semibold leading-tight text-slate-900 transition-colors group-hover:text-indigo-700">
                             {post.author ? `${post.author.first_name} ${post.author.last_name}` : 'İsimsiz Kullanıcı'}
                         </h3>
-                        <div className="flex items-center text-xs text-gray-500 gap-2 mt-0.5">
+                        <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
                             <span>{post.author?.university || 'Kampüs'}</span>
                             <span>•</span>
                             <span>{timeAgo}</span>
@@ -197,13 +212,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                 {/* Üç nokta menüsü */}
                 <div className="relative" ref={menuRef}>
                     <button
-                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                        className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                         onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
                     >
                         <MoreHorizontal size={20} />
                     </button>
                     {showMenu && (
-                        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-100 w-44 py-1 z-50" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg" onClick={(e) => e.stopPropagation()}>
                             {isOwner ? (
                                 <>
                                     <button
@@ -266,17 +281,17 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                     {tags.length > 0 && (
                         <div className="flex gap-2 mb-3 flex-wrap">
                             {tags.map((tag, idx) => (
-                                <span key={idx} className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-full">
+                                <span key={idx} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                                     {tag.startsWith('#') ? tag : `#${tag}`}
                                 </span>
                             ))}
                         </div>
                     )}
 
-                    <h2 className="text-xl font-black text-gray-900 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">
+                    <h2 className="mb-2 text-lg font-semibold leading-snug tracking-tight text-slate-900">
                         {post.title}
                     </h2>
-                    <p className="text-gray-600 line-clamp-3 leading-relaxed">
+                    <p className="line-clamp-3 text-sm leading-relaxed text-slate-600">
                         {post.content}
                     </p>
                 </div>
@@ -288,7 +303,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
                         {images.map((img, idx) => (
                             <div
                                 key={idx}
-                                className="w-32 h-32 sm:w-48 sm:h-48 bg-gray-100 rounded-2xl overflow-hidden relative cursor-zoom-in group shrink-0"
+                                className="group relative h-32 w-32 shrink-0 cursor-zoom-in overflow-hidden rounded-xl bg-slate-100 sm:h-40 sm:w-40"
                                 onClick={(e) => { e.stopPropagation(); setLightboxIndex(idx); }}
                             >
                                 <img src={img.startsWith('http') ? img : `${assetBaseUrl}${img}`} alt="Gönderi görseli" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
@@ -307,15 +322,15 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
 
 
             {post.topic_type === 'event' && (
-                <div className="mb-4 bg-purple-50 p-4 rounded-2xl border border-purple-100 flex items-center gap-4 text-purple-900 cursor-default" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-white p-3 rounded-xl shadow-sm text-purple-600">
+                <div className="mb-4 flex cursor-default items-center gap-4 rounded-xl border border-violet-200 bg-violet-50/80 p-4 text-violet-950" onClick={(e) => e.stopPropagation()}>
+                    <div className="rounded-lg bg-white p-2.5 text-violet-600 shadow-sm">
                         <Calendar size={24} />
                     </div>
                     <div>
-                        <div className="text-sm font-bold uppercase tracking-wider text-purple-500 mb-1">Etkinlik</div>
-                        <div className="font-semibold">{post.title}</div>
+                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-violet-600">Etkinlik</div>
+                        <div className="font-medium text-slate-900">{post.title}</div>
                         {post.event_date && (
-                            <div className="text-xs text-purple-600 mt-1 font-medium bg-purple-100 py-1 px-2 rounded inline-block">
+                            <div className="mt-1 inline-block rounded-md bg-violet-100 px-2 py-1 text-xs font-medium text-violet-800">
                                 Tarih: {new window.Intl.DateTimeFormat('tr-TR', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(post.event_date))}
                             </div>
                         )}
@@ -324,7 +339,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onClick, onCommentClic
             )}
 
             {/* FOOTER: Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100 relative">
+            <div className="relative flex items-center justify-between border-t border-slate-100 pt-4">
                 <div className="flex gap-2 items-center">
                     <button
                         className={`flex items-center gap-2 px-3 py-2 text-sm font-bold transition-all group disabled:opacity-50 rounded-xl ${isLikedByMe ? 'text-rose-500 bg-rose-50' : 'text-gray-500 hover:text-rose-500 hover:bg-rose-50'}`}

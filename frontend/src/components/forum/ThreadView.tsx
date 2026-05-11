@@ -8,6 +8,9 @@ import type { ForumReply, ThreadWithReplies } from '../../types/forum';
 import { markReplyHelpful } from '../../api/forum';
 import { Link } from 'react-router-dom';
 import { parseUtcDate } from '../../utils/dateUtils';
+import { API_BASE_URL } from '../../api/config';
+
+const assetBaseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 
 interface ThreadViewProps {
   data: ThreadWithReplies;
@@ -21,7 +24,6 @@ const ReplyCard: React.FC<{
   onReply: (id: string) => void;
   childrenReplies?: React.ReactNode;
 }> = ({ reply, onReply, childrenReplies }) => {
-  const baseUrl = 'http://localhost:8000';
   const [helpfulCount, setHelpfulCount] = useState(reply.helpful_count);
   const [isLiked, setIsLiked] = useState(reply.is_liked_by_me || false);
   const [liking, setLiking] = useState(false);
@@ -49,13 +51,17 @@ const ReplyCard: React.FC<{
   };
 
   return (
-    <div className="border-b border-gray-100 last:border-b-0 py-4">
+    <div className="border-b border-slate-100 py-4 last:border-b-0">
       <div className="flex gap-3">
         <div className="shrink-0">
           <Link to={`/dashboard/profile/${reply.author?.username || ''}`} className="block group">
             {reply.author?.profile_picture_url ? (
               <img
-                src={reply.author.profile_picture_url.startsWith('http') ? reply.author.profile_picture_url : `${baseUrl}${reply.author.profile_picture_url}`}
+                src={
+                  reply.author.profile_picture_url.startsWith('http')
+                    ? reply.author.profile_picture_url
+                    : `${assetBaseUrl}${reply.author.profile_picture_url}`
+                }
                 alt={reply.author.username}
                 className="w-9 h-9 rounded-full object-cover group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
                 onError={(e) => {
@@ -65,7 +71,9 @@ const ReplyCard: React.FC<{
                 }}
               />
             ) : null}
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 text-gray-500 font-bold text-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all ${reply.author?.profile_picture_url ? 'hidden' : ''}`}>
+            <div
+              className={`flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600 transition-all group-hover:ring-2 group-hover:ring-indigo-200 ${reply.author?.profile_picture_url ? 'hidden' : ''}`}
+            >
               {authorInitials.toUpperCase()}
             </div>
           </Link>
@@ -73,26 +81,31 @@ const ReplyCard: React.FC<{
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Link to={`/dashboard/profile/${reply.author?.username || ''}`} className="font-bold text-gray-900 text-sm hover:text-indigo-600 transition-colors">
+            <Link
+              to={`/dashboard/profile/${reply.author?.username || ''}`}
+              className="text-sm font-semibold text-slate-900 transition-colors hover:text-indigo-700"
+            >
               {reply.author ? `${reply.author.first_name} ${reply.author.last_name}` : 'İsimsiz'}
             </Link>
-            <span className="text-xs text-gray-400">• {timeAgo}</span>
+            <span className="text-xs text-slate-400">• {timeAgo}</span>
           </div>
 
-          <div className="text-gray-700 text-sm mb-2 leading-relaxed whitespace-pre-wrap">
+          <div className="mb-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
             {reply.content}
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-bold text-gray-400">
+          <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
             <button
-              className={`flex items-center gap-1.5 transition-colors disabled:opacity-50 ${isLiked ? 'text-rose-500' : 'hover:text-rose-500 text-gray-400'}`}
+              type="button"
+              className={`flex items-center gap-1.5 transition-colors disabled:opacity-50 ${isLiked ? 'text-rose-600' : 'text-slate-500 hover:text-rose-600'}`}
               onClick={handleLike}
               disabled={liking}
             >
               <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /> Beğen {helpfulCount > 0 && `(${helpfulCount})`}
             </button>
             <button
-              className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
+              type="button"
+              className="flex items-center gap-1.5 text-slate-500 transition-colors hover:text-indigo-700"
               onClick={() => onReply(reply.id)}
             >
               <MessageSquare size={14} /> Yanıtla
@@ -102,7 +115,7 @@ const ReplyCard: React.FC<{
       </div>
 
       {childrenReplies && (
-        <div className="mt-3 ml-12 pl-4 border-l-2 border-gray-100">
+        <div className="ml-12 mt-3 border-l-2 border-slate-100 pl-4">
           {childrenReplies}
         </div>
       )}
@@ -165,13 +178,18 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
           }
         />
         {activeReplyId === reply.id && (
-          <div className="mb-6 ml-14 animate-in slide-in-from-top-2 fade-in duration-300">
-            <div className="flex items-center justify-between mb-3 text-sm font-bold text-indigo-600">
-                <span className="flex items-center gap-2">
-                <CornerDownRight size={16} />
-                {reply.author ? `${reply.author.first_name} ${reply.author.last_name}` : 'Kullanıcı'}'a yanıt veriyorsun
+          <div className="mb-6 ml-14 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="mb-3 flex items-center justify-between text-sm font-medium text-indigo-700">
+              <span className="flex items-center gap-2">
+                <CornerDownRight size={16} aria-hidden />
+                {reply.author ? `${reply.author.first_name} ${reply.author.last_name}` : 'Kullanıcı'} adlı kullanıcıya yanıt
               </span>
-              <button onClick={() => setActiveReplyId(null)} className="text-gray-400 hover:text-gray-900">
+              <button
+                type="button"
+                onClick={() => setActiveReplyId(null)}
+                className="text-slate-400 hover:text-slate-800"
+                aria-label="İptal"
+              >
                 <Trash2 size={16} />
               </button>
             </div>
@@ -192,32 +210,43 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
   return (
     <div className="animate-fade-in space-y-8">
       {/* Target thread'i global PostCard ile çiz */}
-      <PostCard post={thread} onClick={() => { }} onCommentClick={() => handleReplyClick('top')} />
+      <PostCard
+        post={thread}
+        onClick={() => {}}
+        onCommentClick={() => handleReplyClick('top')}
+        interactive={false}
+      />
 
-      <div className="mb-2 flex items-center justify-between px-2">
-        <h3 className="flex items-center text-xl font-black tracking-tight text-gray-900">
-          <MessageSquare size={20} className="mr-3 text-indigo-600" />
-          YORUMLAR ({replies.filter(r => !r.parent_id).length})
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight text-slate-900">
+          <MessageSquare className="h-5 w-5 text-indigo-600" aria-hidden />
+          Yorumlar ({replies.filter((r) => !r.parent_id).length})
         </h3>
         {activeReplyId !== 'top' && (
           <button
+            type="button"
             onClick={() => handleReplyClick('top')}
-            className="rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-2 text-sm font-black text-indigo-600 shadow-sm transition-all hover:bg-indigo-600 hover:text-white"
+            className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-800 shadow-sm transition-colors hover:bg-indigo-600 hover:text-white"
           >
-            + Tartışmaya Katıl
+            Tartışmaya katıl
           </button>
         )}
       </div>
 
       {activeReplyId === 'top' && (
-        <div className="mb-8 animate-in slide-in-from-bottom-4 rounded-3xl border border-indigo-100 bg-white p-6 shadow-xl duration-500">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-6 w-2 rounded-full bg-indigo-600" />
-              <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Yeni Yorum</h4>
+        <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-1 rounded-full bg-indigo-600" />
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-800">Yeni yorum</h4>
             </div>
-            <button onClick={() => setActiveReplyId(null)} className="text-gray-400 hover:text-gray-900">
-              <Trash2 size={20} />
+            <button
+              type="button"
+              onClick={() => setActiveReplyId(null)}
+              className="text-slate-400 transition-colors hover:text-slate-800"
+              aria-label="Kapat"
+            >
+              <Trash2 size={18} />
             </button>
           </div>
           <ReplyForm
@@ -235,14 +264,12 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
         {renderReplies(null)}
 
         {replies.length === 0 && activeReplyId === null && (
-          <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-100 bg-white py-16 text-center shadow-sm">
-            <div className="mb-4 rounded-full bg-indigo-50 p-4">
-              <MessageSquare size={32} className="text-indigo-200" />
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-14 text-center">
+            <div className="mb-3 rounded-full bg-white p-3 shadow-sm ring-1 ring-slate-100">
+              <MessageSquare className="h-8 w-8 text-indigo-300" aria-hidden />
             </div>
-            <p className="text-lg font-bold tracking-tight text-gray-400">
-              Henüz kimse bir şey söylememiş.
-            </p>
-            <p className="mt-1 text-sm text-gray-400">İlk cevabı vererek tartışmayı sen başlat!</p>
+            <p className="text-base font-medium text-slate-600">Henüz yorum yok</p>
+            <p className="mt-1 text-sm text-slate-500">İlk yorumu siz yazarak tartışmayı başlatabilirsiniz.</p>
           </div>
         )}
       </div>

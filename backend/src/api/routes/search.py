@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import or_, select
+from sqlalchemy import cast, or_, select, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -151,11 +151,13 @@ async def _search_core_async(
                 ForumTopic.university_id.is_(None),
             )
         )
+    tags_as_text = cast(ForumTopic.tags, String)
     ft_q = (
         ft_q.where(
             or_(
                 ForumTopic.title.ilike(pattern),
                 ForumTopic.content.ilike(pattern),
+                tags_as_text.ilike(pattern),
             )
         )
         .order_by(ForumTopic.created_at.desc())

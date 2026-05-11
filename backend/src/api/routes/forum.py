@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, UploadFile, File
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -240,7 +240,7 @@ async def get_categories(
 async def get_topics(
     category_id: Optional[str] = Query(None, description="Kategori ID ile filtrele"),
     topic_type: Optional[str] = Query(None, description="Konu tipi (text, event)"),
-    search: Optional[str] = Query(None, description="Başlık veya içerikte arama"),
+    search: Optional[str] = Query(None, description="Başlık, içerik veya etiketlerde arama"),
     page: int = Query(1, ge=1, description="Sayfa numarası"),
     limit: int = Query(20, ge=1, le=100, description="Sayfa başına kayıt"),
     sort: str = Query("newest", description="Sıralama: newest, oldest, most_replies, most_views"),
@@ -268,13 +268,15 @@ async def get_topics(
     if topic_type:
         query = query.where(ForumTopic.topic_type == topic_type)
 
-    # Server-side arama
+    # Server-side arama (etiketler JSON dizisi — metne cast ile alt dizgi araması)
     if search and search.strip():
         pattern = f"%{search.strip()}%"
+        tags_as_text = cast(ForumTopic.tags, String)
         query = query.where(
             or_(
                 ForumTopic.title.ilike(pattern),
                 ForumTopic.content.ilike(pattern),
+                tags_as_text.ilike(pattern),
             )
         )
 
