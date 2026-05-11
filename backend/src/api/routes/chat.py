@@ -10,9 +10,11 @@ Endpoint'ler:
 """
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,12 +22,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import settings
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
-from src.models.ai import AIConversation, AIMessage
+from src.models.ai import AIConversation, AIMessage, AISystemSettings
 from src.models.user import User
 from src.services.ai_service import AIService
 from src.services.vector_service import VectorStoreService, get_vector_service
 
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
+
+RAW_DOCS_DIR = Path(__file__).resolve().parents[3] / "data" / "raw_docs"
 
 
 class ReferenceResponse(BaseModel):
@@ -82,6 +86,21 @@ def _next_reset_at() -> datetime:
 	now_utc = datetime.now(timezone.utc)
 	midnight_utc = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
 	return midnight_utc + timedelta(days=1)
+
+
+def _resolve_raw_doc_path(source_file: str) -> Optional[Path]:
+	if not source_file:
+		return None
+	safe_name = Path(source_file).name
+	if not safe_name:
+		return None
+	raw_dir = RAW_DOCS_DIR.resolve()
+	candidate = (raw_dir / safe_name).resolve()
+	try:
+		candidate.relative_to(raw_dir)
+	except ValueError:
+		return None
+	return candidate
 
 
 def _source_url(source_type: str) -> str:
@@ -159,19 +178,34 @@ async def _get_user_daily_usage_state(
 			detail={"error": {"code": "USER_NOT_FOUND", "message": "Kullanıcı bulunamadı."}},
 		)
 
-	if settings.ENABLE_USAGE_LIMIT and _is_new_utc_day(user.last_message_reset):
+	if _is_new_utc_day(user.last_message_reset):
 		user.daily_message_count = 0
 		user.last_message_reset = _utc_naive()
 
 	return user
 
 
-async def _get_remaining_messages_for_user(session: AsyncSession, user_id: str) -> int:
-	if not settings.ENABLE_USAGE_LIMIT:
+async def _get_rate_limit(session: AsyncSession) -> int:
+	try:
+		result = await session.execute(
+			select(AISystemSettings.rate_limit_per_day).limit(1)
+		)
+		rate_limit = result.scalar_one_or_none()
+		return int(rate_limit) if rate_limit is not None else settings.DAILY_MESSAGE_LIMIT
+	except Exception:
 		return settings.DAILY_MESSAGE_LIMIT
 
+
+async def _get_remaining_messages_for_user(
+	session: AsyncSession,
+	user_id: str,
+	limit: Optional[int] = None,
+) -> int:
+	if limit is None:
+		limit = await _get_rate_limit(session)
+
 	user = await _get_user_daily_usage_state(session=session, user_id=user_id)
-	return max(settings.DAILY_MESSAGE_LIMIT - user.daily_message_count, 0)
+	return max(limit - user.daily_message_count, 0)
 
 
 def get_vector_service_dependency() -> VectorStoreService:
@@ -194,11 +228,16 @@ async def get_remaining_messages(
 	current_user: User = Depends(get_current_user),
 	session: AsyncSession = Depends(get_db),
 ) -> RemainingMessagesResponse:
-	remaining = await _get_remaining_messages_for_user(session=session, user_id=current_user.id)
+	limit = await _get_rate_limit(session)
+	remaining = await _get_remaining_messages_for_user(
+		session=session,
+		user_id=current_user.id,
+		limit=limit,
+	)
 
 	return RemainingMessagesResponse(
 		remaining=remaining,
-		limit=settings.DAILY_MESSAGE_LIMIT,
+		limit=limit,
 		resets_at=_next_reset_at(),
 	)
 
@@ -217,7 +256,12 @@ async def get_conversation(
 	convo_result = await session.execute(convo_stmt)
 	conversation = convo_result.scalar_one_or_none()
 
-	remaining = await _get_remaining_messages_for_user(session=session, user_id=current_user.id)
+	limit = await _get_rate_limit(session)
+	remaining = await _get_remaining_messages_for_user(
+		session=session,
+		user_id=current_user.id,
+		limit=limit,
+	)
 
 	if not conversation:
 		return ConversationResponse(conversation_id=None, messages=[], remaining_messages=remaining)
@@ -290,29 +334,29 @@ async def send_chat_message(
 			detail={"error": {"code": "INVALID_MESSAGE", "message": "Mesaj boş olamaz."}},
 		)
 
+	rate_limit = await _get_rate_limit(session)
 	usage_user: Optional[User] = None
 	used_messages = 0
 
-	if settings.ENABLE_USAGE_LIMIT:
-		usage_user = await _get_user_daily_usage_state(
-			session=session,
-			user_id=current_user.id,
-			with_lock=True,
-		)
-		used_messages = usage_user.daily_message_count
+	usage_user = await _get_user_daily_usage_state(
+		session=session,
+		user_id=current_user.id,
+		with_lock=True,
+	)
+	used_messages = usage_user.daily_message_count
 
-		if used_messages >= settings.DAILY_MESSAGE_LIMIT:
-			raise HTTPException(
-				status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-				detail={
-					"error": {
-						"code": "DAILY_LIMIT_EXCEEDED",
-						"message": "Günlük mesaj limitine ulaşıldı.",
-						"remaining": 0,
-						"limit": settings.DAILY_MESSAGE_LIMIT,
-					}
-				},
-			)
+	if used_messages >= rate_limit:
+		raise HTTPException(
+			status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+			detail={
+				"error": {
+					"code": "DAILY_LIMIT_EXCEEDED",
+					"message": "Günlük mesaj limitine ulaşıldı.",
+					"remaining": 0,
+					"limit": rate_limit,
+				}
+			},
+		)
 
 	convo_stmt = (
 		select(AIConversation)
@@ -369,7 +413,7 @@ async def send_chat_message(
 	)
 	session.add(assistant_message)
 
-	if settings.ENABLE_USAGE_LIMIT and usage_user is not None:
+	if usage_user is not None:
 		usage_user.daily_message_count = used_messages + 1
 		if usage_user.last_message_reset is None:
 			usage_user.last_message_reset = _utc_naive()
@@ -379,10 +423,7 @@ async def send_chat_message(
 	await session.refresh(user_message)
 	await session.refresh(assistant_message)
 
-	if settings.ENABLE_USAGE_LIMIT:
-		remaining_messages = max(settings.DAILY_MESSAGE_LIMIT - (used_messages + 1), 0)
-	else:
-		remaining_messages = settings.DAILY_MESSAGE_LIMIT
+	remaining_messages = max(rate_limit - (used_messages + 1), 0)
 
 	return SendMessageResponse(
 		conversation_id=conversation.id,
@@ -404,3 +445,14 @@ async def send_chat_message(
 		),
 		remaining_messages=remaining_messages,
 	)
+
+
+@router.get("/documents/{source_file}")
+async def get_document(source_file: str) -> FileResponse:
+	path = _resolve_raw_doc_path(source_file)
+	if path is None or not path.is_file():
+		raise HTTPException(
+			status_code=status.HTTP_404_NOT_FOUND,
+			detail={"error": {"code": "DOC_NOT_FOUND", "message": "Doküman bulunamadı."}},
+		)
+	return FileResponse(path, filename=path.name)

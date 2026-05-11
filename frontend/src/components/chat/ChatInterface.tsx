@@ -162,7 +162,27 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
         ];
       });
 
-      setRemainingMessages(response.data.remaining_messages);
+      const fallbackRemaining = typeof response.data.remaining_messages === 'number'
+        ? response.data.remaining_messages
+        : null;
+      try {
+        const remainingRes = await apiClient.get<RemainingMessagesResponse>('/ai/remaining-messages');
+        setRemainingMessages(
+          remainingRes.data.remaining
+            ?? fallbackRemaining
+            ?? null
+        );
+      } catch {
+        setRemainingMessages((prev) => {
+          if (fallbackRemaining !== null) {
+            return fallbackRemaining;
+          }
+          if (prev === null) {
+            return null;
+          }
+          return Math.max(0, prev - 1);
+        });
+      }
       setConversationId(response.data.conversation_id);
     } catch (err) {
       // Remove temp message on error

@@ -180,7 +180,19 @@ export const AIAssistantPage: React.FC = () => {
     try {
       const res = await apiClient.post('/ai/chat', { message: text });
       const data = res.data;
-      setRemaining(data.remaining_messages ?? Math.max(0, remaining - 1));
+      const fallbackRemaining = typeof data.remaining_messages === 'number'
+        ? data.remaining_messages
+        : null;
+      try {
+        const remainingRes = await apiClient.get('/ai/remaining-messages');
+        setRemaining(
+          remainingRes.data.remaining
+            ?? fallbackRemaining
+            ?? 0
+        );
+      } catch {
+        setRemaining((prev) => fallbackRemaining ?? Math.max(0, prev - 1));
+      }
       setConversationId(data.conversation_id);
 
       // Replace temp + add AI response

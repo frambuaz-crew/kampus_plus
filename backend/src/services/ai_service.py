@@ -1104,7 +1104,13 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             from src.models.ai import AIKnowledgeBase  # yerel import – döngüsel bağımlılığı önler
 
-            normalized_query = query.strip().lower()
+            normalized_query = (query or "").strip()
+            normalized_query_lower = normalized_query.lower()
+
+            def _normalize_text(value: str) -> str:
+                value = value.casefold()
+                value = unicodedata.normalize("NFKD", value)
+                return "".join(ch for ch in value if not unicodedata.combining(ch))
 
             # Stop-words that carry no matching signal — skip them so a sentence like
             # "bahar şenliği ne zaman" doesn't reduce to zero meaningful tokens.
@@ -1118,16 +1124,26 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             # Tokenize: split on whitespace/punctuation, drop stop-words and single-char
             # tokens. Threshold is > 1 (not > 2) so valid 2-char words like "iş", "ev"
             # are kept — dropping them would silently break job/career queries.
-            raw_tokens = re.split(r"[\s,;.!?]+", normalized_query)
+            raw_tokens = re.split(r"[\s,;.!?]+", normalized_query_lower)
             tokens = [t for t in raw_tokens if len(t) > 1 and t not in _STOP_WORDS]
 
             # Fallback: if all tokens were filtered out, use the full phrase as-is.
-            if not tokens and normalized_query:
-                tokens = [normalized_query]
+            if not tokens and normalized_query_lower:
+                tokens = [normalized_query_lower]
 
             logger.debug("[DEBUG RAG] KB Search tokens after stop-word filter: %s", tokens)
 
             stmt = select(AIKnowledgeBase).where(AIKnowledgeBase.is_active.is_(True))
+
+            if user_ctx and user_ctx.university_id:
+                stmt = stmt.where(
+                    or_(
+                        AIKnowledgeBase.university_id == user_ctx.university_id,
+                        AIKnowledgeBase.university_id.is_(None),
+                    )
+                )
+            else:
+                stmt = stmt.where(AIKnowledgeBase.university_id.is_(None))
 
             if tokens:
                 # Each token generates its own ilike pair; rows matching ANY token are
@@ -1147,6 +1163,54 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             entries = result.scalars().all()
 
             logger.debug("[DEBUG RAG] KB Search found %d results from DB", len(entries))
+
+            if not entries:
+                fallback_stmt = select(AIKnowledgeBase).where(AIKnowledgeBase.is_active.is_(True))
+
+                if user_ctx and user_ctx.university_id:
+                    fallback_stmt = fallback_stmt.where(
+                        or_(
+                            AIKnowledgeBase.university_id == user_ctx.university_id,
+                            AIKnowledgeBase.university_id.is_(None),
+                        )
+                    )
+                else:
+                    fallback_stmt = fallback_stmt.where(AIKnowledgeBase.university_id.is_(None))
+
+                fallback_stmt = fallback_stmt.order_by(AIKnowledgeBase.priority.desc()).limit(200)
+                fallback_result = await db.execute(fallback_stmt)
+                fallback_rows = fallback_result.scalars().all()
+
+                normalized_query_folded = _normalize_text(normalized_query)
+                normalized_stop_words = {_normalize_text(w) for w in _STOP_WORDS}
+                norm_tokens = [
+                    t for t in re.split(r"[\s,;.!?]+", normalized_query_folded)
+                    if len(t) > 1 and t not in normalized_stop_words
+                ]
+                if normalized_query_folded and normalized_query_folded not in norm_tokens:
+                    norm_tokens.append(normalized_query_folded)
+
+                def _keywords_to_text(raw: object) -> str:
+                    if isinstance(raw, list):
+                        return " ".join(str(item) for item in raw)
+                    if isinstance(raw, str):
+                        try:
+                            parsed = json.loads(raw)
+                            if isinstance(parsed, list):
+                                return " ".join(str(item) for item in parsed)
+                        except (ValueError, TypeError):
+                            return raw
+                    return str(raw or "")
+
+                matched: List[AIKnowledgeBase] = []
+                for row in fallback_rows:
+                    haystack = _normalize_text(
+                        f"{_keywords_to_text(row.keywords)} {row.answer or ''}"
+                    )
+                    if any(token in haystack for token in norm_tokens):
+                        matched.append(row)
+
+                entries = matched
 
             if not entries:
                 return "Bilgi tabanında eşleşen kayıt bulunamadı."
@@ -1236,7 +1300,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Kritik: 'Nasıl yaparım', 'ders kaydı', 'şifremi unuttum' gibi Sık Sorulan Sorular (SSS) "
                     "ve rehberlik gerektiren durumlarda İLK ÖNCE bu aracı kullan. "
                     "Kampüs yaşamı, ulaşım, yemek, şenlik, konser ve etkinlik soruları için de bu aracı kullan. "
-                    "Akademik takvimde bulunamayan etkinlikler için buraya bak."
+                    "Üniversiteye özel terimler, kod adları, iç duyurular veya test amaçlı şifre soruları için de "
+                    "önce buraya bak. Akademik takvimde bulunamayan etkinlikler için buraya bak."
                 ),
                 args_schema=KnowledgeBaseSearchInput,
             ),
