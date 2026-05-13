@@ -21,7 +21,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, Cookie
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.user import User, UserRole
-from src.services.university_service import get_university_service
 
 from src.core.database import get_db
 from src.core.dependencies import get_current_user
@@ -64,6 +63,7 @@ class RegisterRequest(BaseModel):
     first_name: str = Field(..., min_length=2, max_length=100)
     last_name: str = Field(..., min_length=2, max_length=100)
     university: str = Field(..., min_length=2, max_length=255, description="Seçilen üniversitenin adı")
+    university_id: str = Field(..., min_length=1, description="Seçilen üniversitenin UUID'si")
     department_id: str = Field(..., min_length=1, description="Seçilen bölümün UUID'si")
     terms_accepted: bool = Field(..., description="Kullanım koşulları kabul edilmeli")
     
@@ -243,6 +243,7 @@ async def register(
             first_name=data.first_name,
             last_name=data.last_name,
             university=data.university,
+            university_id=data.university_id,
             department_id=data.department_id,
             terms_accepted_at=datetime.now(timezone.utc).replace(tzinfo=None)
         )
@@ -311,28 +312,21 @@ async def login(
             remember_me=data.remember_me
         )
 
-        # 2. Üniversite servisini çağır ve resmi ismi çöz
-        uni_service = get_university_service()
-        official_university_name = await uni_service.get_university_from_email(
-            user.email,
-            session
-        )
-
-        # 3. Refresh Token için Cookie ayarları
+        # 2. Refresh Token Cookie
         refresh_token_days = (
             auth_service.settings.jwt_refresh_token_expire_days_remember_me
             if data.remember_me
             else auth_service.settings.jwt_refresh_token_expire_days
         )
-        
+
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             max_age=refresh_token_days * 24 * 60 * 60,
             **_refresh_cookie_settings(),
         )
-        
-        # 4. Yanıtı döndür
+
+        # 3. Yanıtı döndür — university bilgisi artık DB'den geliyor, email parse YOK
         return LoginResponse(
             access_token=access_token,
             token_type="bearer",
@@ -344,13 +338,11 @@ async def login(
                 last_name=user.last_name,
                 username=user.username,
                 role=user.role.value,
-                # 🚀 Veritabanındaki eski değer yerine servisten gelen resmi isim
-                university=official_university_name, 
-                university_id=user.university_id,                    # 🚀 YENİ: UUID
+                university=user.university or "",
+                university_id=user.university_id,
                 department_id=user.department_id,
-                # İlişki üzerinden bölüm ismini al
                 department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
-                faculty_id=user.department_rel.faculty_id if user.department_rel else None,  # 🚀 YENİ: Faculty UUID
+                faculty_id=user.department_rel.faculty_id if user.department_rel else None,
                 is_verified=user.is_verified,
                 profile_picture_url=user.profile_picture_url,
                 created_at=user.created_at
@@ -812,7 +804,6 @@ async def reset_password(
         )
 
 
-from src.services.university_service import get_university_service # 1. Servisi import et
 
 @router.get(
     "/me",
@@ -825,12 +816,9 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)
 ) -> UserResponse:
-    """Mevcut kullanıcının bilgilerini ve resmi üniversite adını getirir."""
-    
-    # 2. Servisi çağır
-    uni_service = get_university_service()
-    
-    # 3. İlişkili verileri (Department) yükle
+    """Mevcut kullanıcının bilgilerini döndürür. university_id ve faculty_id dahil."""
+
+    # İlişkili verileri (Department) yükle
     stmt = (
         select(User)
         .where(User.id == current_user.id)
@@ -839,12 +827,6 @@ async def get_current_user_info(
     result = await session.execute(stmt)
     user = result.scalar_one()
 
-    # 4. Üniversite ismini email üzerinden resmi veritabanından çöz
-    official_university_name = await uni_service.get_university_from_email(
-        user.email, 
-        session
-    )
-
     return UserResponse(
         id=str(user.id),
         email=user.email,
@@ -852,9 +834,11 @@ async def get_current_user_info(
         last_name=user.last_name,
         username=user.username,
         role=user.role.value,
-        university=official_university_name,
+        university=user.university or "",          # DB'den direkt al
+        university_id=user.university_id,          # ✅ UUID
         department_id=user.department_id,
         department=user.department_rel.name if user.department_rel else "Bölüm Bilgisi Yok",
+        faculty_id=user.department_rel.faculty_id if user.department_rel else None,  # ✅ Faculty UUID
         grade=user.grade,
         is_verified=user.is_verified,
         profile_picture_url=user.profile_picture_url,

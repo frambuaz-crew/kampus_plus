@@ -35,6 +35,7 @@ export interface RegisterData {
   first_name: string;
   last_name: string;
   university: string;
+  university_id: string;      // ✅ Seçilen üniversitenin UUID'si (formdan alınır)
   department_id: string;
   terms_accepted: boolean;
 }

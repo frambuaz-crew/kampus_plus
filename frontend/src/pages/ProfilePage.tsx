@@ -286,6 +286,7 @@ export const ProfilePage: React.FC = () => {
       const payload = {
         ...editForm,
         university: editInstitution.universityName,
+        university_id: editInstitution.universityId,
         department_id: editInstitution.departmentId,
       };
 
@@ -294,12 +295,12 @@ export const ProfilePage: React.FC = () => {
       setProfileData((prev) => (
         prev
           ? {
-              ...prev,
-              ...editForm,
-              university: editInstitution.universityName || prev.university,
-              department: editInstitution.departmentName || prev.department,
-              grade: editForm.grade || null,
-            }
+            ...prev,
+            ...editForm,
+            university: editInstitution.universityName || prev.university,
+            department: editInstitution.departmentName || prev.department,
+            grade: editForm.grade || null,
+          }
           : prev
       ));
       // Auth context'i güncelle (navbar'a vb. anında yansıması için)
@@ -579,11 +580,10 @@ export const ProfilePage: React.FC = () => {
                   <button
                     key={key}
                     onClick={() => setActiveTab(key as TabType)}
-                    className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-all border-b-2 -mb-px ${
-                      activeTab === key
-                        ? 'border-[#0ea5e9] text-[#0ea5e9]'
-                        : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
+                    className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-all border-b-2 -mb-px ${activeTab === key
+                      ? 'border-[#0ea5e9] text-[#0ea5e9]'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     {label}

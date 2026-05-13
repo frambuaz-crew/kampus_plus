@@ -41,55 +41,46 @@ class AuthService:
         last_name: str,
         department_id: str,
         university: Optional[str] = None,
+        university_id: Optional[str] = None,
         username: Optional[str] = None,
         terms_accepted_at: Optional[datetime] = None,
     ) -> User:
         """Yeni öğrenci kullanıcısı kaydet.
-        
+
         Args:
             session: Veritabanı oturumu
             email: Kullanıcı email adresi (.edu.tr domain)
             password: Düz metin şifre
             first_name: Ad
             last_name: Soyad
-            department_id: Bölüm UUID
-            university: Üniversite adı
-            username: Kullanıcı adı
+            department_id: Bölüm UUID (kayıt formundan seçilir)
+            university: Üniversite adı (kayıt formundan gelir)
+            university_id: Üniversite UUID (kayıt formundan gelir, emailden tahmin EDİLMEZ)
+            username: Kullanıcı adı (belirtilmezse emailden üretilir)
+            terms_accepted_at: Koşulların kabul tarihi
         """
-        # Email kontrolü kısmı aynı kalıyor
+        # Email benzersizlik kontrolü
         result = await session.execute(
             select(User).where(User.email == email)
         )
-        existing_user = result.scalar_one_or_none()
-        
-        if existing_user:
+        if result.scalar_one_or_none():
             raise ValueError(f"Bu email adresi zaten kayıtlı: {email}")
-        
+
         password_hash = hash_password(password)
-        
-        if not university:
-            from src.services.university_service import get_university_service
-            university_service = get_university_service()
-            university = await university_service.get_university_from_email(email, session)
-        
+
         # --- USERNAME BENZERSİZLEŞTİRME MANTIĞI ---
         base_username = username or email.split("@")[0]
         final_username = base_username
         counter = 1
-
-        # Veritabanında bu isim var mı diye kontrol et
         while True:
             result = await session.execute(
                 select(User).where(User.username == final_username)
             )
             if not result.scalar_one_or_none():
-                break  # İsim boşta, döngüden çık
-            
-            # İsim doluysa sonuna sayı ekle (furkan1, furkan2...)
+                break
             final_username = f"{base_username}{counter}"
             counter += 1
-        
-        # Kullanıcı nesnesi oluşturma (GÜNCELLENDİ 🚀)
+
         user = User(
             id=str(uuid4()),
             email=email,
@@ -99,20 +90,20 @@ class AuthService:
             last_name=last_name,
             username=final_username,
             department_id=department_id,
-            university=university,
+            university=university or "",
+            university_id=university_id,   # Formdan gelen UUID direkt kaydedilir
             is_verified=False,
             is_active=True,
             terms_accepted_at=terms_accepted_at.replace(tzinfo=None) if terms_accepted_at else _utc_naive(),
             created_at=_utc_naive(),
             updated_at=_utc_naive(),
         )
-        
+
         session.add(user)
         await session.commit()
         await session.refresh(user)
-        
-        # İlişkiyi (department_rel) yükleyerek döndürmek hata payını sıfırlar
-        from sqlalchemy.orm import selectinload
+
+        # İlişkiyi (department_rel) eager load ile döndür
         stmt = select(User).where(User.id == user.id).options(selectinload(User.department_rel))
         res = await session.execute(stmt)
         return res.scalar_one()

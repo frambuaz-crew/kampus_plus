@@ -127,7 +127,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 - TOOL FALLBACK RULE: If a user asks about an event, deadline, or campus information, and your first tool search returns no results, DO NOT give up immediately. You MUST try querying another relevant tool (e.g., if the calendar is empty, search the knowledge base or forum) before telling the user you couldn't find it.
 - "Merhaba", "Selam", "Naber" gibi selamlama mesajlarına araç kullanmadan kısa ve samimi karşılık ver.
 - Cevapları doğal ve samimi bir dille yaz; robotik liste yerine akıcı paragraflar tercih et.
-- Platform içi linkleri HER ZAMAN standart Markdown formatında yaz: [Başlık](/dashboard/forum/{id}), [Başlık](/dashboard/marketplace/{id}), [Başlık](/dashboard/career/{id}), [Başlık](/dashboard/course-notes/{id}). URL'lerde asla domain (örn. localhost) kullanma; sadece göreli path yaz.
+- Platform içi linkleri HER ZAMAN standart Markdown formatında yaz: [Başlık](/dashboard/forum/{{id}}), [Başlık](/dashboard/marketplace/{{id}}), [Başlık](/dashboard/career/{{id}}), [Başlık](/dashboard/course-notes/{{id}}). URL'lerde asla domain (örn. localhost) kullanma; sadece göreli path yaz.
 - Kaynak dokümanlardan bahsederken isimlerini doğal olarak cümleye yedir (örn. "… akademik takvim dokümanına göre …").
 - CRITICAL RULE: You are strictly a university campus assistant. You MUST REFUSE to answer any general knowledge, history, geography, trivia, or non-university related questions. If the user asks something outside the scope of the campus, gently decline and guide them back to campus topics."""
 
@@ -275,7 +275,9 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
         """Kullanıcı bağlamına göre kişiselleştirilmiş system prompt oluşturur."""
         base = template if template is not None else self._AGENT_SYSTEM_PROMPT_TEMPLATE
         if ctx is None:
-            return base.format(user_context_block=self._DEFAULT_USER_CONTEXT_BLOCK)
+            # .format() yerine .replace() — prompt içindeki {id} gibi literal süslü parantezler
+            # KeyError'a yol açmaz.
+            return base.replace("{user_context_block}", self._DEFAULT_USER_CONTEXT_BLOCK)
 
         grade_str = ctx.grade if ctx.has_grade else "sınıfı belirtilmemiş"
         user_context_block = (
@@ -284,7 +286,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             f"Bölüm: {ctx.department} | Sınıf: {grade_str}. "
             f"Bu bilgileri kullanarak kişiselleştirilmiş yanıtlar ver."
         )
-        return base.format(user_context_block=user_context_block)
+        return base.replace("{user_context_block}", user_context_block)
 
     # ------------------------------------------------------------------ #
     #  Araç Çantası (Tools) – closure tabanlı, db'ye erişimli
@@ -1381,10 +1383,31 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
     # ------------------------------------------------------------------ #
 
     def _build_agent_prompt(self, system_prompt: str) -> ChatPromptTemplate:
-        """Tool Calling Agent için prompt şablonu oluştur."""
+        """Tool Calling Agent için prompt şablonu oluştur.
+
+        LangChain'in ChatPromptTemplate'i sistem promptundaki tüm {word} ifadelerini
+        input variable olarak yorumlar. Promptumuzda {id}, {url} gibi literal
+        süslü parantezler olabileceğinden (örn. DB'den gelen eski promptlar),
+        bunları {{id}} şekline escape ediyoruz.
+        """
+        # LangChain'in kendi placeholder'ları — bunlara dokunma
+        _LANGCHAIN_VARS = {"input", "chat_history", "agent_scratchpad", "intermediate_steps"}
+
+        def _escape_literal_braces(text: str) -> str:
+            """LangChain placeholder'ı olmayan her {word} ifadesini {{word}}'e çevirir."""
+            import re as _re
+            def replacer(match: "_re.Match") -> str:
+                varname = match.group(1)
+                if varname in _LANGCHAIN_VARS:
+                    return match.group(0)   # Dokunma — LangChain placeholder'ı
+                return "{{" + varname + "}}"  # Literal — escape et
+            return _re.sub(r"\{(\w+)\}", replacer, text)
+
+        safe_prompt = _escape_literal_braces(system_prompt)
+
         return ChatPromptTemplate.from_messages(
             [
-                ("system", system_prompt),
+                ("system", safe_prompt),
                 MessagesPlaceholder("chat_history"),
                 ("human", "{input}"),
                 MessagesPlaceholder("agent_scratchpad"),

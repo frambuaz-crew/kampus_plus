@@ -73,6 +73,9 @@ class ProfileUpdateRequest(BaseModel):
     profile_picture_url: Optional[str] = None
     theme_preference: Optional[str] = None
     grade: Optional[str] = None
+    university: Optional[str] = None
+    university_id: Optional[str] = None
+    department_id: Optional[str] = None
 
 @router.put("/profile")
 async def update_profile(
@@ -91,6 +94,12 @@ async def update_profile(
         if data.grade != "" and data.grade not in VALID_GRADES:
             raise HTTPException(status_code=422, detail="Geçersiz sınıf değeri.")
         current_user.grade = data.grade if data.grade != "" else None
+    if data.university is not None:
+        current_user.university = data.university or None
+    if data.university_id is not None:
+        current_user.university_id = data.university_id or None
+    if data.department_id is not None:
+        current_user.department_id = data.department_id or None
 
     session.add(current_user)
     await session.commit()

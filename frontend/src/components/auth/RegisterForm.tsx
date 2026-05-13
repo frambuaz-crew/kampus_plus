@@ -30,11 +30,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
   const [formData, setFormData] = useState({
     email: '',
     university: '',
+    university_id: '',         // ✅ Üniversite UUID'si
     password: '',
     confirmPassword: '',
     first_name: '',
     last_name: '',
-    department_id: '', // 'department' silindi, 'department_id' eklendi
+    department_id: '',
     terms_accepted: false,
   });
 
@@ -98,11 +99,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       newErrors.last_name = 'Soyad sadece harf ve boşluk içerebilir';
     }
 
-    // Department validation (GÜNCELLENDİ 🛠️)
-    if (!formData.university) {
+    // Üniversite ve bölüm validasyonu
+    if (!formData.university_id) {
       newErrors.university = 'Üniversite seçmelisiniz';
     }
-
     if (!formData.department_id) {
       newErrors.department_id = 'Bölüm seçmelisiniz';
     }
@@ -133,6 +133,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         university: formData.university,
+        university_id: formData.university_id,   // ✅ UUID backend'e iletiliyor
         department_id: formData.department_id,
         terms_accepted: formData.terms_accepted,
       };
@@ -147,11 +148,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       setFormData({
         email: '',
         university: '',
+        university_id: '',
         password: '',
         confirmPassword: '',
         first_name: '',
         last_name: '',
-        department_id: '', // 'department' yerine 'department_id'
+        department_id: '',
         terms_accepted: false,
       });
     } catch (error) {
@@ -170,6 +172,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         selection.universityName !== undefined
           ? selection.universityName
           : prev.university,
+      university_id:
+        selection.universityId !== undefined
+          ? selection.universityId
+          : prev.university_id,
       department_id:
         selection.departmentId !== undefined
           ? selection.departmentId
@@ -178,7 +184,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
 
     setErrors((prev) => {
       const next = { ...prev };
-      if (selection.universityName !== undefined) {
+      if (selection.universityId !== undefined) {
         delete next.university;
       }
       if (selection.departmentId !== undefined) {
