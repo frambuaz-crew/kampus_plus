@@ -365,6 +365,19 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!profileData) return;
+    try {
+      const res = await apiClient.post('/messages/direct', { receiver_id: profileData.id });
+      if (res?.data?.conversation_id) {
+        navigate(`/dashboard/messages/${res.data.conversation_id}`);
+      }
+    } catch (err) {
+      console.error("Mesaj başlatılamadı:", err);
+      alert("Mesaj başlatılamadı.");
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -438,7 +451,6 @@ export const ProfilePage: React.FC = () => {
                 <h1 className="text-xl font-bold text-slate-900 leading-tight">
                   {profileData.first_name} {profileData.last_name}
                 </h1>
-                <p className="text-sm text-slate-500 mt-0.5">@{profileData.username}</p>
                 <div className="flex flex-wrap items-center gap-3 mt-2">
                   {profileData.university && (
                     <span className="flex items-center gap-1 text-xs text-slate-500">
@@ -464,7 +476,7 @@ export const ProfilePage: React.FC = () => {
               <div className="flex gap-2 sm:mb-1 flex-shrink-0">
                 {!isOwnProfile ? (
                   <button
-                    onClick={() => navigate('/dashboard/messages')}
+                    onClick={handleSendMessage}
                     className="flex items-center gap-2 px-4 py-2 bg-[#0ea5e9] hover:bg-sky-600 text-white text-sm font-semibold rounded-lg transition-colors"
                   >
                     <MessageSquare className="w-4 h-4" />

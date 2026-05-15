@@ -232,7 +232,7 @@ export const MessagesPage: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-0.5">
                             <span className={`text-sm font-semibold truncate ${conv.unread_count > 0 ? 'text-slate-900' : 'text-slate-700'}`}>
-                              @{conv.other_user.username}
+                              {conv.other_user.full_name || `@${conv.other_user.username}`}
                             </span>
                             <span className="text-xs text-slate-400 flex-shrink-0">
                               {formatTime(conv.last_message_at)}
