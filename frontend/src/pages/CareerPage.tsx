@@ -513,9 +513,9 @@ const ListingDetailView: React.FC<{
         {/* ── Sağ: Sidebar ── */}
         <div className="space-y-4">
 
-          {/* CTA */}
-          {!isOwner && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-3">
+          {/* CTA / Links */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-3">
+            {!isOwner && (
               <button
                 onClick={() => setShowApplyDialog(true)}
                 className="w-full py-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-semibold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
@@ -523,14 +523,20 @@ const ListingDetailView: React.FC<{
                 <cfg.Icon className="w-4 h-4" />
                 {listing.listing_type === 'startup' ? 'İlgileniyorum' : listing.listing_type === 'project' ? 'Katılmak İstiyorum' : 'Başvur'}
               </button>
-              {isJobOrInternship && listing.external_link && (
-                <a href={listing.external_link} target="_blank" rel="noopener noreferrer"
-                  className="w-full py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
-                  <ExternalLink className="w-4 h-4 text-slate-400" /> Harici Platform
-                </a>
-              )}
-            </div>
-          )}
+            )}
+
+            {listing.external_link && (
+              <a 
+                href={listing.external_link.startsWith('http') ? listing.external_link : `https://${listing.external_link}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4 text-slate-400" /> 
+                {listing.listing_type === 'job' || listing.listing_type === 'internship' ? 'Harici Platform' : 'Proje/Startup Linki'}
+              </a>
+            )}
+          </div>
 
           {/* İlan Veren */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
