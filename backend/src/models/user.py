@@ -63,6 +63,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False, index=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False, index=True)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
+    is_private: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     
     grade: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 

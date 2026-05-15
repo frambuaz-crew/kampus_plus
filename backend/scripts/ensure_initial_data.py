@@ -80,6 +80,7 @@ FORUM_CATEGORIES = [
     {"name": "Kariyer & Staj", "icon": "Briefcase", "description": "İş ilanları, staj tecrübeleri ve kariyer planlama.", "order_index": 5},
     {"name": "İtiraf", "icon": "Ghost", "description": "Kampüsteki ilginç olaylar ve anonim paylaşımlar.", "order_index": 6},
     {"name": "Yurt & Barınma", "icon": "Building2", "description": "Ev/oda arkadaşı arayanlar ve barınma tecrübeleri.", "order_index": 7},
+    {"name": "Diğer", "icon": "Package", "description": "Diğer tüm konular ve paylaşımlar.", "order_index": 8},
 ]
 
 

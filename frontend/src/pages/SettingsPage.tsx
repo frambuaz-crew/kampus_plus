@@ -7,6 +7,7 @@ import {
   submitContactMessage,
   type ContactMessageResponse,
 } from '../api/contact';
+import { useAuth } from '../hooks/useAuth';
 import {
   Lock,
   Mail,
@@ -69,6 +70,7 @@ function usePasswordToggle() {
 
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
 
   // Şifre değiştirme
   const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm: '' });
@@ -317,13 +319,26 @@ export const SettingsPage: React.FC = () => {
               <div className="px-6 py-4">
                 <p className="text-sm font-medium text-slate-800 mb-3">Profil Görünürlüğü</p>
                 {[
-                  { value: 'public', label: 'Herkese Açık', desc: 'Profilinizi herkes görebilir.' },
-                  { value: 'users', label: 'Kayıtlı Kullanıcılar', desc: 'Sadece giriş yapanlar görebilir.' },
-                  { value: 'private', label: 'Gizli', desc: 'Sadece siz görebilirsiniz.' },
+                  { value: 'public', label: 'Tüm Öğrencilere Açık (Kampüs+)', desc: 'Profilinizi uygulamadaki tüm üniversite öğrencileri görebilir.' },
+                  { value: 'private', label: `Sadece Aynı Üniversite (${user?.university || 'Kendi Üniversitem'})`, desc: 'Profilinizi sadece sizinle aynı üniversitedeki öğrenciler görebilir.' },
                 ].map((opt) => (
                   <label key={opt.value} className="flex items-start gap-3 py-2 cursor-pointer group">
-                    <input type="radio" name="visibility" value={opt.value} defaultChecked={opt.value === 'public'}
-                      className="mt-0.5 accent-[#0ea5e9]" />
+                    <input 
+                      type="radio" 
+                      name="visibility" 
+                      value={opt.value} 
+                      checked={opt.value === 'private' ? user?.is_private === true : user?.is_private !== true}
+                      onChange={async () => {
+                        const is_private = opt.value === 'private';
+                        try {
+                          await apiClient.put('/users/profile', { is_private });
+                          updateUser({ is_private });
+                        } catch (err) {
+                          console.error("Gizlilik güncellenemedi", err);
+                        }
+                      }}
+                      className="mt-0.5 accent-[#0ea5e9]" 
+                    />
                     <div>
                       <p className="text-sm font-medium text-slate-800 group-hover:text-[#0ea5e9] transition-colors">{opt.label}</p>
                       <p className="text-xs text-slate-500">{opt.desc}</p>

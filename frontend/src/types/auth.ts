@@ -20,6 +20,7 @@ export interface User {
   profile_picture_url?: string | null;
   bio?: string | null;
   theme_preference?: string | null;
+  is_private?: boolean;
   created_at: string;
 }
 

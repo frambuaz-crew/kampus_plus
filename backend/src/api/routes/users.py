@@ -49,16 +49,20 @@ async def get_user_profile(
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
 
+    is_allowed = not user.is_private or current_user.id == user.id or current_user.university_id == user.university_id
+
     return {
         "id": user.id,
         "username": user.username,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "university": user.university,
+        "university_id": user.university_id,
         "department": user.department_rel.name if user.department_rel else "Belirtilmemiş",
         "grade": user.grade,
         "profile_picture_url": user.profile_picture_url,
-        "bio": user.bio,
+        "bio": user.bio if is_allowed else None,
+        "is_private": user.is_private,
         "created_at": user.created_at
     }
 
@@ -76,6 +80,7 @@ class ProfileUpdateRequest(BaseModel):
     university: Optional[str] = None
     university_id: Optional[str] = None
     department_id: Optional[str] = None
+    is_private: Optional[bool] = None
 
 @router.put("/profile")
 async def update_profile(
@@ -100,6 +105,8 @@ async def update_profile(
         current_user.university_id = data.university_id or None
     if data.department_id is not None:
         current_user.department_id = data.department_id or None
+    if data.is_private is not None:
+        current_user.is_private = data.is_private
 
     session.add(current_user)
     await session.commit()
@@ -383,16 +390,30 @@ async def get_user_activity(
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
 
+    if user.is_private and user.id != current_user.id and user.university_id != current_user.university_id:
+        return {"activities": []}
+
     activities = []
 
     # Marketplace ilanlarını çek
     market_stmt = select(MarketplaceListing).where(MarketplaceListing.seller_id == user.id).order_by(desc(MarketplaceListing.created_at)).limit(10)
     market_res = await session.execute(market_stmt)
     for listing in market_res.scalars():
+        image_url = None
+        if listing.image_urls:
+            import json
+            try:
+                images = json.loads(listing.image_urls)
+                image_url = images[0] if images else None
+            except Exception:
+                pass
+
         activities.append({
             "type": "marketplace_listing",
             "id": listing.id,
             "title": listing.title,
+            "content": listing.description[:150] + "..." if listing.description and len(listing.description) > 150 else listing.description,
+            "image_url": image_url,
             "created_at": listing.created_at.isoformat(),
             "status": listing.status
         })
@@ -405,6 +426,7 @@ async def get_user_activity(
             "type": "forum_topic",
             "id": topic.id,
             "title": topic.title,
+            "content": topic.content[:150] + "..." if topic.content and len(topic.content) > 150 else topic.content,
             "created_at": topic.created_at.isoformat(),
             "status": "active" if not topic.is_deleted else "deleted"
         })
@@ -417,6 +439,7 @@ async def get_user_activity(
             "type": "career_listing",
             "id": career.id,
             "title": career.title,
+            "content": career.description[:150] + "..." if career.description and len(career.description) > 150 else career.description,
             "created_at": career.created_at.isoformat(),
             "status": career.status
         })

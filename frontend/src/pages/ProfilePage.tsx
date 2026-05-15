@@ -30,6 +30,7 @@ import {
   FileText,
   X,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 
 // Tab ve Liste Tipleri
@@ -39,6 +40,8 @@ interface ActivityItem {
   id: string;
   type: string;
   title: string;
+  content?: string;
+  image_url?: string;
   created_at: string;
   status: string;
 }
@@ -61,10 +64,12 @@ interface ProfileData {
   last_name: string;
   email?: string;
   university?: string;
+  university_id?: string | null;
   department?: string;
   grade?: string | null;
   profile_picture_url?: string | null;
   bio?: string | null;
+  is_private?: boolean;
   created_at: string;
 }
 
@@ -89,6 +94,7 @@ export const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(locationState?.tab || 'info');
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'forum_topic' | 'marketplace_listing' | 'career_listing'>('all');
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 
   // Düzenleme State'leri
@@ -346,8 +352,9 @@ export const ProfilePage: React.FC = () => {
       });
 
       const newPicUrl = response.data.profile_picture_url;
-      setProfileData((prev) => (prev ? { ...prev, profile_picture_url: newPicUrl } : prev));
-      updateUser({ profile_picture_url: newPicUrl });
+      const cacheBustedUrl = `${newPicUrl}${newPicUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      setProfileData((prev) => (prev ? { ...prev, profile_picture_url: cacheBustedUrl } : prev));
+      updateUser({ profile_picture_url: cacheBustedUrl });
 
       setSelectedImageSrc(null);
     } catch (error) {
@@ -467,6 +474,11 @@ export const ProfilePage: React.FC = () => {
                   !isEditing && (
                     <button
                       onClick={() => {
+                        setEditForm({
+                          bio: profileData.bio || '',
+                          profile_picture_url: profileData.profile_picture_url || '',
+                          grade: profileData.grade || ''
+                        });
                         setEditInstitution({
                           universityName: currentUser?.university || profileData.university || '',
                           departmentId: currentUser?.department_id || '',
@@ -484,30 +496,45 @@ export const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Bio + Stats */}
-            {!isEditing && (
-              <div className="border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                <p className="flex-1 text-sm text-slate-600 leading-relaxed">
-                  {profileData.bio || <span className="text-slate-400 italic">Henüz bir biyografi eklenmemiş.</span>}
-                </p>
-                <div className="flex items-center gap-6 sm:border-l sm:border-slate-100 sm:pl-6 flex-shrink-0">
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-slate-900">{activities.length}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Paylaşım</p>
-                  </div>
-                  {isOwnProfile && (
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-slate-900">{favorites.length}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Favori</p>
-                    </div>
-                  )}
+            {/* Gizli Profil Kontrolü */}
+            {profileData.is_private && !isOwnProfile && currentUser?.university_id !== profileData.university_id ? (
+              <div className="border-t border-slate-100 px-6 py-12 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                  <Lock className="w-8 h-8 text-slate-400" />
                 </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-1">Bu hesap gizlidir.</h3>
+                <p className="text-sm text-slate-500 max-w-sm">
+                  Bu profil sadece <strong>{profileData.university}</strong> öğrencilerine açıktır.
+                </p>
               </div>
+            ) : (
+              <>
+                {/* Bio + Stats */}
+                {!isEditing && (
+                  <div className="border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <p className="flex-1 text-sm text-slate-600 leading-relaxed">
+                      {profileData.bio || <span className="text-slate-400 italic">Henüz bir biyografi eklenmemiş.</span>}
+                    </p>
+                    <div className="flex items-center gap-6 sm:border-l sm:border-slate-100 sm:pl-6 flex-shrink-0">
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-slate-900">{activities.length}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Paylaşım</p>
+                      </div>
+                      {isOwnProfile && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-slate-900">{favorites.length}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">Favori</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           {/* Edit Form */}
-          {isEditing && (
+          {isEditing && isOwnProfile && (
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm mb-6 overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                 <h3 className="text-base font-semibold text-slate-900">Profili Düzenle</h3>
@@ -569,7 +596,7 @@ export const ProfilePage: React.FC = () => {
           )}
 
           {/* Tabs */}
-          {!isEditing && (
+          {(!profileData.is_private || isOwnProfile || currentUser?.university_id === profileData.university_id) && !isEditing && (
             <>
               <div className="flex items-center gap-0 border-b border-slate-200 mb-6 bg-white rounded-t-lg px-2">
                 {[
@@ -608,48 +635,92 @@ export const ProfilePage: React.FC = () => {
 
                 {/* PAYLAŞIMLAR */}
                 {activeTab === 'activity' && (
-                  <div className="space-y-3">
-                    {activities.length === 0 ? (
-                      <div className="bg-white border border-slate-200 rounded-xl p-16 text-center">
-                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Layers className="w-6 h-6 text-slate-400" />
-                        </div>
-                        <p className="text-sm font-semibold text-slate-700">Henüz paylaşım yok</p>
-                        <p className="text-xs text-slate-400 mt-1">Bu kullanıcı henüz içerik paylaşmamış.</p>
-                      </div>
-                    ) : (
-                      activities.map((act) => {
-                        const isMarket = act.type === 'marketplace_listing';
-                        const isForum = act.type === 'forum_topic';
-                        const ActIcon = isMarket ? ShoppingBag : isForum ? MessageSquare : Briefcase;
-                        const label = isMarket ? 'Pazar' : isForum ? 'Forum' : 'Kariyer';
-                        const color = isMarket ? 'text-emerald-600 bg-emerald-50' : isForum ? 'text-blue-600 bg-blue-50' : 'text-violet-600 bg-violet-50';
-                        return (
-                          <div
-                            key={act.id}
-                            onClick={() => {
-                              const s = { from: location.pathname, tab: activeTab };
-                              if (isMarket) navigate(`/dashboard/marketplace/${act.id}`, { state: s });
-                              else if (isForum) navigate(`/dashboard/forum/${act.id}`, { state: s });
-                              else navigate(`/dashboard/career/${act.id}`, { state: s });
-                            }}
-                            className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-4 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
-                          >
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
-                              <ActIcon className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-[#0ea5e9] transition-colors">{act.title}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${color}`}>{label}</span>
-                                <span className="text-xs text-slate-400">{formatDistanceToNow(new Date(act.created_at), { addSuffix: true, locale: tr })}</span>
-                              </div>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0 transition-colors" />
+                  <div className="space-y-4">
+                    {/* Filtreler */}
+                    <div className="flex items-center gap-2 pb-2 overflow-x-auto no-scrollbar">
+                      {[
+                        { id: 'all', label: 'Tümü' },
+                        { id: 'forum_topic', label: 'Forum' },
+                        { id: 'marketplace_listing', label: 'Pazar' },
+                        { id: 'career_listing', label: 'Kariyer' },
+                      ].map(f => (
+                        <button
+                          key={f.id}
+                          onClick={() => setActivityFilter(f.id as any)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-colors ${
+                            activityFilter === f.id
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="space-y-3">
+                      {activities.filter(a => activityFilter === 'all' || a.type === activityFilter).length === 0 ? (
+                        <div className="bg-white border border-slate-200 rounded-xl p-16 text-center">
+                          <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Layers className="w-6 h-6 text-slate-400" />
                           </div>
-                        );
-                      })
-                    )}
+                          <p className="text-sm font-semibold text-slate-700">Sonuç bulunamadı</p>
+                          <p className="text-xs text-slate-400 mt-1">Bu kategoride henüz bir paylaşım yok.</p>
+                        </div>
+                      ) : (
+                        activities
+                          .filter(a => activityFilter === 'all' || a.type === activityFilter)
+                          .map((act) => {
+                            const isMarket = act.type === 'marketplace_listing';
+                            const isForum = act.type === 'forum_topic';
+                            const label = isMarket ? 'Pazar' : isForum ? 'Forum' : 'Kariyer';
+                            const color = isMarket ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : isForum ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-violet-600 bg-violet-50 border-violet-100';
+                            
+                            return (
+                              <div
+                                key={act.id}
+                                onClick={() => {
+                                  const s = { from: location.pathname, tab: activeTab };
+                                  if (isMarket) navigate(`/dashboard/marketplace/${act.id}`, { state: s });
+                                  else if (isForum) navigate(`/dashboard/forum/${act.id}`, { state: s });
+                                  else navigate(`/dashboard/career/${act.id}`, { state: s });
+                                }}
+                                className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-2 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                              >
+                                <div className="flex justify-between items-start gap-4">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#0ea5e9] transition-colors leading-tight mb-1">
+                                      {act.title}
+                                    </h4>
+                                    {act.content && (
+                                      <p className="text-sm text-slate-600 line-clamp-2 mt-1">
+                                        {act.content}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {act.image_url && (
+                                    <img 
+                                      src={getImageUrl(act.image_url)} 
+                                      alt="Thumbnail" 
+                                      className="w-16 h-16 object-cover rounded-lg border border-slate-100 flex-shrink-0" 
+                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                  )}
+                                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0 transition-colors mt-0.5" />
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${color}`}>
+                                    {label}
+                                  </span>
+                                  <span className="text-xs text-slate-400">
+                                    {formatDistanceToNow(new Date(act.created_at), { addSuffix: true, locale: tr })}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
                   </div>
                 )}
 
