@@ -63,9 +63,23 @@ PREFERRED_DEPTS: dict[str, list[str]] = {
 }
 
 MARKETPLACE_CATEGORIES = [
-    {"name": "Elektronik", "icon": "laptop", "order_index": 1},
-    {"name": "Kitap & Ders Materyali", "icon": "book-open", "order_index": 2},
-    {"name": "Kırtasiye & Eğitim", "icon": "pencil", "order_index": 3},
+    {"name": "Elektronik & Teknoloji", "icon": "Smartphone", "order_index": 1},
+    {"name": "Kitap & Kırtasiye", "icon": "Book", "order_index": 2},
+    {"name": "Ev & Yurt Eşyası", "icon": "Home", "order_index": 3},
+    {"name": "Moda & Giyim", "icon": "Shirt", "order_index": 4},
+    {"name": "Hobi & Spor", "icon": "Dumbbell", "order_index": 5},
+    {"name": "Özel Ders & Hizmet", "icon": "GraduationCap", "order_index": 6},
+    {"name": "Diğer", "icon": "Package", "order_index": 7},
+]
+
+FORUM_CATEGORIES = [
+    {"name": "Kampüs Yaşamı", "icon": "Home", "description": "Genel kampüs geyiği ve günlük konular.", "order_index": 1},
+    {"name": "Akademik & Dersler", "icon": "BookOpen", "description": "Ders notları, sınav tartışmaları ve akademik yardımlaşma.", "order_index": 2},
+    {"name": "Soru-Cevap & Yardım", "icon": "HelpCircle", "description": "Her türlü soru ve hızlı çözümler için topluluk desteği.", "order_index": 3},
+    {"name": "Kulüpler & Topluluklar", "icon": "Users", "description": "Öğrenci kulüpleri ve topluluk faaliyetleri.", "order_index": 4},
+    {"name": "Kariyer & Staj", "icon": "Briefcase", "description": "İş ilanları, staj tecrübeleri ve kariyer planlama.", "order_index": 5},
+    {"name": "İtiraf", "icon": "Ghost", "description": "Kampüsteki ilginç olaylar ve anonim paylaşımlar.", "order_index": 6},
+    {"name": "Yurt & Barınma", "icon": "Building2", "description": "Ev/oda arkadaşı arayanlar ve barınma tecrübeleri.", "order_index": 7},
 ]
 
 
@@ -200,24 +214,26 @@ async def _ensure_marketplace_categories(session) -> dict[str, str]:
     return cat_map
 
 
-async def _ensure_forum_category(session, university_id: str) -> str:
-    name = "Kampüs Yaşamı"
-    cat = (await session.execute(
-        select(ForumCategory).where(
-            and_(ForumCategory.name == name, ForumCategory.university_id == university_id)
-        )
-    )).scalar_one_or_none()
-    if not cat:
-        cat = ForumCategory(
-            id=_uid(), name=name,
-            description="Kampüs yaşamına dair güncel tartışmalar",
-            icon="campus", order_index=1, is_active=True,
-            university_id=university_id, created_at=_now(),
-        )
-        session.add(cat)
-        await session.flush()
-        print(f"[OK] ForumCategory oluşturuldu: {name}")
-    return cat.id
+async def _ensure_forum_categories(session, university_id: str) -> dict[str, str]:
+    cat_map: dict[str, str] = {}
+    for cdef in FORUM_CATEGORIES:
+        cat = (await session.execute(
+            select(ForumCategory).where(
+                and_(ForumCategory.name == cdef["name"], ForumCategory.university_id == university_id)
+            )
+        )).scalar_one_or_none()
+        if not cat:
+            cat = ForumCategory(
+                id=_uid(), name=cdef["name"],
+                description=cdef["description"],
+                icon=cdef["icon"], order_index=cdef["order_index"], is_active=True,
+                university_id=university_id, created_at=_now(),
+            )
+            session.add(cat)
+            await session.flush()
+            print(f"[OK] ForumCategory: {cdef['name']} ({university_id})")
+        cat_map[cdef["name"]] = cat.id
+    return cat_map
 
 
 # ─────────────────────────────────────────────────────────────
@@ -727,7 +743,7 @@ async def seed_content() -> None:
             short = uni_info["short"]
             # Use the same deterministic dept resolution as seed_users()
             dept1, dept2 = await _resolve_depts(session, uni.id, short)
-            forum_cat_id = await _ensure_forum_category(session, uni.id)
+            forum_cat_map = await _ensure_forum_categories(session, uni.id)
 
             print(f"\n── İçerik: {uni.name} ──")
 
@@ -771,7 +787,7 @@ async def seed_content() -> None:
                         content=content,
                         author_id=user.id,
                         university_id=uni.id,
-                        category_id=forum_cat_id,
+                        category_id=forum_cat_map.get("Kampüs Yaşamı"),
                         topic_type="text",
                         tags=[short, role_key],
                         is_pinned=False,
