@@ -89,6 +89,7 @@ interface CareerListing {
   payment_type?: string;
   status: 'active' | 'archived' | 'deleted';
   view_count: number;
+  application_count: number;
   created_at: string;
   updated_at: string;
   posted_by?: string;
@@ -132,14 +133,14 @@ const TYPE_CONFIG: Record<ListingType, {
 const SECTORS = ['Yazılım', 'Mühendislik', 'Tasarım', 'Pazarlama', 'Veri Bilimi', 'Diğer'];
 const LOCATIONS = ['Remote', 'Ankara', 'İstanbul', 'İzmir', 'Konya', 'Diğer'];
 const PAYMENT_TYPES = [
-  { value: 'paid', label: 'Üretli' },
+  { value: 'paid', label: 'Ücretli' },
   { value: 'unpaid', label: 'Ücretsiz' },
   { value: 'project_based', label: 'Proje Bazlı' },
   { value: 'equity', label: 'Hisse Ortaklığı' },
   { value: 'learning', label: 'Öğrenme Amaçlı' },
 ];
 const PAYMENT_LABELS: Record<string, string> = {
-  paid: 'Üretli', unpaid: 'Ücretsiz', project_based: 'Proje Bazlı', equity: 'Hisse Ortaklığı', learning: 'Öğrenme Amaçlı',
+  paid: 'Ücretli', unpaid: 'Ücretsiz', project_based: 'Proje Bazlı', equity: 'Hisse Ortaklığı', learning: 'Öğrenme Amaçlı',
 };
 const DURATION_LABELS: Record<string, string> = {
   short_term: 'Kısa Vadeli (1-3 ay)', long_term: 'Uzun Vadeli (3+ ay)',
@@ -150,7 +151,7 @@ const DURATION_LABELS: Record<string, string> = {
 function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (diff < 60) return 'Az önce';
-  if (diff < 3600) return `${Math.floor(diff / 60)} dakönce`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} dakika önce`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`;
   if (diff < 604800) return `${Math.floor(diff / 86400)} gün önce`;
   if (diff < 2592000) return `${Math.floor(diff / 604800)} hafta önce`;
@@ -297,9 +298,22 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void; onApp
                 {listing.creator?.username || creatorName} · {listing.creator?.university || 'Kampüs'}
               </span>
             </Link>
-            <span className="text-xs text-slate-400">
-              {listing.view_count} başvuru · {timeAgo(listing.created_at)}
-            </span>
+            <div className="flex items-center gap-3 text-xs text-slate-400">
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {listing.application_count ?? 0} başvuru
+              </span>
+              <span className="text-slate-200">|</span>
+              <span className="flex items-center gap-1">
+                <Eye className="w-3 h-3" />
+                {listing.view_count} görüntülenme
+              </span>
+              <span className="text-slate-200">|</span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {timeAgo(listing.created_at)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -855,6 +869,20 @@ const NewListingFormView: React.FC<{
             />
             {errors.required_position && <p className="text-xs text-red-500 mt-1">⚠ {errors.required_position}</p>}
           </div>
+          {/* Startup için harici link (opsiyonel) */}
+          {form.listing_type === 'startup' && (
+            <div>
+              <label className="block text-sm font-semibold text-slate-800 mb-2">Harici Link <span className="text-slate-400 font-normal text-xs">(opsiyonel)</span></label>
+              <input
+                type="url"
+                value={form.external_link}
+                onChange={(e) => set('external_link', e.target.value)}
+                placeholder="https://..."
+                className={inputStyle(errors.external_link)}
+              />
+              {errors.external_link && <p className="text-xs text-red-500 mt-1">⚠ {errors.external_link}</p>}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-semibold text-slate-800 mb-2">Ödeme Durumu</label>
             <div className="flex flex-wrap gap-2">
@@ -913,29 +941,23 @@ const ApplyDialog: React.FC<{ listing: CareerListing; onClose: () => void }> = (
   const [error, setError] = useState<string | null>(null);
 
   const handleApply = async () => {
-    if (!message.trim()) return;
-    const creatorId = listing.creator?.id || listing.posted_by;
-    if (!creatorId) { setError('İlan sahibi bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.'); return; }
+    if (!message.trim() || message.trim().length < 5) {
+      setError('Lütfen en az 5 karakterlik bir ön yazı yazın.');
+      return;
+    }
     const userRaw = localStorage.getItem('user');
-    const me = userRaw ? (JSON.parse(userRaw) as { id?: string; user_id?: string; first_name?: string; last_name?: string }) : null;
+    const me = userRaw ? (JSON.parse(userRaw) as { id?: string; user_id?: string }) : null;
     const myId = me?.id || me?.user_id;
+    const creatorId = listing.creator?.id || listing.posted_by;
     if (myId && myId === creatorId) { setError('Kendi ilanınıza başvuramazsınız.'); return; }
-    const myName = me ? `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim() : 'Biri';
     try {
       setLoading(true);
-      const res = await apiClient.post<{ conversation_id: string; created: boolean }>(
-        '/messages/direct',
-        { receiver_id: creatorId },
+      const res = await apiClient.post<{ conversation_id: string; success: boolean }>(
+        `/career/listings/${listing.id}/apply`,
+        { message_text: message.trim() },
       );
-      const { conversation_id: convId } = res.data;
-      await apiClient.post(`/messages/conversations/${convId}/messages`, {
-        content: `💼 ${myName}, kariyer kısmındaki "${listing.title}" adlı ilanınıza başvurdu.`,
-      });
-      await apiClient.post(`/messages/conversations/${convId}/messages`, {
-        content: message.trim(),
-      });
       onClose();
-      navigate(`/dashboard/messages/${convId}`);
+      navigate(`/dashboard/messages/${res.data.conversation_id}`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(msg || 'Başvuru gönderilemedi. Lütfen tekrar deneyin.');
@@ -1035,7 +1057,17 @@ export const CareerPage: React.FC = () => {
     }
   }, [id, listings, view]);
 
-  const handleListingClick = (listing: CareerListing) => { setSelectedListing(listing); setView('detail'); };
+  const handleListingClick = async (listing: CareerListing) => {
+    try {
+      // Tekil endpoint: view_count artar + application_count güncel gelir
+      const res = await apiClient.get<CareerListing>(`/career/listings/${listing.id}`);
+      setSelectedListing(res.data);
+    } catch {
+      // Apiye ulaşılamazsa mevcut listeyi kullan
+      setSelectedListing(listing);
+    }
+    setView('detail');
+  };
   const handleDelete = async (id: string) => {
     try { await apiClient.delete(`/career/listings/${id}`); setView('list'); await loadListings(); }
     catch { alert('İlan silinemedi.'); }

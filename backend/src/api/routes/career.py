@@ -48,6 +48,7 @@ class CareerListingResponse(BaseModel):
     payment_type: Optional[str] = None
     status: str
     view_count: int
+    application_count: int = 0
     created_at: datetime
     updated_at: datetime
     creator: Optional[CreatorInfo] = None
@@ -142,6 +143,7 @@ def _listing_to_response(listing: CareerListing, user: Optional[User] = None) ->
         payment_type=listing.payment_type,
         status=listing.status,
         view_count=listing.view_count,
+        application_count=listing.application_count or 0,
         created_at=listing.created_at,
         updated_at=listing.updated_at,
         creator=creator,
@@ -223,6 +225,38 @@ async def get_listings(
     rows = result.all()
 
     return [_listing_to_response(listing, user) for listing, user in rows]
+
+
+@router.get("/listings/{listing_id}", response_model=CareerListingResponse)
+async def get_listing(
+    listing_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Tekil ilan detayını döndürür ve view_count'u artırır."""
+    stmt = (
+        select(CareerListing, User)
+        .outerjoin(User, CareerListing.posted_by == User.id)
+        .where(CareerListing.id == listing_id)
+        .where(CareerListing.status == "active")
+    )
+    result = await session.execute(stmt)
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+
+    listing, user = row
+
+    # Kendi ilanını görüntüleyen kişi sayılmasın
+    if listing.posted_by != current_user.id:
+        listing.view_count = (listing.view_count or 0) + 1
+        try:
+            await session.commit()
+            await session.refresh(listing)
+        except Exception:
+            await session.rollback()
+
+    return _listing_to_response(listing, user)
 
 
 @router.post("/listings", response_model=CareerListingResponse, status_code=status.HTTP_201_CREATED)
