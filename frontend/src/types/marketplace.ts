@@ -49,7 +49,8 @@ export interface MarketplaceListing {
   seller_id: string;
   seller_name?: string;
   image_urls?: string[] | string | null;
-  created_at?: string;
   status?: string;
+  view_count?: number;
+  message_count?: number;
   creator?: MarketplaceCreator | null;
 }

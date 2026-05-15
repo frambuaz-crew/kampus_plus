@@ -35,17 +35,26 @@ function getFirstImageUrl(imageUrls: string[] | string | null | undefined): stri
 
 function timeAgo(dateStr: string | undefined): string {
   if (!dateStr) return '';
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  const utcDateStr = dateStr.endsWith('Z') ? dateStr : `${dateStr}Z`;
+  const diff = Math.floor((Date.now() - new Date(utcDateStr).getTime()) / 1000);
   if (diff < 60) return 'Az önce';
   if (diff < 3600) return `${Math.floor(diff / 60)} dak önce`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`;
   return `${Math.floor(diff / 86400)} gün önce`;
 }
 
+export const CONDITION_LABELS: Record<string, string> = {
+  new: 'Sıfır',
+  like_new: 'Yeni Gibi',
+  good: 'İyi',
+  fair: 'Orta',
+};
+
 const conditionColors: Record<string, string> = {
-  'Sıfır': 'bg-green-100 text-green-700',
-  'Az Kullanılmış': 'bg-sky-100 text-sky-700',
-  'Kullanılmış': 'bg-amber-100 text-amber-700',
+  'new': 'bg-green-100 text-green-700',
+  'like_new': 'bg-sky-100 text-sky-700',
+  'good': 'bg-amber-100 text-amber-700',
+  'fair': 'bg-orange-100 text-orange-700',
 };
 
 const categoryColors: Record<string, string> = {
@@ -146,11 +155,14 @@ export const MarketplacePage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!id || listings.length === 0) return;
-    const found = listings.find((listing) => listing.id === id);
-    if (found) {
-      setSelectedListing(found);
+    if (!id) {
+      setView('list');
+      setSelectedListing(null);
+      return;
+    }
+    if (listings.length > 0) {
       setView('detail');
+      setSelectedListing(prev => (prev?.id === id ? prev : listings.find(l => l.id === id) || null));
     }
   }, [id, listings]);
 
@@ -180,8 +192,13 @@ export const MarketplacePage: React.FC = () => {
     }
   };
 
-  const handleListingClick = (listing: MarketplaceListing) => {
-    setSelectedListing(listing);
+  const handleListingClick = async (listing: MarketplaceListing) => {
+    try {
+      const res = await apiClient.get<MarketplaceListing>(`/marketplace/${listing.id}`);
+      setSelectedListing(res.data);
+    } catch {
+      setSelectedListing(listing);
+    }
     setView('detail');
     navigate(`/dashboard/marketplace/${listing.id}`, { state: location.state });
   };
@@ -190,11 +207,9 @@ export const MarketplacePage: React.FC = () => {
     const state = (location.state as BackState | null) || null;
     if (state?.from) {
       navigate(state.from, { state: state.tab ? { tab: state.tab } : undefined });
-      return;
+    } else {
+      navigate('/dashboard/marketplace');
     }
-    setView('list');
-    setSelectedListing(null);
-    if (id) navigate('/dashboard/marketplace', { replace: true });
   };
 
   const filteredListings = listings.filter((listing) => {
@@ -212,17 +227,6 @@ export const MarketplacePage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            {view === 'detail' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={goBackFromDetail}
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Geri
-              </Button>
-            )}
             <div>
               <h1 className="text-xl font-bold flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-[#0ea5e9]" />
@@ -403,7 +407,7 @@ export const MarketplacePage: React.FC = () => {
                           )}
                           {listing.condition && (
                             <Badge className={`text-xs border-0 font-medium ${conditionColors[listing.condition] || 'bg-slate-100 text-slate-600'}`}>
-                              {listing.condition}
+                              {CONDITION_LABELS[listing.condition] || listing.condition}
                             </Badge>
                           )}
                         </div>
@@ -477,24 +481,16 @@ const ContactDialog: React.FC<{
 
   const handleSend = async () => {
     if (!message.trim() || !listing) return;
-    const sellerId = listing.creator?.id ?? listing.seller_id;
-    if (!sellerId) { onError('Satıcı bilgisi bulunamadı.'); return; }
     try {
       setLoading(true);
-      const res = await apiClient.post<{ conversation_id: string; created: boolean }>(
-        '/messages/direct',
-        { receiver_id: sellerId },
+      const res = await apiClient.post<{ conversation_id: string; success: boolean }>(
+        `/marketplace/${listing.id}/contact`,
+        { message_text: message.trim() },
       );
-      const { conversation_id: convId } = res.data;
-      await apiClient.post(`/messages/conversations/${convId}/messages`, {
-        content: `📦 ${myName}, pazar kısmındaki "${listing.title}" adlı ilanınıza mesaj gönderdi.`,
-      });
-      await apiClient.post(`/messages/conversations/${convId}/messages`, {
-        content: message.trim(),
-      });
-      onSent(convId);
-    } catch {
-      onError('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+      onSent(res.data.conversation_id);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      onError(msg || 'Mesaj gönderilemedi. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
     }

@@ -23,7 +23,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, or_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -117,6 +117,7 @@ def _build_listing_response(listing: MarketplaceListing) -> dict:
         "condition": listing.condition,
         "status": listing.status,
         "view_count": listing.view_count,
+        "message_count": listing.message_count,
         "image_urls": listing.image_urls,
         "created_at": listing.created_at,
         "seller_id": listing.seller_id,
@@ -272,6 +273,36 @@ async def create_listing(
     return _build_listing_response(loaded)
 
 
+@router.get("/{listing_id}", response_model=ListingResponse)
+async def get_listing(
+    listing_id: str,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Tekil ilan detayını döndürür ve view_count'u artırır."""
+    stmt = (
+        select(MarketplaceListing)
+        .where(MarketplaceListing.id == listing_id)
+        .where(MarketplaceListing.status == "active")
+        .options(*_LISTING_OPTIONS)
+    )
+    result = await session.execute(stmt)
+    listing = result.scalar_one_or_none()
+    
+    if not listing:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+
+    if listing.seller_id != current_user.id:
+        listing.view_count = (listing.view_count or 0) + 1
+        try:
+            await session.commit()
+            await session.refresh(listing)
+        except Exception:
+            await session.rollback()
+
+    return _build_listing_response(listing)
+
+
 @router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_listing(
     listing_id: str,
@@ -296,6 +327,91 @@ async def delete_listing(
     except Exception:
         await session.rollback()
         raise HTTPException(status_code=500, detail="İlan silinirken bir hata oluştu.")
+
+
+class ContactRequest(BaseModel):
+    message_text: str
+
+@router.post("/{listing_id}/contact", status_code=status.HTTP_201_CREATED)
+async def contact_seller(
+    listing_id: str,
+    body: ContactRequest,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    """Satıcıya mesaj gönderir ve message_count'u artırır."""
+    if not body.message_text or len(body.message_text.strip()) < 5:
+        raise HTTPException(status_code=422, detail="Mesaj en az 5 karakter olmalıdır.")
+
+    stmt = select(MarketplaceListing).where(
+        MarketplaceListing.id == listing_id,
+        MarketplaceListing.status == "active"
+    )
+    result = await session.execute(stmt)
+    listing = result.scalar_one_or_none()
+
+    if not listing:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+
+    if listing.seller_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Kendi ilanınıza mesaj gönderemezsiniz.")
+
+    seller_id = listing.seller_id
+    from src.models.messages import Conversation
+    from src.models.marketplace import MarketplaceMessage
+
+    conv_stmt = select(Conversation).where(
+        Conversation.type == "marketplace",
+        Conversation.reference_id == listing_id,
+        or_(
+            (Conversation.user1_id == current_user.id) & (Conversation.user2_id == seller_id),
+            (Conversation.user1_id == seller_id) & (Conversation.user2_id == current_user.id),
+        ),
+    )
+    conv_result = await session.execute(conv_stmt)
+    conversation = conv_result.scalar_one_or_none()
+    now = datetime.utcnow()
+
+    if not conversation:
+        conversation = Conversation(
+            id=str(uuid.uuid4()),
+            type="marketplace",
+            reference_id=listing_id,
+            user1_id=current_user.id,
+            user2_id=seller_id,
+            user1_unread_count=0,
+            user2_unread_count=1,
+            last_message_at=now,
+        )
+        session.add(conversation)
+        await session.flush()
+    else:
+        if conversation.user1_id == current_user.id:
+            conversation.user2_unread_count = (conversation.user2_unread_count or 0) + 1
+        else:
+            conversation.user1_unread_count = (conversation.user1_unread_count or 0) + 1
+        conversation.last_message_at = now
+
+    msg = MarketplaceMessage(
+        id=str(uuid.uuid4()),
+        conversation_id=conversation.id,
+        sender_id=current_user.id,
+        receiver_id=seller_id,
+        listing_id=listing_id,
+        content=body.message_text.strip(),
+        is_read=False,
+    )
+    session.add(msg)
+
+    listing.message_count = (listing.message_count or 0) + 1
+
+    try:
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Mesaj gönderilemedi.")
+
+    return {"conversation_id": conversation.id, "success": True}
 
 
 # ============================================================================

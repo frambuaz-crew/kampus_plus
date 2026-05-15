@@ -51,7 +51,8 @@ const eventTypeLabels: Record<string, string> = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function timeAgo(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  const utcDateStr = dateStr.endsWith('Z') ? dateStr : `${dateStr}Z`;
+  const diff = Math.floor((Date.now() - new Date(utcDateStr).getTime()) / 1000);
   if (diff < 60) return 'Az önce';
   if (diff < 3600) return `${Math.floor(diff / 60)} dak önce`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`;

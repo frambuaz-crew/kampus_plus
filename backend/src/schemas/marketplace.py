@@ -81,6 +81,7 @@ class MarketplaceListingResponse(BaseModel):
     condition: str
     status: str
     view_count: int
+    message_count: int = 0
     image_urls: Optional[str] = None
     created_at: datetime
     seller_id: str

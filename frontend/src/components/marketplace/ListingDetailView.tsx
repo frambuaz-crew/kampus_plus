@@ -17,10 +17,18 @@ interface ListingDetailViewProps {
   onToggleFavorite?: (e: React.MouseEvent) => void;
 }
 
+export const CONDITION_LABELS: Record<string, string> = {
+  new: 'Sıfır',
+  like_new: 'Yeni Gibi',
+  good: 'İyi',
+  fair: 'Orta',
+};
+
 const conditionColors: Record<string, string> = {
-  'Sıfır': 'bg-green-100 text-green-700',
-  'Az Kullanılmış': 'bg-sky-100 text-sky-700',
-  'Kullanılmış': 'bg-amber-100 text-amber-700',
+  'new': 'bg-green-100 text-green-700',
+  'like_new': 'bg-sky-100 text-sky-700',
+  'good': 'bg-amber-100 text-amber-700',
+  'fair': 'bg-orange-100 text-orange-700',
 };
 
 const categoryColors: Record<string, string> = {
@@ -71,7 +79,7 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
   const sellerInitial = sellerName[0]?.toUpperCase() || 'U';
 
   const timeAgo = listing.created_at
-    ? formatDistanceToNow(new Date(listing.created_at), { addSuffix: true, locale: tr })
+    ? formatDistanceToNow(new Date(listing.created_at.endsWith('Z') ? listing.created_at : `${listing.created_at}Z`), { addSuffix: true, locale: tr })
     : '';
 
   return (
@@ -138,6 +146,10 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
                 Geri Dön
               </button>
               <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">
+                  👁️ {listing.view_count || 0} görüntülenme
+                </span>
+                <span className="text-slate-200">|</span>
                 <span className="text-xs text-slate-400">{timeAgo}</span>
                 {onToggleFavorite && (
                   <button
@@ -167,7 +179,7 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
               )}
               {listing.condition && (
                 <Badge className={`text-xs border-0 font-medium ${conditionColors[listing.condition] || 'bg-slate-100 text-slate-600'}`}>
-                  {listing.condition}
+                  {CONDITION_LABELS[listing.condition] || listing.condition}
                 </Badge>
               )}
             </div>
@@ -198,7 +210,9 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
                   Ürün Durumu
                 </p>
-                <p className="text-sm font-semibold text-slate-700">{listing.condition || 'Belirtilmemiş'}</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {listing.condition ? CONDITION_LABELS[listing.condition] || listing.condition : 'Belirtilmemiş'}
+                </p>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-center gap-1">
