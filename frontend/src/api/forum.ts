@@ -11,6 +11,7 @@ import type {
   ForumCategory,
   CreateCategoryPayload,
   UpdateCategoryPayload,
+  ForumStats,
 } from '../types/forum';
 
 export const getForumTopics = async (params?: {
@@ -171,5 +172,10 @@ export const updateForumCategory = async (
 
 export const deleteForumCategory = async (id: string): Promise<{ success: boolean }> => {
   const response = await apiClient.delete<{ success: boolean }>(`/forum/admin/categories/${id}`);
+  return response.data;
+};
+
+export const getForumStats = async (): Promise<ForumStats> => {
+  const response = await apiClient.get<ForumStats>('/forum/stats');
   return response.data;
 };

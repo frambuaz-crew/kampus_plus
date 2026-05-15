@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { MessageSquare, Trash2, Heart, CornerDownRight } from 'lucide-react';
+import { MessageSquare, Trash2, Heart, CornerDownRight, Edit3, Flag, X, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { ReplyForm } from './ReplyForm';
 import { PostCard } from './PostCard';
 import type { ForumReply, ThreadWithReplies } from '../../types/forum';
-import { markReplyHelpful } from '../../api/forum';
+import { markReplyHelpful, deleteForumReply, updateForumReply, reportForumReply } from '../../api/forum';
 import { Link } from 'react-router-dom';
 import { parseUtcDate } from '../../utils/dateUtils';
+import { useAuth } from '../../hooks/useAuth';
 import { API_BASE_URL } from '../../api/config';
 
 const assetBaseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
@@ -15,6 +16,7 @@ const assetBaseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
 interface ThreadViewProps {
   data: ThreadWithReplies;
   onReplySubmit: (data: { content: string; parent_id?: string }) => Promise<void>;
+  onRefresh: () => void;
   isSubmitting?: boolean;
   autoOpenReply?: boolean;
 }
@@ -22,11 +24,25 @@ interface ThreadViewProps {
 const ReplyCard: React.FC<{
   reply: ForumReply;
   onReply: (id: string) => void;
+  onRefresh: () => void;
   childrenReplies?: React.ReactNode;
-}> = ({ reply, onReply, childrenReplies }) => {
+}> = ({ reply, onReply, onRefresh, childrenReplies }) => {
+  const { user } = useAuth();
   const [helpfulCount, setHelpfulCount] = useState(reply.helpful_count);
   const [isLiked, setIsLiked] = useState(reply.is_liked_by_me || false);
   const [liking, setLiking] = useState(false);
+
+  // Düzenleme state'leri
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(reply.content);
+  const [saving, setSaving] = useState(false);
+
+  // Rapor state'leri
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reporting, setReporting] = useState(false);
+
+  const isOwner = user?.id === reply.author?.id;
 
   const authorInitials = reply.author?.first_name
     ? reply.author.first_name[0] + (reply.author.last_name?.[0] || '')
@@ -47,6 +63,45 @@ const ReplyCard: React.FC<{
       // ignore
     } finally {
       setLiking(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Bu yorumu silmek istediğinize emin misiniz?')) return;
+    try {
+      await deleteForumReply(reply.id);
+      onRefresh();
+    } catch {
+      alert('Yorum silinemedi.');
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!editContent.trim()) return;
+    try {
+      setSaving(true);
+      await updateForumReply(reply.id, { content: editContent });
+      setIsEditing(false);
+      onRefresh();
+    } catch {
+      alert('Düzenleme kaydedilemedi.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReport = async () => {
+    if (!reportReason.trim() || reportReason.trim().length < 5) return;
+    try {
+      setReporting(true);
+      await reportForumReply(reply.id, reportReason.trim());
+      setShowReportModal(false);
+      setReportReason('');
+      alert('Rapor gönderildi. Teşekkürler!');
+    } catch {
+      alert('Rapor gönderilemedi.');
+    } finally {
+      setReporting(false);
     }
   };
 
@@ -90,18 +145,49 @@ const ReplyCard: React.FC<{
             <span className="text-xs text-slate-400">• {timeAgo}</span>
           </div>
 
-          <div className="mb-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-            {reply.content}
-          </div>
+          {isEditing ? (
+            <div className="mb-2 mt-1">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px]"
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={handleEditSave}
+                  disabled={saving}
+                  className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-indigo-700 transition-colors"
+                >
+                  {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditContent(reply.content);
+                  }}
+                  className="px-4 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+                >
+                  İptal
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+              {reply.content}
+            </div>
+          )}
 
           <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
             <button
               type="button"
-              className={`flex items-center gap-1.5 transition-colors disabled:opacity-50 ${isLiked ? 'text-rose-600' : 'text-slate-500 hover:text-rose-600'}`}
+              className={`flex items-center gap-1.5 transition-colors disabled:opacity-50 ${
+                isLiked ? 'text-rose-600' : 'text-slate-500 hover:text-rose-600'
+              }`}
               onClick={handleLike}
               disabled={liking}
             >
-              <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /> Beğen {helpfulCount > 0 && `(${helpfulCount})`}
+              <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} /> Beğen{' '}
+              {helpfulCount > 0 && `(${helpfulCount})`}
             </button>
             <button
               type="button"
@@ -110,9 +196,74 @@ const ReplyCard: React.FC<{
             >
               <MessageSquare size={14} /> Yanıtla
             </button>
+
+            {isOwner ? (
+              <>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 text-slate-500 transition-colors hover:text-indigo-700"
+                >
+                  <Edit3 size={14} /> Düzenle
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="flex items-center gap-1.5 text-slate-500 transition-colors hover:text-red-600"
+                >
+                  <Trash2 size={14} /> Sil
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="flex items-center gap-1.5 text-slate-500 transition-colors hover:text-orange-600"
+              >
+                <Flag size={14} /> Rapor Et
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Rapor Modal */}
+      {showReportModal && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowReportModal(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+              <Flag size={20} className="text-orange-500" /> Yorumu Rapor Et
+            </h3>
+            <textarea
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="Şikayet sebebinizi yazın (en az 5 karakter)..."
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl min-h-[120px] resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm mb-4"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleReport}
+                disabled={reporting || reportReason.trim().length < 5}
+                className="px-5 py-2 text-sm font-semibold bg-orange-500 text-white rounded-xl hover:bg-orange-600 disabled:opacity-50 transition-all shadow-sm shadow-orange-200"
+              >
+                {reporting ? 'Gönderiliyor...' : 'Rapor Gönder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {childrenReplies && (
         <div className="ml-12 mt-3 border-l-2 border-slate-100 pl-4">
@@ -123,7 +274,13 @@ const ReplyCard: React.FC<{
   );
 };
 
-export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isSubmitting, autoOpenReply }) => {
+export const ThreadView: React.FC<ThreadViewProps> = ({
+  data,
+  onReplySubmit,
+  onRefresh,
+  isSubmitting,
+  autoOpenReply,
+}) => {
   const [activeReplyId, setActiveReplyId] = useState<string | null>(autoOpenReply ? 'top' : null);
   const { thread, replies } = data;
 
@@ -173,9 +330,8 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ data, onReplySubmit, isS
         <ReplyCard
           reply={reply}
           onReply={handleReplyClick}
-          childrenReplies={
-            replyTree.childrenMap.has(reply.id) ? renderReplies(reply.id) : null
-          }
+          onRefresh={onRefresh}
+          childrenReplies={replyTree.childrenMap.has(reply.id) ? renderReplies(reply.id) : null}
         />
         {activeReplyId === reply.id && (
           <div className="mb-6 ml-14 animate-in fade-in slide-in-from-top-2 duration-300">

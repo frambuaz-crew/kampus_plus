@@ -179,7 +179,11 @@ class ReportResponse(BaseModel):
     reply_content: Optional[str] = None
     reporter_name: Optional[str] = None
 
-    model_config = {"from_attributes": True}
+class ForumStatsResponse(BaseModel):
+    """Forum genel istatistikleri."""
+    total_users: int
+    total_topics: int
+    total_replies: int
 
 
 # ============================================================================
@@ -234,6 +238,47 @@ async def get_categories(
         })
 
     return {"categories": categories_with_counts}
+
+
+@router.get("/stats", response_model=ForumStatsResponse)
+async def get_forum_stats(
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ForumStatsResponse:
+    """Forum genel istatistiklerini getir (Kullanıcının üniversitesine özel)."""
+    # Toplam kayıtlı kullanıcı sayısı (Üniversite bazlı)
+    total_users_query = select(func.count(User.id)).where(
+        User.university_id == current_user.university_id
+    )
+    total_users = (await session.execute(total_users_query)).scalar() or 0
+
+    # Toplam konu sayısı
+    total_topics_query = select(func.count(ForumTopic.id)).where(
+        and_(
+            ForumTopic.university_id == current_user.university_id,
+            ForumTopic.is_deleted == False
+        )
+    )
+    total_topics = (await session.execute(total_topics_query)).scalar() or 0
+
+    # Toplam cevap sayısı
+    total_replies_query = (
+        select(func.count(ForumReply.id))
+        .join(ForumTopic, ForumTopic.id == ForumReply.topic_id)
+        .where(
+            and_(
+                ForumTopic.university_id == current_user.university_id,
+                ForumReply.is_deleted == False
+            )
+        )
+    )
+    total_replies = (await session.execute(total_replies_query)).scalar() or 0
+
+    return ForumStatsResponse(
+        total_users=total_users,
+        total_topics=total_topics,
+        total_replies=total_replies
+    )
 
 
 @router.get("/topics", response_model=dict)
@@ -495,6 +540,11 @@ async def create_topic(
                 detail={"error": {"code": "NOT_FOUND", "message": "Kategori bulunamadı"}}
             )
 
+    # Zaman dilimi çakışmasını önlemek için event_date'i naive (zaman dilimsiz) hale getir
+    event_date = data.event_date
+    if event_date and event_date.tzinfo:
+        event_date = event_date.replace(tzinfo=None)
+
     topic = ForumTopic(
         id=str(uuid4()),
         category_id=data.category_id,
@@ -505,7 +555,7 @@ async def create_topic(
         topic_type=data.topic_type,
         tags=data.tags,
         image_urls=data.image_urls,
-        event_date=data.event_date,
+        event_date=event_date,
         is_pinned=False,
         is_deleted=False,
         view_count=0,

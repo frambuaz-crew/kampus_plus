@@ -166,11 +166,10 @@ export const PostCard: React.FC<PostCardProps> = ({
 
     return (
         <div
-            className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow ${
-                interactive && !isEditing
+            className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow ${interactive && !isEditing
                     ? 'cursor-pointer hover:border-indigo-200 hover:shadow-md'
                     : 'cursor-default'
-            }`}
+                }`}
             onClick={() => {
                 if (!isEditing && interactive) onClick(post.id);
             }}

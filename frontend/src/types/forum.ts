@@ -141,3 +141,9 @@ export interface ThreadWithReplies {
   thread: ForumTopic;
   replies: ForumReply[];
 }
+
+export interface ForumStats {
+  total_users: number;
+  total_topics: number;
+  total_replies: number;
+}

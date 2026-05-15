@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ChevronRight, Home, Loader2, MessageSquare, PenLine } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Calendar, ChevronRight, Home, ImagePlus, Loader2, MessageSquare, PenLine } from 'lucide-react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { ThreadList } from '../components/forum/ThreadList';
 import { ThreadView } from '../components/forum/ThreadView';
@@ -66,7 +66,15 @@ export const ForumPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (id && !currentThread) {
+    if (!id) {
+      if (view === 'thread-detail' || currentThread) {
+        setView('feed');
+        setCurrentThread(null);
+      }
+      return;
+    }
+
+    if (!currentThread || currentThread.thread.id !== id) {
       const loadFromRoute = async () => {
         try {
           setLoading(true);
@@ -84,7 +92,7 @@ export const ForumPage: React.FC = () => {
 
       void loadFromRoute();
     }
-  }, [id, currentThread]);
+  }, [id, currentThread?.thread?.id, view]);
 
   const loadTopicsByType = async (type: 'text' | 'event') => {
     try {
@@ -257,47 +265,49 @@ export const ForumPage: React.FC = () => {
                         setView('new-thread');
                       }
                     }}
-                    className="group mb-6 cursor-pointer overflow-hidden border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/5 transition-all hover:border-indigo-200 hover:shadow-md hover:ring-indigo-500/10"
+                    className="group mb-8 cursor-pointer overflow-hidden border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/5 transition-all hover:border-indigo-300 hover:shadow-md hover:ring-indigo-500/10"
                   >
-                    <div className="h-0.5 w-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500 opacity-90" />
-                    <div className="p-4 sm:p-5">
+                    <div className="p-5">
                       <div className="flex gap-4">
-                        <Avatar className="h-11 w-11 shrink-0 ring-2 ring-slate-100">
+                        <Avatar className="h-12 w-12 shrink-0 border-2 border-indigo-50 shadow-sm">
                           {getImageUrl(user?.profile_picture_url) ? (
                             <AvatarImage src={getImageUrl(user?.profile_picture_url)!} alt="" className="object-cover" />
                           ) : null}
-                          <AvatarFallback className="bg-indigo-600 text-sm font-semibold text-white">
+                          <AvatarFallback className="bg-indigo-600 text-sm font-bold text-white">
                             {user?.first_name?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || 'U'}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="min-w-0 flex-1 space-y-3">
-                          <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                              Yeni içerik
-                            </p>
-                            <p className="mt-0.5 text-sm font-medium text-slate-800">Gönderi veya etkinlik oluştur</p>
-                          </div>
-                          <div className="rounded-lg border border-slate-200 bg-slate-50/90 px-3.5 py-2.5 transition-colors group-hover:border-slate-300 group-hover:bg-white">
-                            <p className="text-sm text-slate-500">
-                              Sorunuzu, duyurunuzu veya etkinlik bilgilerinizi paylaşmak için düzenleyiciyi açın.
+                        
+                        <div className="flex-1 min-w-0">
+                          {/* Social-style Input Area */}
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 px-5 py-3 text-slate-500 transition-all group-hover:border-indigo-200 group-hover:bg-indigo-50/30 group-hover:text-indigo-600/80">
+                            <p className="text-sm font-medium">
+                              Neler oluyor, {user?.first_name}? Bir tartışma başlat veya etkinlik duyur...
                             </p>
                           </div>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-xs leading-relaxed text-slate-400">
-                              Paylaşımlar topluluk kurallarına tabidir; net başlık ve açıklayıcı içerik önerilir.
-                            </p>
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="shrink-0 bg-indigo-600 hover:bg-indigo-700"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setView('new-thread');
-                              }}
-                            >
-                              <PenLine className="mr-2 h-4 w-4" aria-hidden />
-                              Düzenleyiciyi aç
-                            </Button>
+                          
+                          {/* Quick Action Buttons */}
+                          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-50 pt-3">
+                            <div className="flex items-center gap-2 text-slate-500 transition-colors group-hover:text-indigo-600">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shadow-sm transition-transform group-hover:scale-110">
+                                <MessageSquare size={16} />
+                              </div>
+                              <span className="text-xs font-bold uppercase tracking-wider">Tartışma</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 text-slate-500 transition-colors hover:text-violet-600">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 shadow-sm transition-transform hover:scale-110">
+                                <Calendar size={16} />
+                              </div>
+                              <span className="text-xs font-bold uppercase tracking-wider">Etkinlik</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 text-slate-500 transition-colors hover:text-emerald-600">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 shadow-sm transition-transform hover:scale-110">
+                                <ImagePlus size={16} />
+                              </div>
+                              <span className="text-xs font-bold uppercase tracking-wider">Fotoğraf</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -376,6 +386,14 @@ export const ForumPage: React.FC = () => {
                   <ThreadView
                     data={currentThread}
                     onReplySubmit={handleReplySubmit}
+                    onRefresh={async () => {
+                      if (id) {
+                        try {
+                          const res = await getForumTopicDetail(id);
+                          setCurrentThread({ thread: res.topic, replies: res.replies });
+                        } catch {}
+                      }
+                    }}
                     isSubmitting={isSubmitting}
                     autoOpenReply={autoOpenReply}
                   />
