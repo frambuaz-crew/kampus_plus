@@ -53,7 +53,7 @@ class ConsoleFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        zaman = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%H:%M:%S")
+        zaman = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
         seviye = record.levelname.ljust(8)
         renk = _LEVEL_COLORS.get(record.levelname, "")
         modul = record.name.split(".")[-1][:16].ljust(16)
@@ -79,7 +79,7 @@ class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Log kaydını JSON string'e dönüştür."""
         log_data = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created).isoformat(),
             "level": record.levelname,
             "message": record.getMessage(),
             "module": record.module,

@@ -217,6 +217,12 @@ async def create_topic(
 ) -> TopicOut:
     """Yeni ders notu başlığı oluşturur.
     university_id, isteği gönderen kullanıcının üniversitesinden otomatik alınır."""
+    if not _is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yeni not havuzu oluşturma yetkiniz yok. Sadece adminler havuz oluşturabilir.",
+        )
+
     normalized_code = course_code.strip().upper()
 
     topic = CourseNoteTopic(
@@ -439,10 +445,10 @@ async def delete_topic(
     """Havuzu ve içindeki tüm entry/attachment'ları + fiziksel dosyaları siler.
     Sadece admin ve university_admin rollerine açıktır.
     university_admin sadece kendi üniversitesinin havuzlarını silebilir."""
-    if not _is_admin(current_user):
+    if not _is_global_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bu işlem için yetkiniz yok.",
+            detail="Bu işlemi sadece süper admin yapabilir.",
         )
 
     stmt = (

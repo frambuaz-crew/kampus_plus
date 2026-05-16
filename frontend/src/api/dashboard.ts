@@ -21,6 +21,7 @@ export interface FeedItem {
 
 export interface EventItem {
   id: string;
+  university_id?: string | null;
   title: string;
   start_date: string;
   end_date?: string | null;

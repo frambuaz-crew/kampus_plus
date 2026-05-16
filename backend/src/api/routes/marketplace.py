@@ -251,8 +251,8 @@ async def create_listing(
         condition=condition,
         image_urls=json.dumps(saved_image_urls) if saved_image_urls else None,
         status="active",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     session.add(new_listing)
@@ -370,7 +370,7 @@ async def contact_seller(
     )
     conv_result = await session.execute(conv_stmt)
     conversation = conv_result.scalar_one_or_none()
-    now = datetime.utcnow()
+    now = datetime.now()
 
     if not conversation:
         conversation = Conversation(
@@ -466,7 +466,7 @@ async def create_category(
         order_index=request.order_index,
         is_active=request.is_active,
         university_id=current_user.university_id,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(),
     )
     session.add(category)
     await session.commit()

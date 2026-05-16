@@ -25,6 +25,7 @@ class FeedItem(BaseModel):
 
 class EventItem(BaseModel):
     id: str
+    university_id: Optional[str] = None
     title: str
     start_date: date
     end_date: Optional[date] = None

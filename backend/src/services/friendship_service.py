@@ -60,7 +60,7 @@ class FriendshipService:
             existing.status = "pending"
             existing.requester_id = requester_id
             existing.addressee_id = addressee_id
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = datetime.now()
             await db.commit()
             await db.refresh(existing)
             return existing
@@ -101,7 +101,7 @@ class FriendshipService:
             raise ValueError("Bu istek zaten yanıtlanmış.")
 
         friendship.status = status
-        friendship.updated_at = datetime.utcnow()
+        friendship.updated_at = datetime.now()
         await db.commit()
         await db.refresh(friendship)
         return friendship

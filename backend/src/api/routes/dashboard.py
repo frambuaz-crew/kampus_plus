@@ -104,21 +104,28 @@ async def get_student_dashboard(
         ) or 0
     )
 
-    # ── Upcoming academic calendar events (next 5, approved, future) ──────────
-    upcoming_result = await session.execute(
-        select(AcademicCalendarEvent)
-        .where(
-            AcademicCalendarEvent.is_approved == True,
-            AcademicCalendarEvent.start_date >= today,
+    # ── Upcoming academic calendar events (next 5, approved, future, matching user uni) ──
+    upcoming_query = select(AcademicCalendarEvent).where(
+        AcademicCalendarEvent.is_approved == True,
+        AcademicCalendarEvent.start_date >= today,
+    )
+    if current_user.university_id:
+        upcoming_query = upcoming_query.where(
+            or_(
+                AcademicCalendarEvent.university_id == current_user.university_id,
+                AcademicCalendarEvent.university_id == None,
+            )
         )
-        .order_by(AcademicCalendarEvent.start_date.asc())
-        .limit(5)
+
+    upcoming_result = await session.execute(
+        upcoming_query.order_by(AcademicCalendarEvent.start_date.asc()).limit(5)
     )
     upcoming_events_db = upcoming_result.scalars().all()
 
     upcoming_events: List[EventItem] = [
         EventItem(
             id=ev.id,
+            university_id=ev.university_id,
             title=ev.title,
             start_date=ev.start_date,
             end_date=ev.end_date,
@@ -127,17 +134,23 @@ async def get_student_dashboard(
         for ev in upcoming_events_db
     ]
 
-    # ── Current semester info (approved event covering today, duration ≥ 60d) ──
-    semester_candidates_result = await session.execute(
-        select(AcademicCalendarEvent)
-        .where(
-            AcademicCalendarEvent.is_approved == True,
-            AcademicCalendarEvent.start_date <= today,
-            AcademicCalendarEvent.end_date != None,
-            AcademicCalendarEvent.end_date >= today,
+    # ── Current semester info (approved event covering today, duration ≥ 60d, matching user uni) ──
+    semester_query = select(AcademicCalendarEvent).where(
+        AcademicCalendarEvent.is_approved == True,
+        AcademicCalendarEvent.start_date <= today,
+        AcademicCalendarEvent.end_date != None,
+        AcademicCalendarEvent.end_date >= today,
+    )
+    if current_user.university_id:
+        semester_query = semester_query.where(
+            or_(
+                AcademicCalendarEvent.university_id == current_user.university_id,
+                AcademicCalendarEvent.university_id == None,
+            )
         )
-        .order_by(AcademicCalendarEvent.end_date.desc())
-        .limit(5)
+
+    semester_candidates_result = await session.execute(
+        semester_query.order_by(AcademicCalendarEvent.end_date.desc()).limit(5)
     )
     semester_candidates = semester_candidates_result.scalars().all()
 

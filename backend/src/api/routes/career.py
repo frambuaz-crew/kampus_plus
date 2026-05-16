@@ -286,7 +286,7 @@ async def create_listing(
         status="active",
         view_count=0,
         application_count=0,
-        expires_at=datetime.utcnow() + timedelta(days=90),
+        expires_at=datetime.now() + timedelta(days=90),
     )
 
     session.add(new_listing)
@@ -406,7 +406,7 @@ async def apply_to_listing(
     conv_result = await session.execute(conv_stmt)
     conversation = conv_result.scalar_one_or_none()
 
-    now = datetime.utcnow()
+    now = datetime.now()
 
     if not conversation:
         conversation = Conversation(

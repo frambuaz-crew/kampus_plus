@@ -24,7 +24,23 @@ import {
 import {
   CascadingInstitutionSelect,
 } from '../components/institution/CascadingInstitutionSelect';
-import { Plus, Trash2, X } from 'lucide-react';
+import { 
+  Plus, 
+  Trash2, 
+  X, 
+  ChevronDown, 
+  ChevronUp, 
+  Sparkles, 
+  Settings2, 
+  Layout, 
+  List, 
+  Info,
+  Calendar as CalendarIcon,
+  Search,
+  Clock,
+  MapPin,
+  User as UserIcon
+} from 'lucide-react';
 
 // ============================================================================
 // CONSTANTS
@@ -94,6 +110,15 @@ function getCurrentAcademicTerm(): { semester: 'guz' | 'bahar'; year: string } {
   return { semester: 'guz', year: `${year}-${year + 1}` };
 }
 
+/**
+ * Normalizes grade value from "3. Sınıf" or "3" to "3"
+ */
+function normalizeGrade(grade: string | null | undefined): string {
+  if (!grade) return '';
+  const match = grade.match(/\d+/);
+  return match ? match[0] : '';
+}
+
 function buildAcademicYears(): string[] {
   const base = getCurrentAcademicTerm().year;
   const [startStr] = base.split('-');
@@ -113,40 +138,78 @@ interface CourseDetailModalProps {
 }
 
 const CourseDetailModal: React.FC<CourseDetailModalProps> = ({ course, onClose }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-      <div className="flex items-start justify-between mb-4">
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-fade-in">
+    <div className="glass-card rounded-[2.5rem] w-full max-w-md overflow-hidden animate-slide-up">
+      <div className="px-8 py-6 border-b border-white/20 bg-white/30 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: course.color || '#6366f1' }} />
+          <div 
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/10" 
+            style={{ backgroundColor: course.color || '#6366f1' }}
+          >
+            <CalendarIcon className="w-5 h-5 text-white" />
+          </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-900">{course.name}</h3>
-            {course.code && <p className="text-sm text-gray-500">{course.code}</p>}
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">{course.name}</h3>
+            {course.code && <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{course.code}</p>}
           </div>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        <button 
+          onClick={onClose} 
+          className="w-8 h-8 rounded-full bg-slate-100/50 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-all"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
-      <div className="space-y-3 text-sm">
-        {course.instructor && (
-          <div className="flex items-center gap-2 text-gray-700"><span>👨‍🏫</span><span>{course.instructor}</span></div>
-        )}
-        {course.room && (
-          <div className="flex items-center gap-2 text-gray-700"><span>📍</span><span>{course.room}</span></div>
-        )}
+      
+      <div className="p-8 space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          {course.instructor && (
+            <div className="p-4 bg-white/40 rounded-2xl border border-white/40">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Eğitmen</p>
+              <div className="flex items-center gap-2 text-slate-700">
+                <UserIcon className="w-3 h-3 text-sky-500" />
+                <span className="text-sm font-bold">{course.instructor}</span>
+              </div>
+            </div>
+          )}
+          {course.room && (
+            <div className="p-4 bg-white/40 rounded-2xl border border-white/40">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Derslik</p>
+              <div className="flex items-center gap-2 text-slate-700">
+                <MapPin className="w-3 h-3 text-indigo-500" />
+                <span className="text-sm font-bold">{course.room}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {course.slots.length > 0 && (
-          <div className="mt-4">
-            <p className="font-semibold text-gray-800 mb-2">Ders Saatleri</p>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Ders Saatleri</p>
             <div className="space-y-2">
               {course.slots.map((slot, i) => (
-                <div key={i} className="flex items-center gap-2 text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                  <span>📅</span>
-                  <span className="font-medium">{DAYS_TR[slot.day] || slot.day}</span>
-                  <span className="text-gray-400">•</span>
-                  <span>⏰ {slot.start_time} – {slot.end_time}</span>
+                <div key={i} className="flex items-center justify-between p-4 bg-white/60 rounded-2xl border border-white/60 group hover:border-sky-200 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-sky-500/10 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-sky-600" />
+                    </div>
+                    <span className="text-sm font-black text-slate-700">{DAYS_TR[slot.day] || slot.day}</span>
+                  </div>
+                  <span className="text-sm font-bold text-slate-500">{slot.start_time} – {slot.end_time}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
+      </div>
+      
+      <div className="px-8 py-4 bg-slate-50/50 border-t border-white/20 flex justify-end">
+        <button 
+          onClick={onClose}
+          className="px-6 py-2 bg-slate-900 text-white text-xs font-black rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+        >
+          Kapat
+        </button>
       </div>
     </div>
   </div>
@@ -166,26 +229,41 @@ const WeeklyGrid: React.FC<WeeklyGridProps> = ({ courses, onCourseClick }) => {
   const displayDays = activeDays.length > 0 ? activeDays : DAY_ORDER.slice(0, 5);
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[640px]">
-        <div className="grid border-b border-gray-200" style={{ gridTemplateColumns: `64px repeat(${displayDays.length}, 1fr)` }}>
+    <div className="overflow-x-auto no-scrollbar">
+      <div className="min-w-[800px] p-6">
+        <div className="grid mb-4" style={{ gridTemplateColumns: `80px repeat(${displayDays.length}, 1fr)` }}>
           <div className="py-3" />
           {displayDays.map((day) => (
-            <div key={day} className="py-3 text-center text-sm font-semibold text-gray-700">{DAYS_TR[day]}</div>
+            <div key={day} className="py-3 text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{DAYS_TR[day].substring(0, 3)}</p>
+              <p className="text-sm font-black text-slate-900">{DAYS_TR[day]}</p>
+            </div>
           ))}
         </div>
-        <div className="relative grid" style={{ gridTemplateColumns: `64px repeat(${displayDays.length}, 1fr)`, height: `${HOURS.length * 60}px` }}>
-          <div className="relative">
+        
+        <div className="relative grid rounded-3xl overflow-hidden border border-slate-200/60 bg-white/30 backdrop-blur-sm" style={{ gridTemplateColumns: `80px repeat(${displayDays.length}, 1fr)`, height: `${HOURS.length * 80}px` }}>
+          {/* Time Column */}
+          <div className="bg-slate-50/50 border-r border-slate-200/60 relative">
             {HOURS.map((hour) => (
-              <div key={hour} className="absolute w-full border-t border-gray-100 flex items-start justify-end pr-3" style={{ top: `${((hour - 8) / HOURS.length) * 100}%`, height: `${100 / HOURS.length}%` }}>
-                <span className="text-xs text-gray-400 -mt-2">{`${hour}:00`}</span>
+              <div 
+                key={hour} 
+                className="absolute w-full border-b border-slate-100/50 flex items-center justify-center" 
+                style={{ top: `${((hour - 8) / HOURS.length) * 100}%`, height: `${100 / HOURS.length}%` }}
+              >
+                <span className="text-[10px] font-black text-slate-400 tracking-tighter">{`${hour}:00`}</span>
               </div>
             ))}
           </div>
+
+          {/* Days Columns */}
           {displayDays.map((day) => (
-            <div key={day} className="relative border-l border-gray-100">
+            <div key={day} className="relative border-r border-slate-100/50 last:border-0">
               {HOURS.map((hour) => (
-                <div key={hour} className="absolute w-full border-t border-gray-100" style={{ top: `${((hour - 8) / HOURS.length) * 100}%` }} />
+                <div 
+                  key={hour} 
+                  className="absolute w-full border-b border-slate-100/50" 
+                  style={{ top: `${((hour - 8) / HOURS.length) * 100}%`, height: `${100 / HOURS.length}%` }} 
+                />
               ))}
               {courses.map((course, courseIdx) =>
                 course.slots.filter((slot) => slot.day === day).map((slot, slotIdx) => {
@@ -196,11 +274,33 @@ const WeeklyGrid: React.FC<WeeklyGridProps> = ({ courses, onCourseClick }) => {
                     <button
                       key={`${courseIdx}-${slotIdx}`}
                       onClick={() => onCourseClick(course)}
-                      className="absolute left-1 right-1 rounded-lg px-2 py-1 text-left text-white text-xs shadow-sm hover:shadow-md hover:brightness-110 transition-all overflow-hidden"
-                      style={{ top: `${top}%`, height: `${height}%`, backgroundColor: color, minHeight: '24px' }}
+                      className="absolute left-1.5 right-1.5 rounded-2xl p-3 text-left text-white shadow-xl hover:brightness-110 transition-all group animate-fade-in z-20"
+                      style={{ 
+                        top: `calc(${top}% + 4px)`, 
+                        height: `calc(${height}% - 8px)`, 
+                        backgroundColor: color,
+                        boxShadow: `0 10px 25px -5px ${color}40`
+                      }}
                     >
-                      <p className="font-semibold truncate leading-tight">{course.name}</p>
-                      {course.room && <p className="opacity-80 truncate text-[10px]">{course.room}</p>}
+                      <div className="h-full flex flex-col justify-between">
+                        <div>
+                          <p className="text-[10px] font-black opacity-60 uppercase tracking-widest mb-0.5 truncate">
+                            {course.code || 'DERS'}
+                          </p>
+                          <p className="text-xs font-black leading-tight line-clamp-2">
+                            {course.name}
+                          </p>
+                        </div>
+                        {course.room && (
+                          <div className="flex items-center gap-1 opacity-80">
+                            <MapPin className="w-2.5 h-2.5" />
+                            <span className="text-[9px] font-bold truncate">{course.room}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Hover Effect Light */}
+                      <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                     </button>
                   );
                 })
@@ -238,30 +338,69 @@ const ListView: React.FC<ListViewProps> = ({ courses, onCourseClick }) => {
   );
 
   const orderedDays = DAY_ORDER.filter((d) => byDay[d]?.length > 0);
-  if (orderedDays.length === 0) return <p className="text-gray-500 text-center py-8">Ders bulunamadı.</p>;
+  if (orderedDays.length === 0) return (
+    <div className="flex flex-col items-center py-12 text-slate-400">
+      <Info className="w-8 h-8 mb-2 opacity-20" />
+      <p className="text-sm font-bold uppercase tracking-widest">Ders bulunamadı.</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-12">
       {orderedDays.map((day) => (
-        <div key={day}>
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-            <span>📅</span> {DAYS_TR[day]}
-          </h3>
-          <div className="space-y-2">
+        <div key={day} className="animate-fade-in">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-200">
+              <CalendarIcon className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">
+                {DAYS_TR[day]}
+              </h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Haftalık Program</p>
+            </div>
+          </div>
+          <div className="grid gap-3">
             {byDay[day].map(({ course, slot, color }, i) => (
               <button
                 key={i}
                 onClick={() => onCourseClick(course)}
-                className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition-all text-left"
+                className="group relative flex items-center gap-6 bg-white/40 hover:bg-white/60 border border-white/60 rounded-[2rem] p-5 transition-all text-left overflow-hidden shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1"
               >
-                <div className="w-1 h-12 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{course.name}</p>
-                  {course.code && <p className="text-xs text-gray-400">{course.code}</p>}
+                <div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: color }} />
+                
+                <div className="w-16 h-16 rounded-2xl bg-white flex flex-col items-center justify-center border border-slate-100 flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="text-xs font-black text-slate-900">{slot.start_time.split(':')[0]}</span>
+                  <div className="w-4 h-0.5 bg-slate-200 my-1" />
+                  <span className="text-[10px] font-bold text-slate-400">{slot.end_time.split(':')[0]}</span>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-medium text-gray-700">{slot.start_time} – {slot.end_time}</p>
-                  {course.room && <p className="text-xs text-gray-400">📍 {course.room}</p>}
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                    {course.code || 'AKADEMİK DERS'}
+                  </p>
+                  <p className="text-base font-black text-slate-900 tracking-tight truncate group-hover:text-sky-600 transition-colors">
+                    {course.name}
+                  </p>
+                  {course.instructor && (
+                    <div className="flex items-center gap-1.5 mt-1 text-slate-500">
+                      <UserIcon className="w-3 h-3" />
+                      <span className="text-[10px] font-bold uppercase tracking-tight">{course.instructor}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-right flex-shrink-0 pr-2">
+                  <div className="flex items-center justify-end gap-2 text-slate-700 mb-1">
+                    <Clock className="w-3.5 h-3.5 text-sky-500" />
+                    <span className="text-sm font-black tracking-tight">{slot.start_time} – {slot.end_time}</span>
+                  </div>
+                  {course.room && (
+                    <div className="flex items-center justify-end gap-1.5 text-slate-400">
+                      <MapPin className="w-3 h-3" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">{course.room}</span>
+                    </div>
+                  )}
                 </div>
               </button>
             ))}
@@ -276,14 +415,59 @@ const ListView: React.FC<ListViewProps> = ({ courses, onCourseClick }) => {
 // EMPTY STATE
 // ============================================================================
 
-const EmptyState: React.FC<{ university: string; department: string; classYear: string; semesterLabel: string }> = ({
-  university, department, classYear, semesterLabel,
+const EmptyState: React.FC<{ 
+  university: string; 
+  department: string; 
+  classYear: string; 
+  semesterLabel: string;
+  onShowFilters: () => void;
+  onManualCreate: () => void;
+  showManualButton: boolean;
+}> = ({
+  university, department, classYear, semesterLabel, onShowFilters, onManualCreate, showManualButton
 }) => (
-  <div className="text-center py-16 px-4">
-    <div className="text-6xl mb-4">📭</div>
-    <h2 className="text-xl font-bold text-gray-800 mb-2">Henüz Veri Yok</h2>
-    <p className="text-gray-500 mb-1"><span className="font-medium">{university}</span></p>
-    <p className="text-gray-500">{department} • {classYear} • {semesterLabel}</p>
+  <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in">
+    <div className="w-24 h-24 rounded-[2rem] bg-slate-100 flex items-center justify-center mb-6 relative">
+      <Sparkles className="w-10 h-10 text-slate-300" />
+      <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
+        <Info className="w-4 h-4 text-sky-500" />
+      </div>
+    </div>
+    <h2 className="text-xl font-black text-slate-900 tracking-tight mb-2">Ders Programı Bulunamadı</h2>
+    <div className="max-w-sm mx-auto space-y-1 mb-8">
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+        {university}
+      </p>
+      <p className="text-sm font-bold text-slate-600">
+        {department} • {classYear && `${classYear}. Sınıf • `} {semesterLabel}
+      </p>
+    </div>
+    
+    <div className="flex flex-col sm:flex-row items-center gap-4">
+      <button 
+        onClick={onShowFilters}
+        className="flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl text-sm font-black hover:bg-slate-50 transition-all shadow-sm group"
+      >
+        <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
+        Filtreleri Düzenle
+      </button>
+
+      {showManualButton && (
+        <button 
+          onClick={onManualCreate}
+          className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-2xl text-sm font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 group"
+        >
+          <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+          Sıfırdan Program Oluştur
+        </button>
+      )}
+    </div>
+    
+    {showManualButton && (
+      <p className="mt-8 text-[10px] font-bold text-slate-400 max-w-xs leading-relaxed uppercase tracking-widest">
+        Resmi program henüz sisteme yüklenmemiş olabilir. Kendi programını manuel oluşturarak takip edebilirsin.
+      </p>
+    )}
   </div>
 );
 
@@ -370,96 +554,156 @@ const PersonalEditModal: React.FC<PersonalEditModalProps> = ({ initialCourses, o
     }
   };
 
-  const inputCls = 'w-full rounded-lg border border-gray-200 bg-gray-50 text-gray-900 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-colors';
+  const inputCls = 'w-full rounded-2xl border border-slate-200 bg-white/50 text-slate-900 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all placeholder:text-slate-300';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-3xl bg-white border border-gray-200 rounded-2xl shadow-2xl my-8">
+    <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-md flex items-start justify-center p-4 overflow-y-auto no-scrollbar animate-fade-in">
+      <div className="w-full max-w-3xl glass-card rounded-[3rem] border-white/40 overflow-hidden my-8 animate-slide-up shadow-2xl">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
-          <div>
-            <h2 className="text-base font-bold text-gray-900">Programımı Düzenle</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Dersleri ekleyin, düzenleyin veya silin</p>
+        <div className="px-10 py-8 border-b border-white/20 bg-white/30 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-[1.25rem] bg-slate-900 flex items-center justify-center shadow-lg">
+              <Settings2 className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">Programımı Düzenle</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Derslerini özelleştir</p>
+            </div>
           </div>
-          <button type="button" onClick={onClose} disabled={saving} className="text-gray-400 hover:text-gray-600">
-            <X size={18} />
+          <button 
+            type="button" 
+            onClick={onClose} 
+            disabled={saving} 
+            className="w-10 h-10 rounded-full bg-slate-100/50 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all"
+          >
+            <X size={20} />
           </button>
         </div>
 
         {/* Courses */}
-        <div className="px-6 py-5 space-y-5">
+        <div className="p-10 space-y-8">
           {courses.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-8">Henüz ders eklenmemiş.</p>
+            <div className="flex flex-col items-center py-20 text-slate-400">
+              <Sparkles className="w-12 h-12 mb-4 opacity-20" />
+              <p className="text-sm font-black uppercase tracking-widest">Henüz ders eklenmemiş.</p>
+            </div>
           )}
 
           {courses.map((course, cIdx) => (
-            <div key={course.id} className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Ders {cIdx + 1}</p>
-                <button
-                  type="button"
-                  onClick={() => removeCourse(cIdx)}
-                  title="Dersi Sil"
-                  className="text-gray-300 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Ders Adı *</label>
-                  <input value={course.name} onChange={(e) => updateCourse(cIdx, 'name', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Öğretmen</label>
-                  <input value={course.instructor ?? ''} onChange={(e) => updateCourse(cIdx, 'instructor', e.target.value)} className={inputCls} placeholder="—" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Derslik</label>
-                  <input value={course.room ?? ''} onChange={(e) => updateCourse(cIdx, 'room', e.target.value)} className={inputCls} placeholder="—" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
+            <div key={course.id} className="relative group">
+              <div className="glass-card rounded-[2.5rem] p-8 border-white/60 bg-white/40 space-y-6 transition-all hover:bg-white/50 hover:border-sky-200/50">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-400">Ders Saatleri</p>
-                  <button type="button" onClick={() => addSlot(cIdx)} className="text-xs text-indigo-600 hover:text-indigo-500 font-semibold">
-                    + Saat Ekle
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-slate-900 text-[10px] font-black text-white flex items-center justify-center">
+                      {cIdx + 1}
+                    </span>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ders Bilgileri</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeCourse(cIdx)}
+                    className="p-2 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all"
+                    title="Dersi Sil"
+                  >
+                    <Trash2 size={16} />
                   </button>
                 </div>
 
-                {course.slots.map((slot, sIdx) => (
-                  <div key={sIdx} className="flex items-center gap-2">
-                    <select
-                      value={slot.day}
-                      onChange={(e) => updateSlot(cIdx, sIdx, 'day', e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-200 bg-white text-gray-900 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ders Adı *</label>
+                    <input 
+                      value={course.name} 
+                      onChange={(e) => updateCourse(cIdx, 'name', e.target.value)} 
+                      className={inputCls} 
+                      placeholder="Örn: Veri Yapıları"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Öğretmen</label>
+                    <input 
+                      value={course.instructor ?? ''} 
+                      onChange={(e) => updateCourse(cIdx, 'instructor', e.target.value)} 
+                      className={inputCls} 
+                      placeholder="Örn: Dr. Ahmet Yılmaz" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Derslik</label>
+                    <input 
+                      value={course.room ?? ''} 
+                      onChange={(e) => updateCourse(cIdx, 'room', e.target.value)} 
+                      className={inputCls} 
+                      placeholder="Örn: Amfi-1" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ders Kodu</label>
+                    <input 
+                      value={course.code ?? ''} 
+                      onChange={(e) => updateCourse(cIdx, 'code', e.target.value)} 
+                      className={inputCls} 
+                      placeholder="Örn: COMP201" 
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-sky-500" />
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ders Saatleri</p>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => addSlot(cIdx)} 
+                      className="text-[10px] font-black text-sky-600 hover:text-sky-700 uppercase tracking-widest flex items-center gap-1 bg-sky-50 px-3 py-1 rounded-full transition-all"
                     >
-                      {DAY_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                    </select>
-                    <input
-                      type="time"
-                      value={slot.start_time}
-                      onChange={(e) => updateSlot(cIdx, sIdx, 'start_time', e.target.value)}
-                      className="w-28 rounded-lg border border-gray-200 bg-white text-gray-900 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <span className="text-gray-400 text-xs">–</span>
-                    <input
-                      type="time"
-                      value={slot.end_time}
-                      onChange={(e) => updateSlot(cIdx, sIdx, 'end_time', e.target.value)}
-                      className="w-28 rounded-lg border border-gray-200 bg-white text-gray-900 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <button type="button" onClick={() => removeSlot(cIdx, sIdx)} className="text-gray-400 hover:text-red-500 transition-colors">
-                      <X size={14} />
+                      <Plus size={10} /> Saat Ekle
                     </button>
                   </div>
-                ))}
 
-                {course.slots.length === 0 && (
-                  <p className="text-xs text-gray-400 italic">Saat eklenmemiş.</p>
-                )}
+                  <div className="grid gap-2">
+                    {course.slots.map((slot, sIdx) => (
+                      <div key={sIdx} className="flex flex-wrap items-center gap-3 p-3 rounded-2xl bg-white/40 border border-white/60">
+                        <div className="flex-1 min-w-[120px] relative">
+                          <select
+                            value={slot.day}
+                            onChange={(e) => updateSlot(cIdx, sIdx, 'day', e.target.value)}
+                            className="w-full bg-white border border-slate-100 rounded-xl px-4 py-2 text-xs font-bold text-slate-700 outline-none appearance-none cursor-pointer"
+                          >
+                            {DAY_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="time"
+                            value={slot.start_time}
+                            onChange={(e) => updateSlot(cIdx, sIdx, 'start_time', e.target.value)}
+                            className="bg-white border border-slate-100 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none"
+                          />
+                          <span className="text-slate-300 font-bold">—</span>
+                          <input
+                            type="time"
+                            value={slot.end_time}
+                            onChange={(e) => updateSlot(cIdx, sIdx, 'end_time', e.target.value)}
+                            className="bg-white border border-slate-100 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none"
+                          />
+                        </div>
+
+                        <button 
+                          type="button" 
+                          onClick={() => removeSlot(cIdx, sIdx)} 
+                          className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -467,22 +711,29 @@ const PersonalEditModal: React.FC<PersonalEditModalProps> = ({ initialCourses, o
           <button
             type="button"
             onClick={addCourse}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-200 text-gray-400 hover:border-indigo-400 hover:text-indigo-500 text-sm font-semibold transition-colors"
+            className="w-full flex items-center justify-center gap-3 py-6 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-slate-400 hover:border-sky-400 hover:text-sky-500 hover:bg-sky-50 transition-all group"
           >
-            <Plus size={15} />
-            Yeni Ders Ekle
+            <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center group-hover:bg-sky-100 group-hover:scale-110 transition-all">
+              <Plus size={20} />
+            </div>
+            <span className="text-sm font-black uppercase tracking-widest">Yeni Ders Ekle</span>
           </button>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3 sticky bottom-0 bg-white rounded-b-2xl">
-          {error && <p className="text-xs text-red-500 flex-1">{error}</p>}
-          <div className="flex gap-2 ml-auto">
+        <div className="px-10 py-6 border-t border-white/20 bg-white/30 flex items-center justify-between gap-6 sticky bottom-0 z-10 backdrop-blur-md">
+          {error && (
+            <div className="flex items-center gap-2 text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 animate-fade-in">
+              <Info size={14} />
+              <p className="text-[10px] font-bold uppercase tracking-tight">{error}</p>
+            </div>
+          )}
+          <div className="flex gap-3 ml-auto">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-semibold"
+              className="px-8 py-3 rounded-2xl bg-white/50 text-slate-600 hover:bg-white text-sm font-black transition-all border border-white/60"
             >
               Vazgeç
             </button>
@@ -490,9 +741,10 @@ const PersonalEditModal: React.FC<PersonalEditModalProps> = ({ initialCourses, o
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-60 text-sm font-semibold"
+              className="px-10 py-3 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60 text-sm font-black shadow-xl shadow-slate-200 transition-all flex items-center gap-2"
             >
-              {saving ? 'Kaydediliyor...' : 'Kaydet'}
+              {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {saving ? 'Kaydediliyor' : 'Değişiklikleri Kaydet'}
             </button>
           </div>
         </div>
@@ -535,43 +787,47 @@ export const CourseSchedulePage: React.FC = () => {
   const [filterSemester, setFilterSemester] = useState(currentTerm.semester);
   const [academicYear, setAcademicYear] = useState(currentTerm.year);
 
-  // ── Kişisel programı yükle ────────────────────────────────────────────────
+  // ── İlk yükleme (Kişisel program & Dönem bilgisi) ──────────────────────────
   useEffect(() => {
+    // Kişisel programı çek
     getMySchedule()
       .then((ps) => setPersonalSchedule(ps))
       .catch(() => setPersonalSchedule(null))
       .finally(() => setPersonalLoading(false));
+
+    // Dönem bilgisini çek (Resmi program için şart)
+    getSemesterInfo()
+      .then((info) => setSemesterInfo(info))
+      .catch((err) => console.error("Dönem bilgisi alınamadı:", err));
   }, []);
 
-  // ── Kullanıcı profili async dolduğunda eksikleri tamamla ──────────────────
+  // ── Filtreleri profil bilgileriyle eşitle (Akıllı Senkronizasyon) ──────────────────
   useEffect(() => {
     if (!user) return;
-    if (user.grade) setClassYear(user.grade);
-    if (user.department) setFilterDepartment((p) => p || user.department || '');
-    if (user.faculty_id) setSelectedFacultyId((p) => p || user.faculty_id || '');
-    if (user.university) setFilterUniversity((p) => p || user.university || '');
-    if (user.university_id) setSelectedUniversityId((p) => p || user.university_id || '');
-    if (semesterInfo?.semester) setFilterSemester(semesterInfo.semester);
-    if (semesterInfo?.academic_year) setAcademicYear(semesterInfo.academic_year);
+    
+    // Eğer kullanıcı daha önce manuel bir değişiklik yapmadıysa (veya resetlendiğinde)
+    // profil bilgilerini filtrelerle eşitle
+    setSelectedUniversityId(user.university_id || '');
+    setFilterUniversity(user.university || '');
+    setSelectedFacultyId(user.faculty_id || '');
+    setFilterDepartment(user.department || '');
+    
+    // Sınıf bilgisini normalize et ("3. Sınıf" -> "3")
+    const normalized = normalizeGrade(user.grade);
+    if (normalized) setClassYear(normalized);
+    
+    // Dönem ve Yıl her zaman güncel dönemden başlasın
+    if (semesterInfo) {
+      setFilterSemester(semesterInfo.semester);
+      setAcademicYear(semesterInfo.academic_year);
+    }
   }, [user, semesterInfo?.semester, semesterInfo?.academic_year]);
-
-  // ── Dönem bilgisini yükle ─────────────────────────────────────────────────
-  useEffect(() => {
-    getSemesterInfo()
-      .then(setSemesterInfo)
-      .catch(() => {
-        const month = new Date().getMonth() + 1;
-        const year = new Date().getFullYear();
-        const semester = month >= 9 || month === 1 ? 'guz' : month >= 2 && month <= 6 ? 'bahar' : 'guz';
-        const acYear = month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-        setSemesterInfo({ semester, semester_label: semester === 'guz' ? 'Güz Dönemi' : 'Bahar Dönemi', academic_year: acYear });
-      });
-  }, []);
 
   // ── Resmi ders programını yükle ───────────────────────────────────────────
   const loadOfficialSchedule = useCallback(async () => {
     if (!semesterInfo) return;
     if (!filterDepartment) { setOfficialSchedule(null); return; }
+    
     setLoading(true);
     setError(null);
     try {
@@ -582,8 +838,9 @@ export const CourseSchedulePage: React.FC = () => {
         department: filterDepartment,
         university_id: selectedUniversityId || undefined,
       });
-      setOfficialSchedule(data);
-    } catch {
+      setOfficialSchedule(data || null);
+    } catch (err) {
+      console.error("Ders programı yüklenemedi:", err);
       setError('Ders programı yüklenirken hata oluştu.');
       setOfficialSchedule(null);
     } finally {
@@ -621,8 +878,30 @@ export const CourseSchedulePage: React.FC = () => {
     setIsEditModalOpen(false);
   };
 
+  // ── Manuel program oluştur ───────────────────────────────────────────────
+  const handleCreateManual = async () => {
+    // Backend'de boş bir program oluşturmak için updateMySchedule([]) kullanabiliriz
+    // veya basitçe modalı açıp ilk dersi ekletebiliriz.
+    // Ancak veri tutarlılığı için önce null olan personalSchedule'ı boş array'li bir yapıya sokalım.
+    try {
+      setPersonalLoading(true);
+      const ps = await updateMySchedule([]);
+      setPersonalSchedule(ps);
+      setIsEditModalOpen(true); // Hemen düzenleme modunu aç
+    } catch (err) {
+      console.error("Manuel program başlatılamadı:", err);
+    } finally {
+      setPersonalLoading(false);
+    }
+  };
+
   const departmentName = filterDepartment || user?.department || '';
   const universityName = filterUniversity || user?.university || '';
+
+  const isFiltersMatchingProfile = 
+    (selectedUniversityId === user?.university_id) &&
+    (filterDepartment === user?.department) &&
+    (normalizeGrade(classYear) === normalizeGrade(user?.grade));
 
   // ── Hâlâ yükleniyor ───────────────────────────────────────────────────────
   if (personalLoading) {
@@ -639,238 +918,265 @@ export const CourseSchedulePage: React.FC = () => {
   }
 
   // ── Görüntülenecek dersler ────────────────────────────────────────────────
-  const displayCourses: CourseItem[] = personalSchedule ? personalSchedule.courses : (officialSchedule?.courses ?? []);
-  const hasDisplayData = displayCourses.length > 0;
+  const displayCourses: CourseItem[] = (isFiltersMatchingProfile && personalSchedule && !showDropdowns) 
+    ? personalSchedule.courses 
+    : (officialSchedule?.courses ?? []);
+    
+  const hasOfficialData = officialSchedule !== null && (officialSchedule?.courses?.length || 0) > 0;
+  const shouldShowContent = (isFiltersMatchingProfile && personalSchedule) || hasOfficialData;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <MainLayout>
-      <div className="w-full px-4 md:px-8 xl:px-16 py-8">
-        <div className="max-w-[1400px] mx-auto">
+      <div className="w-full min-h-full bg-mesh relative overflow-x-hidden pb-20">
+        {/* Background Decorative Blurs */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-sky-500/10 blur-[120px]" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/10 blur-[120px]" />
+        </div>
 
-          {/* Başlık */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <span>📅</span> Ders Programım
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                {universityName && `${universityName} • `}{departmentName}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 relative z-10">
+          
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <div className="animate-fade-in">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-1 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600" />
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Akademik Araçlar</span>
+              </div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight">Ders Programım</h1>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                {universityName} • {departmentName} {classYear && `• ${classYear}. SINIF`}
               </p>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap animate-fade-in delay-100">
               {semesterInfo && (
-                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2">
-                  <span className="text-indigo-600">🗓️</span>
-                  <div className="text-sm">
-                    <p className="font-semibold text-indigo-800">{semesterInfo.semester_label}</p>
-                    <p className="text-indigo-500 text-xs">{semesterInfo.academic_year}</p>
+                <div className="glass-card px-5 py-3 rounded-2xl flex items-center gap-4 bg-white/40 border-white/40">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                    <CalendarIcon className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-900 leading-none">{semesterInfo.semester_label}</p>
+                    <p className="text-[10px] font-bold text-indigo-500 mt-1 uppercase tracking-tight">{semesterInfo.academic_year}</p>
                   </div>
                 </div>
               )}
 
-              {/* State 2: kişisel program butonları */}
               {personalSchedule && (
-                <>
+                <div className="flex gap-2">
                   <button
                     onClick={() => setIsEditModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 group"
                   >
-                    ✏️ Programımı Düzenle
+                    <Settings2 className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+                    Düzenle
                   </button>
                   <button
                     onClick={() => setShowDropdowns((v) => !v)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
+                    className={`
+                      flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black transition-all border
+                      ${showDropdowns 
+                        ? 'bg-rose-50 border-rose-200 text-rose-600' 
+                        : 'bg-white/50 border-white/50 text-slate-600 hover:bg-white'}
+                    `}
                   >
-                    🔄 {showDropdowns ? 'Kapat' : 'Programı Değiştir'}
+                    {showDropdowns ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+                    {showDropdowns ? 'Kapat' : 'Program Değiştir'}
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
 
-          {/* State 1 veya "Programı Değiştir" açıkken: Filtre çubuğu */}
+          {/* Collapsible Search/Filter Section */}
           {(personalSchedule === null || showDropdowns) && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              {showDropdowns && personalSchedule && (
-                <p className="text-sm font-semibold text-gray-700 mb-3">
-                  Yeni bir resmi programı baz almak için aşağıdan seçin:
-                </p>
-              )}
-              <CascadingInstitutionSelect
-                showDepartment
-                initialUniversityId={selectedUniversityId}
-                initialFacultyId={selectedFacultyId}
-                initialDepartmentId={user?.department_id ?? ''}
-                onChange={(sel) => {
-                  if (sel.universityId !== undefined) setSelectedUniversityId(sel.universityId);
-                  if (sel.universityName !== undefined) setFilterUniversity(sel.universityName);
-                  if (sel.facultyId !== undefined) setSelectedFacultyId(sel.facultyId);
-                  if (sel.departmentName !== undefined) setFilterDepartment(sel.departmentName);
-                }}
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Sınıf</label>
-                  <select value={classYear} onChange={(e) => setClassYear(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 focus:bg-white appearance-none cursor-pointer">
-                    <option value="">— Seç —</option>
-                    {CLASS_YEARS.map((cy) => <option key={cy.value} value={cy.value}>{cy.label}</option>)}
-                  </select>
+            <div className="glass-card rounded-[2.5rem] border-white/60 bg-white/40 overflow-hidden mb-8 animate-slide-up">
+              <div className="px-8 py-5 border-b border-white/20 bg-white/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Search className="w-4 h-4 text-sky-500" />
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Resmi Program Arama</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Dönem</label>
-                  <select value={filterSemester} onChange={(e) => setFilterSemester(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 focus:bg-white appearance-none cursor-pointer">
-                    <option value="">— Otomatik —</option>
-                    {SEMESTERS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Akademik Yıl</label>
-                  <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 focus:bg-white appearance-none cursor-pointer">
-                    {ACADEMIC_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
+                {personalSchedule && (
+                  <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-full border border-rose-100 uppercase tracking-widest">
+                    Yeni Program Seçiliyor
+                  </span>
+                )}
+              </div>
+              
+              <div className="p-8">
+                <CascadingInstitutionSelect
+                  showDepartment
+                  initialUniversityId={selectedUniversityId}
+                  initialFacultyId={selectedFacultyId}
+                  initialDepartmentId={user?.department_id ?? ''}
+                  onChange={(sel) => {
+                    if (sel.universityId !== undefined) setSelectedUniversityId(sel.universityId);
+                    if (sel.universityName !== undefined) setFilterUniversity(sel.universityName);
+                    if (sel.facultyId !== undefined) setSelectedFacultyId(sel.facultyId);
+                    if (sel.departmentName !== undefined) setFilterDepartment(sel.departmentName);
+                  }}
+                />
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6 pt-6 border-t border-white/20">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sınıf</label>
+                    <div className="relative">
+                      <select 
+                        value={classYear} 
+                        onChange={(e) => setClassYear(e.target.value)} 
+                        className="w-full bg-white/50 border border-white/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 appearance-none cursor-pointer transition-all"
+                      >
+                        <option value="">— Seç —</option>
+                        {CLASS_YEARS.map((cy) => <option key={cy.value} value={cy.value}>{cy.label}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dönem</label>
+                    <div className="relative">
+                      <select 
+                        value={filterSemester} 
+                        onChange={(e) => setFilterSemester(e.target.value)} 
+                        className="w-full bg-white/50 border border-white/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 appearance-none cursor-pointer transition-all"
+                      >
+                        <option value="">— Otomatik —</option>
+                        {SEMESTERS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Akademik Yıl</label>
+                    <div className="relative">
+                      <select 
+                        value={academicYear} 
+                        onChange={(e) => setAcademicYear(e.target.value)} 
+                        className="w-full bg-white/50 border border-white/50 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 appearance-none cursor-pointer transition-all"
+                      >
+                        {ACADEMIC_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* "Baz Al" aksiyonu — resmi program bulununca göster */}
-          {(personalSchedule === null || showDropdowns) && officialSchedule && !loading && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-indigo-900">
-                  {officialSchedule.university} — {officialSchedule.department} {officialSchedule.class_year} ({officialSchedule.semester})
-                </p>
-                <p className="text-xs text-indigo-600 mt-0.5">
-                  {officialSchedule.courses.length} ders bulundu. Bu programı kişisel programın olarak al ve özelleştir.
-                </p>
-                {cloneError && <p className="text-xs text-red-500 mt-1">{cloneError}</p>}
+          {/* Action Bar for Cloning - Sadece kullanıcının kendi profilindeyse göster */}
+          {isFiltersMatchingProfile && (personalSchedule === null || showDropdowns) && officialSchedule && !loading && (
+            <div className="glass-card rounded-3xl border-sky-200/60 bg-sky-500/5 p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 animate-slide-up">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-sky-500/20 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-6 h-6 text-sky-600" />
+                </div>
+                <div>
+                  <h4 className="text-base font-black text-sky-900 tracking-tight">Program Hazır!</h4>
+                  <p className="text-xs font-bold text-sky-600/80 uppercase tracking-widest mt-1">
+                    {officialSchedule.university} • {officialSchedule.courses.length} Ders
+                  </p>
+                </div>
               </div>
               <button
                 onClick={handleClone}
                 disabled={cloning}
-                className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-500 disabled:opacity-60 transition-colors shadow-sm"
+                className="px-8 py-3 bg-sky-600 hover:bg-sky-700 text-white text-sm font-black rounded-xl shadow-xl shadow-sky-200 transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                {cloning ? 'Kopyalanıyor...' : '✨ Bu Programı Baz Al ve Özelleştir'}
+                {cloning ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : <Sparkles className="w-4 h-4" />}
+                {cloning ? 'Kopyalanıyor...' : 'Bu Programı Baz Al ve Özelleştir'}
               </button>
             </div>
           )}
 
-          {/* Görünüm toggle — sadece veri varsa */}
-          {(hasDisplayData || personalSchedule) && (
-            <div className="flex flex-wrap items-center gap-3 mb-6">
-              {personalSchedule && (
-                <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
-                  <span>✅</span>
-                  <span className="font-medium">Kişisel programınız aktif</span>
-                </div>
-              )}
-              <div className="flex items-center bg-gray-100 rounded-lg p-1 ml-auto">
-                <button
-                  onClick={() => setViewMode('weekly')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'weekly' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  📅 Haftalık
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  📋 Liste
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* İçerik */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            {(loading && !personalSchedule) && (
-              <div className="flex items-center justify-center py-24">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-gray-500 text-sm">Ders programı yükleniyor...</p>
-                </div>
-              </div>
-            )}
-
-            {error && !loading && !personalSchedule && (
-              <div className="flex flex-col items-center py-16 gap-3">
-                <span className="text-4xl">⚠️</span>
-                <p className="text-red-600 font-medium">{error}</p>
-                <button onClick={loadOfficialSchedule} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors">
-                  Tekrar Dene
-                </button>
-              </div>
-            )}
-
-            {/* Kişisel program yok + resmi bulunamadı */}
-            {!personalSchedule && !loading && !error && officialSchedule === null && semesterInfo && (
-              <EmptyState
-                university={universityName}
-                department={departmentName}
-                classYear={classYear}
-                semesterLabel={semesterInfo.semester_label}
-              />
-            )}
-
-            {/* İlk yükleme bekleniyor */}
-            {!personalSchedule && officialSchedule === undefined && !loading && (
-              <div className="py-16 text-center">
-                <p className="text-gray-400 text-sm">Ders programı aramak için yukarıdan sınıf ve dönem seçin.</p>
-              </div>
-            )}
-
-            {/* Program göster */}
-            {hasDisplayData && !(loading && !personalSchedule) && (
-              <div className="p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                  <span className="bg-indigo-100 text-indigo-700 rounded-full px-3 py-0.5 font-medium">
-                    {displayCourses.length} ders
-                  </span>
-                  <span className="text-gray-400">•</span>
-                  <span>{displayCourses.reduce((acc, c) => acc + c.slots.length, 0)} ders saati / hafta</span>
+          {/* Content Area */}
+          {shouldShowContent ? (
+            <div className="space-y-6 animate-slide-up">
+              {/* Controls Bar */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  {personalSchedule && !showDropdowns && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-full">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Kişisel Program Aktif</span>
+                    </div>
+                  )}
                 </div>
 
-                {viewMode === 'weekly' ? (
+                <div className="flex items-center bg-white/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/50 shadow-sm">
+                  <button
+                    onClick={() => setViewMode('weekly')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${viewMode === 'weekly' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    <Layout className="w-3.5 h-3.5" />
+                    Haftalık
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${viewMode === 'list' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    Liste
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Grid/List */}
+              <div className="glass-card rounded-[2.5rem] border-white/60 bg-white/30 overflow-hidden min-h-[500px]">
+                {loading && !personalSchedule ? (
+                  <div className="flex flex-col items-center justify-center py-32 animate-fade-in">
+                    <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Program Yükleniyor...</p>
+                  </div>
+                ) : viewMode === 'weekly' ? (
                   <WeeklyGrid courses={displayCourses} onCourseClick={setSelectedCourse} />
                 ) : (
-                  <ListView courses={displayCourses} onCourseClick={setSelectedCourse} />
+                  <div className="p-8">
+                    <ListView courses={displayCourses} onCourseClick={setSelectedCourse} />
+                  </div>
                 )}
               </div>
-            )}
-
-            {/* Kişisel program var ama boş */}
-            {personalSchedule && displayCourses.length === 0 && (
-              <div className="py-16 text-center">
-                <div className="text-5xl mb-4">📋</div>
-                <p className="text-gray-500 font-medium mb-2">Kişisel programınızda henüz ders yok.</p>
-                <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500"
-                >
-                  <Plus size={15} /> Ders Ekle
-                </button>
-              </div>
-            )}
-          </div>
-
+            </div>
+          ) : (
+            <div className="glass-card rounded-[2.5rem] border-white/60 bg-white/30">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-32 animate-fade-in">
+                  <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4" />
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Dersler Aranıyor...</p>
+                </div>
+              ) : (
+                <EmptyState 
+                  university={universityName}
+                  department={departmentName}
+                  classYear={classYear || '?'}
+                  semesterLabel={semesterInfo?.semester_label || '?'}
+                  onShowFilters={() => setShowDropdowns(true)}
+                  onManualCreate={handleCreateManual}
+                  showManualButton={isFiltersMatchingProfile}
+                />
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Modals */}
+        {selectedCourse && (
+          <CourseDetailModal course={selectedCourse} onClose={() => setSelectedCourse(null)} />
+        )}
+
+        {isEditModalOpen && personalSchedule && (
+          <PersonalEditModal
+            initialCourses={personalSchedule.courses}
+            onClose={() => setIsEditModalOpen(false)}
+            onSave={handleSavePersonal}
+          />
+        )}
       </div>
-
-      {/* Ders detay modal */}
-      {selectedCourse && (
-        <CourseDetailModal course={selectedCourse} onClose={() => setSelectedCourse(null)} />
-      )}
-
-      {/* Kişisel program düzenleme modal */}
-      {isEditModalOpen && personalSchedule && (
-        <PersonalEditModal
-          initialCourses={personalSchedule.courses}
-          onClose={() => setIsEditModalOpen(false)}
-          onSave={handleSavePersonal}
-        />
-      )}
     </MainLayout>
   );
 };

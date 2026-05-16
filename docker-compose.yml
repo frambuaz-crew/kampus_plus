@@ -10,6 +10,7 @@ services:
       - POSTGRES_USER=kampus
       - POSTGRES_PASSWORD=secret
       - POSTGRES_DB=kampus_plus
+      - TZ=Europe/Istanbul
     ports:
       - "5432:5432"
     volumes:
@@ -59,6 +60,7 @@ services:
       - DEBUG=true
       - CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174
       - REDIS_URL=redis://redis:6379/0
+      - TZ=Europe/Istanbul
     ports:
       - "8001:8000"
     volumes:
@@ -92,6 +94,7 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8001/api/v1
       - NODE_ENV=development
+      - TZ=Europe/Istanbul
     ports:
       - "5174:5173"
     volumes:

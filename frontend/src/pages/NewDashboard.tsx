@@ -96,8 +96,9 @@ export const NewDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   const userRaw = localStorage.getItem('user');
-  const userObj = userRaw ? (JSON.parse(userRaw) as { first_name?: string }) : null;
+  const userObj = userRaw ? (JSON.parse(userRaw) as { first_name?: string; university_id?: string }) : null;
   const firstName = userObj?.first_name || 'Öğrenci';
+  const userUniversityId = userObj?.university_id;
 
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,15 +126,22 @@ export const NewDashboard: React.FC = () => {
 
   const feed = dashboard?.recent_feed ?? [];
   const semesterInfo = dashboard?.semester_info ?? null;
-  const upcomingEvents = dashboard?.upcoming_events ?? [];
+
+  // Filter events by user university
+  const upcomingEvents = (dashboard?.upcoming_events ?? []).filter(e => {
+    // If user has no university set, show all (or handle as empty)
+    if (!userUniversityId) return true;
+    // Only show if it matches user university or has no university_id (global)
+    return !e.university_id || e.university_id === userUniversityId;
+  });
 
   return (
     <MainLayout>
       <div className="container mx-auto px-6 py-10 max-w-7xl relative z-10">
         <header className="mb-10 animate-fade-in">
           <div className="flex items-center gap-3 mb-3">
-             <div className="h-px w-8 bg-sky-500/50" />
-             <span className="text-[10px] font-black text-sky-600 uppercase tracking-[0.3em]">Hızlı Bakış</span>
+            <div className="h-px w-8 bg-sky-500/50" />
+            <span className="text-[10px] font-black text-sky-600 uppercase tracking-[0.3em]">Hızlı Bakış</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-2">
             Hoş geldin, <span className="text-gradient">{firstName}</span>! 👋
@@ -168,8 +176,8 @@ export const NewDashboard: React.FC = () => {
               route: '/dashboard/course-notes'
             }
           ].map((s, idx) => (
-            <Card 
-              key={idx} 
+            <Card
+              key={idx}
               onClick={() => navigate(s.route)}
               className="group p-7 rounded-[2.5rem] border-none bg-white shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-sky-200/30 transition-all duration-500 cursor-pointer overflow-hidden relative"
             >
@@ -257,8 +265,8 @@ export const NewDashboard: React.FC = () => {
               return (
                 <Card className="p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border-none bg-white group">
                   <div className="flex items-center justify-between mb-6">
-                     <h4 className="font-black text-slate-900">{semesterInfo.title}</h4>
-                     <Badge className="bg-sky-50 text-sky-600 border-none px-3 py-1 font-bold text-[10px]">AKTİF DÖNEM</Badge>
+                    <h4 className="font-black text-slate-900">{semesterInfo.title}</h4>
+                    <Badge className="bg-sky-50 text-sky-600 border-none px-3 py-1 font-bold text-[10px]">AKTİF DÖNEM</Badge>
                   </div>
                   <div className="relative h-4 bg-slate-50 rounded-full mb-3 overflow-hidden shadow-inner">
                     <div
@@ -361,7 +369,7 @@ function ForumFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: strin
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{timeAgo(item.created_at)}</span>
           </div>
           <div className="flex items-center gap-2">
-             <Badge className="bg-sky-50 text-sky-600 border-none font-black text-[10px] px-2 py-0.5 rounded-lg">FORUM</Badge>
+            <Badge className="bg-sky-50 text-sky-600 border-none font-black text-[10px] px-2 py-0.5 rounded-lg">FORUM</Badge>
           </div>
         </div>
         <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-sky-50 transition-colors">
@@ -381,7 +389,7 @@ function ForumFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: strin
           {tags.length > 2 && <span className="text-[10px] font-bold text-slate-300 mt-1">+{tags.length - 2}</span>}
         </div>
         <div className="flex items-center gap-3 text-slate-300">
-           <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tighter group-hover:text-sky-500 transition-colors">
+          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tighter group-hover:text-sky-500 transition-colors">
             Konuyu Aç <ArrowRight className="h-3 w-3" />
           </span>
         </div>
@@ -422,13 +430,13 @@ function MarketplaceFeedCard({ item, navigate }: { item: FeedItem; navigate: (p:
             </div>
             <h4 className="font-black text-base text-slate-800 mb-2 line-clamp-1 group-hover:text-amber-600 transition-colors">{item.title}</h4>
           </div>
-          
+
           <div className="flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-2">
-               <Avatar className="h-6 w-6 rounded-lg">
-                 <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-500 rounded-lg">{item.author_name[0]}</AvatarFallback>
-               </Avatar>
-               <span className="font-bold text-slate-500 truncate max-w-[100px]">{item.author_name}</span>
+              <Avatar className="h-6 w-6 rounded-lg">
+                <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-500 rounded-lg">{item.author_name[0]}</AvatarFallback>
+              </Avatar>
+              <span className="font-bold text-slate-500 truncate max-w-[100px]">{item.author_name}</span>
             </div>
             <span className="font-black uppercase tracking-tighter">{timeAgo(item.created_at)}</span>
           </div>
@@ -447,10 +455,10 @@ function CareerFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: stri
       onClick={() => navigate(`/dashboard/career/${item.id}`)}
     >
       {/* Decorative tag */}
-      <div className={cn("absolute top-0 right-0 px-6 py-2 rounded-bl-[1.5rem] font-black text-[10px] tracking-widest text-white shadow-lg", 
-        listingType === 'job' ? "bg-blue-500" : 
-        listingType === 'internship' ? "bg-green-500" : 
-        listingType === 'startup' ? "bg-indigo-500" : "bg-amber-500"
+      <div className={cn("absolute top-0 right-0 px-6 py-2 rounded-bl-[1.5rem] font-black text-[10px] tracking-widest text-white shadow-lg",
+        listingType === 'job' ? "bg-blue-500" :
+          listingType === 'internship' ? "bg-green-500" :
+            listingType === 'startup' ? "bg-indigo-500" : "bg-amber-500"
       )}>
         {careerTypeLabels[listingType]?.toUpperCase() || 'KARİYER'}
       </div>
@@ -460,8 +468,8 @@ function CareerFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: stri
           <Briefcase className="w-5 h-5" />
         </div>
         <div className="flex flex-col">
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{timeAgo(item.created_at)}</p>
-           <h4 className="font-black text-lg text-slate-900 group-hover:text-indigo-600 transition-colors">{item.title}</h4>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{timeAgo(item.created_at)}</p>
+          <h4 className="font-black text-lg text-slate-900 group-hover:text-indigo-600 transition-colors">{item.title}</h4>
         </div>
       </div>
 
@@ -486,10 +494,10 @@ function CareerFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: stri
 
       <div className="flex items-center justify-between pt-6 border-t border-slate-50">
         <div className="flex items-center gap-2">
-           <Avatar className="h-6 w-6 rounded-lg">
-             <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-500 rounded-lg">{item.author_name[0]}</AvatarFallback>
-           </Avatar>
-           <span className="text-xs font-bold text-slate-400 italic">Yayınlayan: {item.author_name}</span>
+          <Avatar className="h-6 w-6 rounded-lg">
+            <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-500 rounded-lg">{item.author_name[0]}</AvatarFallback>
+          </Avatar>
+          <span className="text-xs font-bold text-slate-400 italic">Yayınlayan: {item.author_name}</span>
         </div>
         <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg active:scale-95">
           <MessageSquare className="h-3.5 w-3.5" />

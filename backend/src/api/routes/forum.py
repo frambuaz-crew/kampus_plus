@@ -561,8 +561,8 @@ async def create_topic(
         view_count=0,
         reply_count=0,
         helpful_count=0,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     session.add(topic)
@@ -618,15 +618,15 @@ async def create_reply(
         parent_id=data.parent_id,
         helpful_count=0,
         is_deleted=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     session.add(reply)
 
     topic.reply_count += 1
-    topic.last_reply_at = datetime.utcnow()
-    topic.updated_at = datetime.utcnow()
+    topic.last_reply_at = datetime.now()
+    topic.updated_at = datetime.now()
 
     await session.commit()
     await session.refresh(reply)
@@ -679,7 +679,7 @@ async def toggle_topic_helpful(
         topic.helpful_count += 1
         action = "liked"
 
-    topic.updated_at = datetime.utcnow()
+    topic.updated_at = datetime.now()
     await session.commit()
     await session.refresh(topic)
 
@@ -775,7 +775,7 @@ async def toggle_reply_helpful(
         reply.helpful_count += 1
         action = "liked"
 
-    reply.updated_at = datetime.utcnow()
+    reply.updated_at = datetime.now()
     await session.commit()
     await session.refresh(reply)
 
@@ -843,7 +843,7 @@ async def update_topic(
     if request.tags is not None:
         topic.tags = request.tags
 
-    topic.updated_at = datetime.utcnow()
+    topic.updated_at = datetime.now()
     await session.commit()
     return {"success": True}
 
@@ -866,7 +866,7 @@ async def delete_topic(
         raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Bu konuyu silme yetkiniz yok"}})
 
     topic.is_deleted = True
-    topic.updated_at = datetime.utcnow()
+    topic.updated_at = datetime.now()
     await session.commit()
     return {"success": True}
 
@@ -890,7 +890,7 @@ async def update_reply(
         raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Bu cevabı düzenleme yetkiniz yok"}})
 
     reply.content = request.content
-    reply.updated_at = datetime.utcnow()
+    reply.updated_at = datetime.now()
     await session.commit()
     return {"success": True}
 
@@ -913,7 +913,7 @@ async def delete_reply(
         raise HTTPException(status_code=403, detail={"error": {"code": "FORBIDDEN", "message": "Bu cevabı silme yetkiniz yok"}})
 
     reply.is_deleted = True
-    reply.updated_at = datetime.utcnow()
+    reply.updated_at = datetime.now()
 
     # Reply count güncelle
     topic_result = await session.execute(select(ForumTopic).where(ForumTopic.id == reply.topic_id))
@@ -1091,7 +1091,7 @@ async def create_forum_category(
         order_index=request.order_index,
         is_active=request.is_active,
         university_id=current_user.university_id,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(),
     )
     session.add(category)
     await session.commit()
