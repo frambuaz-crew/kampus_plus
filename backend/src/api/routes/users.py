@@ -74,7 +74,6 @@ VALID_GRADES = {
 
 class ProfileUpdateRequest(BaseModel):
     bio: Optional[str] = None
-    profile_picture_url: Optional[str] = None
     theme_preference: Optional[str] = None
     grade: Optional[str] = None
     university: Optional[str] = None
@@ -91,20 +90,18 @@ async def update_profile(
     """Kullanıcının kendi profilini güncellemesi."""
     if data.bio is not None:
         current_user.bio = data.bio
-    if data.profile_picture_url is not None:
-        current_user.profile_picture_url = data.profile_picture_url
     if data.theme_preference is not None:
         current_user.theme_preference = data.theme_preference
     if data.grade is not None:
         if data.grade != "" and data.grade not in VALID_GRADES:
             raise HTTPException(status_code=422, detail="Geçersiz sınıf değeri.")
         current_user.grade = data.grade if data.grade != "" else None
-    if data.university is not None:
-        current_user.university = data.university or None
-    if data.university_id is not None:
-        current_user.university_id = data.university_id or None
-    if data.department_id is not None:
-        current_user.department_id = data.department_id or None
+    if data.university:
+        current_user.university = data.university
+    if data.university_id:
+        current_user.university_id = data.university_id
+    if data.department_id:
+        current_user.department_id = data.department_id
     if data.is_private is not None:
         current_user.is_private = data.is_private
 

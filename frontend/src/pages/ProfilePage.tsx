@@ -65,7 +65,9 @@ interface ProfileData {
   email?: string;
   university?: string;
   university_id?: string | null;
+  faculty_id?: string | null;
   department?: string;
+  department_id?: string | null;
   grade?: string | null;
   profile_picture_url?: string | null;
   bio?: string | null;
@@ -113,7 +115,6 @@ export const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     bio: '',
-    profile_picture_url: '',
     grade: ''
   });
   const [editInstitution, setEditInstitution] = useState<Partial<InstitutionSelection>>({
@@ -143,65 +144,23 @@ export const ProfilePage: React.FC = () => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
+  // 🚀 Form ilklendirme (Düzenleme modu açıldığında)
   useEffect(() => {
     if (!isEditing || !isOwnProfile || !currentUser) return;
 
-    // 🚀 Backend'den gelen university_id ve faculty_id'yi DOĞRUDAN kullan
-    setEditInstitution((prev) => ({
-      ...prev,
-      universityId: currentUser.university_id || prev.universityId || '',      // ✅ YENİ
+    setEditForm({
+      bio: profileData?.bio || '',
+      grade: profileData?.grade || ''
+    });
+
+    setEditInstitution({
+      universityId: currentUser.university_id || '',
       universityName: currentUser.university || profileData?.university || '',
-      facultyId: currentUser.faculty_id || prev.facultyId || '',               // ✅ YENİ
-      departmentId: currentUser.department_id || prev.departmentId || '',
-      departmentName: profileData?.department || prev.departmentName || '',
-    }));
-  }, [isEditing, isOwnProfile, currentUser, profileData?.department, profileData?.university]);
-
-  useEffect(() => {
-    if (!isEditing || !isOwnProfile || !currentUser?.department_id || !currentUser?.university) return;
-
-    let cancelled = false;
-
-    const resolveFacultyFromDepartment = async () => {
-      try {
-        const universities = await getUniversities();
-        const matchedUniversity = universities.find(
-          (u) => u.name.toLowerCase() === currentUser.university.toLowerCase()
-        );
-        if (!matchedUniversity) return;
-
-        const faculties = await getFaculties(matchedUniversity.id);
-        const departmentLists = await Promise.all(
-          faculties.map((faculty) => getDepartments(faculty.id).catch(() => []))
-        );
-        const departments = departmentLists.flat();
-
-        const matchedDepartment = departments.find((d) => d.id === currentUser.department_id);
-        const facultyId = matchedDepartment?.faculty_id || '';
-        const matchedFaculty = faculties.find((f) => f.id === facultyId);
-
-        if (cancelled) return;
-
-        setEditInstitution((prev) => ({
-          ...prev,
-          universityId: matchedUniversity.id,
-          universityName: matchedUniversity.name,
-          facultyId: matchedFaculty?.id || prev.facultyId || '',
-          facultyName: matchedFaculty?.name || prev.facultyName || '',
-          departmentId: matchedDepartment?.id || prev.departmentId || currentUser.department_id,
-          departmentName: matchedDepartment?.name || prev.departmentName || '',
-        }));
-      } catch {
-        // sessizce geç
-      }
-    };
-
-    resolveFacultyFromDepartment();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isEditing, isOwnProfile, currentUser?.department_id, currentUser?.university]);
+      facultyId: currentUser.faculty_id || '',
+      departmentId: currentUser.department_id || '',
+      departmentName: profileData?.department || '',
+    });
+  }, [isEditing, isOwnProfile, currentUser, profileData]);
 
   const createImage = (url: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
@@ -288,6 +247,13 @@ export const ProfilePage: React.FC = () => {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Basit Doğrulama
+    if (!editInstitution.universityId || !editInstitution.departmentId) {
+      alert("Lütfen üniversite ve bölüm seçiniz.");
+      return;
+    }
+
     try {
       const payload = {
         ...editForm,
@@ -304,7 +270,10 @@ export const ProfilePage: React.FC = () => {
             ...prev,
             ...editForm,
             university: editInstitution.universityName || prev.university,
+            university_id: editInstitution.universityId || prev.university_id,
+            faculty_id: editInstitution.facultyId || prev.faculty_id,
             department: editInstitution.departmentName || prev.department,
+            department_id: editInstitution.departmentId || prev.department_id,
             grade: editForm.grade || null,
           }
           : prev
@@ -312,9 +281,10 @@ export const ProfilePage: React.FC = () => {
       // Auth context'i güncelle (navbar'a vb. anında yansıması için)
       updateUser({
         bio: editForm.bio,
-        profile_picture_url: editForm.profile_picture_url,
         grade: editForm.grade || null,
         university: editInstitution.universityName || currentUser?.university || '',
+        university_id: editInstitution.universityId || currentUser?.university_id || '',
+        faculty_id: editInstitution.facultyId || currentUser?.faculty_id || '',
         department_id: editInstitution.departmentId || currentUser?.department_id || '',
         department: editInstitution.departmentName || currentUser?.department || null,
       });
@@ -405,17 +375,18 @@ export const ProfilePage: React.FC = () => {
       <div className="w-full min-h-screen bg-slate-50 pb-16">
 
         {/* Cover Banner */}
-        <div className="h-28 bg-gradient-to-r from-slate-800 to-slate-700 w-full" />
+        <div className="h-40 bg-mesh relative overflow-hidden">
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-50 to-transparent" />
+        </div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
 
           {/* Profile Card */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm mb-6 overflow-visible">
+          <div className="glass-card -mt-20 relative z-10 rounded-2xl p-0 mb-8 overflow-visible animate-slide-up">
+            <div className="px-8 py-8 flex flex-col sm:flex-row sm:items-center gap-6">
 
-            {/* Avatar + meta row */}
-            <div className="px-6 pt-0 pb-5 flex flex-col sm:flex-row sm:items-end gap-4">
-
-              {/* Avatar — overlaps the cover by -mt-12 */}
+              {/* Avatar */}
               <div className="relative -mt-12 flex-shrink-0 group">
                 <input
                   type="file"
@@ -426,7 +397,7 @@ export const ProfilePage: React.FC = () => {
                 />
                 <label
                   htmlFor={isOwnProfile && !isEditing ? 'avatarUpload' : undefined}
-                  className={`w-20 h-20 rounded-xl overflow-hidden bg-[#0ea5e9] flex items-center justify-center text-white text-xl font-bold border-[3px] border-white shadow-lg relative ${isOwnProfile && !isEditing ? 'cursor-pointer' : ''}`}
+                  className={`w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-2xl relative transition-transform duration-300 ${isOwnProfile && !isEditing ? 'cursor-pointer hover:scale-105' : ''}`}
                 >
                   {profileData.profile_picture_url ? (
                     <img
@@ -439,45 +410,30 @@ export const ProfilePage: React.FC = () => {
                     <span>{initials}</span>
                   )}
                   {isOwnProfile && !isEditing && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
-                      <Camera className="w-5 h-5 text-white" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all rounded-full backdrop-blur-[2px]">
+                      <Camera className="w-8 h-8 text-white animate-pulse" />
                     </div>
                   )}
                 </label>
+                {/* Online Indicator (Fake for now) */}
+                <div className="absolute bottom-2 right-2 w-6 h-6 bg-emerald-500 border-4 border-white rounded-full shadow-lg" />
               </div>
 
               {/* Name + meta */}
-              <div className="flex-1 min-w-0 sm:mb-1">
-                <h1 className="text-xl font-bold text-slate-900 leading-tight">
-                  {profileData.first_name} {profileData.last_name}
-                </h1>
-                <div className="flex flex-wrap items-center gap-3 mt-2">
-                  {profileData.university && (
-                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                      <GraduationCap className="w-3.5 h-3.5 text-slate-400" />
-                      {profileData.university}
-                    </span>
-                  )}
-                  {profileData.department && (
-                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                      <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                      {profileData.department}
-                    </span>
-                  )}
-                  {profileData.grade && (
-                    <span className="px-2 py-0.5 bg-sky-50 text-[#0ea5e9] rounded text-xs font-medium border border-sky-100">
-                      {profileData.grade}
-                    </span>
-                  )}
+              <div className="flex-1 min-w-0 sm:-mt-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                    <span className="text-gradient">{profileData.first_name} {profileData.last_name}</span>
+                  </h1>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 sm:mb-1 flex-shrink-0">
+              <div className="flex gap-3 flex-shrink-0 sm:-mt-2">
                 {!isOwnProfile ? (
                   <button
                     onClick={handleSendMessage}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#0ea5e9] hover:bg-sky-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                    className="btn-premium flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg shadow-slate-200 transition-all"
                   >
                     <MessageSquare className="w-4 h-4" />
                     Mesaj Gönder
@@ -485,20 +441,8 @@ export const ProfilePage: React.FC = () => {
                 ) : (
                   !isEditing && (
                     <button
-                      onClick={() => {
-                        setEditForm({
-                          bio: profileData.bio || '',
-                          profile_picture_url: profileData.profile_picture_url || '',
-                          grade: profileData.grade || ''
-                        });
-                        setEditInstitution({
-                          universityName: currentUser?.university || profileData.university || '',
-                          departmentId: currentUser?.department_id || '',
-                          departmentName: profileData.department || '',
-                        });
-                        setIsEditing(true);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                      onClick={() => setIsEditing(true)}
+                      className="btn-premium flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:border-sky-500 text-slate-700 hover:text-sky-600 text-sm font-bold rounded-xl shadow-sm transition-all"
                     >
                       <Edit3 className="w-4 h-4" />
                       Profili Düzenle
@@ -523,19 +467,26 @@ export const ProfilePage: React.FC = () => {
               <>
                 {/* Bio + Stats */}
                 {!isEditing && (
-                  <div className="border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                    <p className="flex-1 text-sm text-slate-600 leading-relaxed">
-                      {profileData.bio || <span className="text-slate-400 italic">Henüz bir biyografi eklenmemiş.</span>}
-                    </p>
-                    <div className="flex items-center gap-6 sm:border-l sm:border-slate-100 sm:pl-6 flex-shrink-0">
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-slate-900">{activities.length}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Paylaşım</p>
+                  <div className="border-t border-slate-100 px-8 py-6 flex flex-col md:flex-row md:items-center gap-8">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Edit3 size={14} className="text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hakkında</span>
+                      </div>
+                      <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                        {profileData.bio || <span className="text-slate-400 italic">Henüz bir biyografi eklenmemiş.</span>}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-10 md:border-l md:border-slate-100 md:pl-10 flex-shrink-0">
+                      <div className="text-center group cursor-pointer">
+                        <p className="text-2xl font-black text-slate-900 group-hover:text-sky-600 transition-colors">{activities.length}</p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Paylaşım</p>
                       </div>
                       {isOwnProfile && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-slate-900">{favorites.length}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">Favori</p>
+                        <div className="text-center group cursor-pointer">
+                          <p className="text-2xl font-black text-slate-900 group-hover:text-rose-500 transition-colors">{favorites.length}</p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Favori</p>
                         </div>
                       )}
                     </div>
@@ -547,14 +498,17 @@ export const ProfilePage: React.FC = () => {
 
           {/* Edit Form */}
           {isEditing && isOwnProfile && (
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm mb-6 overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                <h3 className="text-base font-semibold text-slate-900">Profili Düzenle</h3>
-                <button onClick={() => setIsEditing(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-                  <X className="w-4 h-4" />
+            <div className="glass-card rounded-2xl border-slate-200/60 shadow-xl mb-8 overflow-hidden animate-slide-up">
+              <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 bg-slate-50/50">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Profili Düzenle</h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Kişisel Bilgilerini Güncelle</p>
+                </div>
+                <button onClick={() => setIsEditing(false)} className="p-2 rounded-xl hover:bg-white hover:shadow-md text-slate-400 hover:text-rose-500 transition-all duration-300">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-              <form onSubmit={handleEditSubmit} className="p-6 space-y-5 max-w-2xl">
+              <form onSubmit={handleEditSubmit} className="p-8 space-y-6 max-w-3xl">
                 <CascadingInstitutionSelect
                   showDepartment
                   initialUniversityName={editInstitution.universityName}
@@ -563,44 +517,59 @@ export const ProfilePage: React.FC = () => {
                   initialDepartmentId={editInstitution.departmentId}
                   onChange={(selection) => setEditInstitution((prev) => ({ ...prev, ...selection }))}
                 />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Sınıf</label>
+                    <div className="relative group">
+                      <select
+                        className="w-full px-5 py-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all appearance-none cursor-pointer group-hover:bg-white"
+                        value={editForm.grade}
+                        onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })}
+                      >
+                        {GRADE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <ChevronRight className="w-4 h-4 rotate-90" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Diğer kolon boş kalsın veya başka bir şey gelirse buraya eklenebilir */}
+                  <div className="hidden md:block" />
+                </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Sınıf</label>
-                  <select
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
-                    value={editForm.grade}
-                    onChange={(e) => setEditForm({ ...editForm, grade: e.target.value })}
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Hakkımda</label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-4 text-slate-400">
+                      <Edit3 className="w-4 h-4" />
+                    </div>
+                    <textarea
+                      className="w-full pl-11 pr-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 resize-none focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all placeholder:text-slate-300 min-h-[120px]"
+                      rows={4}
+                      placeholder="Kendinizden, ilgi alanlarınızdan bahsedin..."
+                      value={editForm.bio}
+                      onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-4 pt-4 border-t border-slate-100">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsEditing(false)} 
+                    className="px-6 py-3 text-sm font-black text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all"
                   >
-                    {GRADE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Hakkımda</label>
-                  <textarea
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
-                    rows={4}
-                    placeholder="Kendinizden, ilgi alanlarınızdan bahsedin..."
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Profil Fotoğrafı URL</label>
-                  <input
-                    type="url"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
-                    placeholder="https://example.com/photo.jpg"
-                    value={editForm.profile_picture_url}
-                    onChange={(e) => setEditForm({ ...editForm, profile_picture_url: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">
                     İptal
                   </button>
-                  <button type="submit" className="px-5 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                    Kaydet
+                  <button 
+                    type="submit" 
+                    className="btn-premium px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-xl shadow-lg shadow-slate-200"
+                  >
+                    Değişiklikleri Kaydet
                   </button>
                 </div>
               </form>
@@ -610,7 +579,7 @@ export const ProfilePage: React.FC = () => {
           {/* Tabs */}
           {(!profileData.is_private || isOwnProfile || currentUser?.university_id === profileData.university_id) && !isEditing && (
             <>
-              <div className="flex items-center gap-0 border-b border-slate-200 mb-6 bg-white rounded-t-lg px-2">
+              <div className="flex items-center gap-1 mb-6 bg-white/50 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/60 w-fit animate-slide-up delay-100">
                 {[
                   { key: 'info', label: 'Bilgiler', icon: FileText },
                   { key: 'activity', label: 'Paylaşımlar', icon: Layers },
@@ -619,9 +588,9 @@ export const ProfilePage: React.FC = () => {
                   <button
                     key={key}
                     onClick={() => setActiveTab(key as TabType)}
-                    className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-all border-b-2 -mb-px ${activeTab === key
-                      ? 'border-[#0ea5e9] text-[#0ea5e9]'
-                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                    className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold transition-all rounded-xl ${activeTab === key
+                      ? 'bg-slate-900 text-white shadow-lg shadow-slate-200'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'
                       }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -635,12 +604,23 @@ export const ProfilePage: React.FC = () => {
 
                 {/* BİLGİLER */}
                 {activeTab === 'info' && (
-                  <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-4">Detaylı Bilgiler</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <InfoCard icon={GraduationCap} label="Üniversite" value={profileData.university} />
-                      <InfoCard icon={BookOpen} label="Bölüm" value={profileData.department} />
-                      <InfoCard icon={Layers} label="Sınıf" value={profileData.grade ?? undefined} />
+                  <div className="animate-slide-up delay-200">
+                    <div className="glass-card rounded-2xl p-8 border-slate-200/60 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-sky-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-slate-900 tracking-tight">Akademik Bilgiler</h3>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Öğrenci Detayları</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <InfoCard icon={GraduationCap} label="Üniversite" value={profileData.university} variant="sky" />
+                        <InfoCard icon={BookOpen} label="Bölüm" value={profileData.department} variant="indigo" />
+                        <InfoCard icon={Layers} label="Sınıf" value={profileData.grade ?? undefined} variant="violet" />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -697,36 +677,38 @@ export const ProfilePage: React.FC = () => {
                                   else if (isForum) navigate(`/dashboard/forum/${act.id}`, { state: s });
                                   else navigate(`/dashboard/career/${act.id}`, { state: s });
                                 }}
-                                className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-2 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                                className="glass-card p-5 flex flex-col gap-4 hover:border-sky-500/30 hover:shadow-2xl hover:shadow-sky-500/5 transition-all cursor-pointer group animate-slide-up rounded-2xl"
                               >
-                                <div className="flex justify-between items-start gap-4">
+                                <div className="flex justify-between items-start gap-6">
                                   <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#0ea5e9] transition-colors leading-tight mb-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider ${color}`}>
+                                        {label}
+                                      </span>
+                                      <span className="text-[10px] font-bold text-slate-400">
+                                        {formatDistanceToNow(new Date(act.created_at), { addSuffix: true, locale: tr })}
+                                      </span>
+                                    </div>
+                                    <h4 className="text-base font-black text-slate-900 group-hover:text-sky-600 transition-colors leading-tight mb-2 tracking-tight">
                                       {act.title}
                                     </h4>
                                     {act.content && (
-                                      <p className="text-sm text-slate-600 line-clamp-2 mt-1">
+                                      <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed font-medium">
                                         {act.content}
                                       </p>
                                     )}
                                   </div>
                                   {act.image_url && (
-                                    <img 
-                                      src={getImageUrl(act.image_url)} 
-                                      alt="Thumbnail" 
-                                      className="w-16 h-16 object-cover rounded-lg border border-slate-100 flex-shrink-0" 
-                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                    />
+                                    <div className="relative flex-shrink-0">
+                                      <img 
+                                        src={getImageUrl(act.image_url)} 
+                                        alt="Thumbnail" 
+                                        className="w-20 h-20 object-cover rounded-xl border border-slate-100 shadow-sm group-hover:scale-105 transition-transform duration-500" 
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                      />
+                                      <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-black/5" />
+                                    </div>
                                   )}
-                                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0 transition-colors mt-0.5" />
-                                </div>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${color}`}>
-                                    {label}
-                                  </span>
-                                  <span className="text-xs text-slate-400">
-                                    {formatDistanceToNow(new Date(act.created_at), { addSuffix: true, locale: tr })}
-                                  </span>
                                 </div>
                               </div>
                             );
@@ -763,23 +745,28 @@ export const ProfilePage: React.FC = () => {
                               else if (isForum) navigate(`/dashboard/forum/${fav.target_id}`, { state: s });
                               else navigate(`/dashboard/career/${fav.target_id}`, { state: s });
                             }}
-                            className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-4 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                            className="glass-card p-4 flex items-center gap-5 hover:border-rose-200 hover:shadow-2xl hover:shadow-rose-500/5 transition-all cursor-pointer group rounded-2xl animate-slide-up"
                           >
                             {fav.image ? (
-                              <img src={`http://localhost:8000${fav.image}`} alt="Fav" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                              <div className="relative flex-shrink-0">
+                                <img src={`http://localhost:8000${fav.image}`} alt="Fav" className="w-12 h-12 rounded-xl object-cover shadow-sm group-hover:scale-110 transition-transform duration-500" />
+                                <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-black/5" />
+                              </div>
                             ) : (
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
-                                <FavIcon className="w-5 h-5" />
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${color}`}>
+                                <FavIcon className="w-6 h-6" />
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-[#0ea5e9] transition-colors">{fav.title}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${color}`}>{label}</span>
-                                {fav.price && <span className="text-xs font-semibold text-slate-700">{fav.price} TL</span>}
-                              </div>
+                               <div className="flex items-center gap-2 mb-1">
+                                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${color.replace('bg-', 'bg-opacity-20 bg-')}`}>{label}</span>
+                                 {fav.price && <span className="text-xs font-black text-slate-900">{fav.price} TL</span>}
+                               </div>
+                              <p className="text-sm font-bold text-slate-800 truncate group-hover:text-rose-600 transition-colors tracking-tight">{fav.title}</p>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0 transition-colors" />
+                            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-rose-50 group-hover:text-rose-500 transition-all">
+                              <ChevronRight className="w-4 h-4" />
+                            </div>
                           </div>
                         );
                       })
@@ -850,18 +837,28 @@ const InfoCard = ({
   icon: Icon,
   label,
   value,
+  variant = 'sky',
 }: {
   icon: React.ElementType;
   label: string;
   value?: string;
-}) => (
-  <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-lg">
-    <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">
-      <Icon className="w-4 h-4 text-slate-500" />
+  variant?: 'sky' | 'indigo' | 'violet';
+}) => {
+  const colors = {
+    sky: 'bg-sky-500/10 text-sky-600 border-sky-100',
+    indigo: 'bg-indigo-500/10 text-indigo-600 border-indigo-100',
+    violet: 'bg-violet-500/10 text-violet-600 border-violet-100',
+  };
+
+  return (
+    <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all hover:shadow-md ${colors[variant]}`}>
+      <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
+        <Icon className="w-6 h-6" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-0.5">{label}</p>
+        <p className="text-sm font-black text-slate-900 leading-tight tracking-tight">{value || 'Bilinmiyor'}</p>
+      </div>
     </div>
-    <div className="min-w-0">
-      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className="text-sm font-semibold text-slate-800 truncate">{value || 'Bilinmiyor'}</p>
-    </div>
-  </div>
-);
+  );
+};

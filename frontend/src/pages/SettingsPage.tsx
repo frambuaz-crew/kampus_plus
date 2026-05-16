@@ -29,34 +29,12 @@ import {
 const Section: React.FC<{ title: string; description: string; children: React.ReactNode }> = ({
   title, description, children,
 }) => (
-  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-    <div className="px-6 py-4 border-b border-slate-100">
-      <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-      <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+  <div className="glass-card rounded-3xl border-slate-200/60 overflow-hidden mb-8">
+    <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+      <h3 className="text-lg font-black text-slate-900 tracking-tight">{title}</h3>
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{description}</p>
     </div>
     <div className="divide-y divide-slate-100">{children}</div>
-  </div>
-);
-
-const Toggle: React.FC<{
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}> = ({ label, description, checked, onChange }) => (
-  <div className="flex items-center justify-between px-6 py-4">
-    <div>
-      <p className="text-sm font-medium text-slate-800">{label}</p>
-      <p className="text-xs text-slate-500 mt-0.5">{description}</p>
-    </div>
-    <button
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors focus:outline-none ${checked ? 'bg-[#0ea5e9]' : 'bg-slate-200'}`}
-    >
-      <span
-        className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`}
-      />
-    </button>
   </div>
 );
 
@@ -71,6 +49,9 @@ function usePasswordToggle() {
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
+
+  // Tab yönetimi
+  const [activeTab, setActiveTab] = useState<'account' | 'notifications' | 'privacy' | 'support' | 'danger'>('account');
 
   // Şifre değiştirme
   const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm: '' });
@@ -193,314 +174,420 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const TABS = [
+    { id: 'account', label: 'Hesap & Güvenlik', icon: Lock },
+    { id: 'notifications', label: 'Bildirimler', icon: Bell },
+    { id: 'privacy', label: 'Gizlilik', icon: Shield },
+    { id: 'support', label: 'Destek & İletişim', icon: HeadphonesIcon },
+    { id: 'danger', label: 'Tehlike Bölgesi', icon: AlertTriangle },
+  ] as const;
+
   return (
     <MainLayout>
-      <div className="w-full min-h-screen bg-slate-50 pb-16">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="w-full min-h-full bg-mesh relative">
+        {/* Background Decorative Blurs */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-sky-500/10 blur-[120px]" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/10 blur-[120px]" />
+        </div>
 
-          {/* Başlık */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-900">Ayarlar</h1>
-            <p className="text-sm text-slate-500 mt-1">Hesap ve uygulama tercihlerinizi yönetin.</p>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 relative z-10">
+          {/* Page Header */}
+          <div className="mb-12">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-1 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600" />
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Kullanıcı Tercihleri</span>
+              </div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight">Ayarlar</h1>
+            </div>
           </div>
 
-          <div className="space-y-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Sidebar Navigation */}
+            <div className="lg:col-span-3 space-y-2 overflow-x-auto lg:overflow-x-visible flex lg:flex-col pb-4 lg:pb-0 no-scrollbar">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all duration-300 whitespace-nowrap
+                      ${isActive 
+                        ? 'bg-slate-900 text-white shadow-xl shadow-slate-200 translate-x-2' 
+                        : 'bg-white/50 hover:bg-white text-slate-500 hover:text-slate-900 border border-transparent hover:border-white/80'}
+                    `}
+                  >
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-sky-400' : 'opacity-60'}`} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* ── Hesap Güvenliği ── */}
-            <Section title="Hesap Güvenliği" description="Şifre ve e-posta adresinizi güncelleyin.">
+            {/* Content Area */}
+            <div className="lg:col-span-9 min-h-[600px]">
+              <div className="animate-slide-up">
 
-              {/* Şifre Değiştir */}
-              <div className="px-6 py-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Lock className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-800">Şifre Değiştir</span>
-                </div>
-                <form onSubmit={handleChangePassword} className="space-y-3">
-                  <PasswordInput
-                    label="Mevcut Şifre"
-                    value={pwForm.current_password}
-                    onChange={(v) => setPwForm((f) => ({ ...f, current_password: v }))}
-                    show={curPw.show}
-                    Icon={curPw.Icon}
-                    onToggle={curPw.toggle}
-                  />
-                  <PasswordInput
-                    label="Yeni Şifre"
-                    value={pwForm.new_password}
-                    onChange={(v) => setPwForm((f) => ({ ...f, new_password: v }))}
-                    show={newPw.show}
-                    Icon={newPw.Icon}
-                    onToggle={newPw.toggle}
-                  />
-                  <PasswordInput
-                    label="Yeni Şifre (Tekrar)"
-                    value={pwForm.confirm}
-                    onChange={(v) => setPwForm((f) => ({ ...f, confirm: v }))}
-                    show={confPw.show}
-                    Icon={confPw.Icon}
-                    onToggle={confPw.toggle}
-                  />
-                  {pwMsg && <FeedbackBanner type={pwMsg.type} text={pwMsg.text} />}
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="submit"
-                      disabled={pwLoading}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {pwLoading ? 'Kaydediliyor...' : 'Şifreyi Güncelle'}
-                    </button>
-                  </div>
-                </form>
-              </div>
+                {activeTab === 'account' && (
+                  <div className="space-y-6">
+                    <div className="glass-card rounded-3xl border-slate-200/60 overflow-hidden">
+                      <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">Güvenlik Ayarları</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Şifre ve Hesap Erişimi</p>
+                      </div>
+                      
+                      <div className="p-8 space-y-8">
+                        {/* Şifre Değiştir */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
+                              <Lock className="w-4 h-4 text-sky-600" />
+                            </div>
+                            <span className="text-sm font-black text-slate-800 uppercase tracking-tight">Şifre Değiştir</span>
+                          </div>
+                          
+                          <form onSubmit={handleChangePassword} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <PasswordInput
+                              label="Mevcut Şifre"
+                              value={pwForm.current_password}
+                              onChange={(v) => setPwForm((f) => ({ ...f, current_password: v }))}
+                              show={curPw.show}
+                              Icon={curPw.Icon}
+                              onToggle={curPw.toggle}
+                            />
+                            <div className="hidden md:block" />
+                            <PasswordInput
+                              label="Yeni Şifre"
+                              value={pwForm.new_password}
+                              onChange={(v) => setPwForm((f) => ({ ...f, new_password: v }))}
+                              show={newPw.show}
+                              Icon={newPw.Icon}
+                              onToggle={newPw.toggle}
+                            />
+                            <PasswordInput
+                              label="Yeni Şifre (Tekrar)"
+                              value={pwForm.confirm}
+                              onChange={(v) => setPwForm((f) => ({ ...f, confirm: v }))}
+                              show={confPw.show}
+                              Icon={confPw.Icon}
+                              onToggle={confPw.toggle}
+                            />
+                            <div className="md:col-span-2">
+                              {pwMsg && <FeedbackBanner type={pwMsg.type} text={pwMsg.text} />}
+                            </div>
+                            <div className="md:col-span-2 flex justify-end">
+                              <button
+                                type="submit"
+                                disabled={pwLoading}
+                                className="btn-premium px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-xl shadow-lg shadow-slate-200 transition-all disabled:opacity-50"
+                              >
+                                {pwLoading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+                              </button>
+                            </div>
+                          </form>
+                        </div>
 
-              {/* E-posta Değiştir */}
-              <div className="px-6 py-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Mail className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-800">E-posta Değiştir</span>
-                </div>
-                <form onSubmit={handleChangeEmail} className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Yeni E-posta</label>
-                    <input
-                      type="email"
-                      value={emailForm.new_email}
-                      onChange={(e) => setEmailForm((f) => ({ ...f, new_email: e.target.value }))}
-                      placeholder="yeni@ornek.com"
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
-                    />
-                  </div>
-                  <PasswordInput
-                    label="Mevcut Şifreniz (Doğrulama)"
-                    value={emailForm.current_password}
-                    onChange={(v) => setEmailForm((f) => ({ ...f, current_password: v }))}
-                    show={emailPw.show}
-                    Icon={emailPw.Icon}
-                    onToggle={emailPw.toggle}
-                  />
-                  {emailMsg && <FeedbackBanner type={emailMsg.type} text={emailMsg.text} />}
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="submit"
-                      disabled={emailLoading}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {emailLoading ? 'Kaydediliyor...' : 'E-postayı Güncelle'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </Section>
+                        <div className="h-px bg-slate-100" />
 
-            {/* ── Bildirimler ── */}
-            <Section title="Bildirim Tercihleri" description="Hangi bildirimleri almak istediğinizi seçin.">
-              <Toggle
-                label="Mesaj Bildirimleri"
-                description="Yeni mesaj aldığınızda bildirim göster."
-                checked={notifs.messages}
-                onChange={(v) => setNotifs((n) => ({ ...n, messages: v }))}
-              />
-              <Toggle
-                label="İlan Bildirimleri"
-                description="Pazar ve kariyer ilanlarındaki güncellemeler."
-                checked={notifs.listings}
-                onChange={(v) => setNotifs((n) => ({ ...n, listings: v }))}
-              />
-              <Toggle
-                label="E-posta Bildirimleri"
-                description="Önemli güncellemeleri e-posta ile al."
-                checked={notifs.email}
-                onChange={(v) => setNotifs((n) => ({ ...n, email: v }))}
-              />
-            </Section>
-
-            {/* ── Gizlilik ── */}
-            <Section title="Gizlilik" description="Profilinizin kim tarafından görüleceğini ayarlayın.">
-              <div className="px-6 py-4">
-                <p className="text-sm font-medium text-slate-800 mb-3">Profil Görünürlüğü</p>
-                {[
-                  { value: 'public', label: 'Tüm Öğrencilere Açık (Kampüs+)', desc: 'Profilinizi uygulamadaki tüm üniversite öğrencileri görebilir.' },
-                  { value: 'private', label: `Sadece Aynı Üniversite (${user?.university || 'Kendi Üniversitem'})`, desc: 'Profilinizi sadece sizinle aynı üniversitedeki öğrenciler görebilir.' },
-                ].map((opt) => (
-                  <label key={opt.value} className="flex items-start gap-3 py-2 cursor-pointer group">
-                    <input 
-                      type="radio" 
-                      name="visibility" 
-                      value={opt.value} 
-                      checked={opt.value === 'private' ? user?.is_private === true : user?.is_private !== true}
-                      onChange={async () => {
-                        const is_private = opt.value === 'private';
-                        try {
-                          await apiClient.put('/users/profile', { is_private });
-                          updateUser({ is_private });
-                        } catch (err) {
-                          console.error("Gizlilik güncellenemedi", err);
-                        }
-                      }}
-                      className="mt-0.5 accent-[#0ea5e9]" 
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-slate-800 group-hover:text-[#0ea5e9] transition-colors">{opt.label}</p>
-                      <p className="text-xs text-slate-500">{opt.desc}</p>
+                        {/* E-posta Değiştir */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                              <Mail className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <span className="text-sm font-black text-slate-800 uppercase tracking-tight">E-posta Değiştir</span>
+                          </div>
+                          
+                          <form onSubmit={handleChangeEmail} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Yeni E-posta</label>
+                              <input
+                                type="email"
+                                value={emailForm.new_email}
+                                onChange={(e) => setEmailForm((f) => ({ ...f, new_email: e.target.value }))}
+                                placeholder="yeni@ornek.com"
+                                className="w-full px-5 py-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                              />
+                            </div>
+                            <PasswordInput
+                              label="Mevcut Şifre"
+                              value={emailForm.current_password}
+                              onChange={(v) => setEmailForm((f) => ({ ...f, current_password: v }))}
+                              show={emailPw.show}
+                              Icon={emailPw.Icon}
+                              onToggle={emailPw.toggle}
+                            />
+                            <div className="md:col-span-2">
+                              {emailMsg && <FeedbackBanner type={emailMsg.type} text={emailMsg.text} />}
+                            </div>
+                            <div className="md:col-span-2 flex justify-end">
+                              <button
+                                type="submit"
+                                disabled={emailLoading}
+                                className="btn-premium px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-xl shadow-lg shadow-slate-200 transition-all disabled:opacity-50"
+                              >
+                                {emailLoading ? 'Güncelleniyor...' : 'E-postayı Güncelle'}
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
                     </div>
-                  </label>
-                ))}
-              </div>
-              <button
-                className="w-full flex items-center justify-between px-6 py-4 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
-                onClick={() => navigate('/dashboard/profile')}
-              >
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-slate-400" />
-                  <span>Profil Bilgilerini Düzenle</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-300" />
-              </button>
-            </Section>
-
-            {/* ── Destek & İletişim ── */}
-            <Section
-              title="Destek & İletişim"
-              description="Sorun bildirin veya geri bildirim gönderin. Ekibimiz en kısa sürede yanıtlar."
-            >
-              {/* Yeni mesaj formu */}
-              <div className="px-6 py-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <HeadphonesIcon className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-800">Mesaj Gönder</span>
-                </div>
-                <form onSubmit={handleSubmitContact} className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Konu</label>
-                    <input
-                      type="text"
-                      value={contactForm.subject}
-                      onChange={(e) => setContactForm((f) => ({ ...f, subject: e.target.value }))}
-                      placeholder="Konuyu kısaca özetleyin"
-                      maxLength={100}
-                      required
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Mesajınız</label>
-                    <textarea
-                      value={contactForm.message}
-                      onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))}
-                      placeholder="Sorununuzu veya geri bildiriminizi detaylıca açıklayın..."
-                      maxLength={2000}
-                      required
-                      rows={4}
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent resize-none"
-                    />
-                    <p className="text-right text-xs text-slate-400 mt-0.5">
-                      {contactForm.message.length}/2000
-                    </p>
-                  </div>
-                  {contactMsg && <FeedbackBanner type={contactMsg.type} text={contactMsg.text} />}
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="submit"
-                      disabled={contactLoading || contactForm.subject.length < 3 || contactForm.message.length < 10}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      {contactLoading ? 'Gönderiliyor...' : 'Gönder'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Önceki mesajlar */}
-              <div className="px-6 py-4 border-t border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                  Önceki Mesajlarım
-                </p>
-                {historyLoading ? (
-                  <p className="text-xs text-slate-400 py-2">Yükleniyor...</p>
-                ) : contactHistory.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-2">Henüz mesaj göndermediniz.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {contactHistory.map((item) => (
-                      <ContactHistoryRow key={item.id} item={item} />
-                    ))}
                   </div>
                 )}
-              </div>
-            </Section>
 
-            {/* ── Tehlike Bölgesi ── */}
-            <div className="bg-white border border-red-200 rounded-xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-red-100">
-                <h2 className="text-sm font-semibold text-red-700 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> Tehlike Bölgesi
-                </h2>
-                <p className="text-xs text-red-500 mt-0.5">Bu işlemler geri alınamaz.</p>
-              </div>
-              <div className="px-6 py-5">
-                {!showDeleteSection ? (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Hesabımı Sil</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Tüm verileriniz kalıcı olarak silinir.
-                      </p>
+                {activeTab === 'notifications' && (
+                  <div className="glass-card rounded-3xl border-slate-200/60 overflow-hidden">
+                    <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Bildirim Tercihleri</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Uygulama İçi ve E-posta</p>
                     </div>
-                    <button
-                      onClick={() => setShowDeleteSection(true)}
-                      className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" /> Sil
-                    </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleDeleteAccount} className="space-y-4">
-                    <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                      <p className="text-sm text-red-700 font-medium mb-1">Dikkat!</p>
-                      <p className="text-xs text-red-600">
-                        Hesabınız, tüm ilanlarınız, mesajlarınız ve favori listeniz kalıcı olarak silinecek.
-                        Onaylamak için aşağıya <strong>HESABIMI SİL</strong> yazın.
-                      </p>
-                    </div>
-                    <PasswordInput
-                      label="Mevcut Şifreniz"
-                      value={deleteForm.current_password}
-                      onChange={(v) => setDeleteForm((f) => ({ ...f, current_password: v }))}
-                      show={deletePw.show}
-                      Icon={deletePw.Icon}
-                      onToggle={deletePw.toggle}
-                    />
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">
-                        Onay: <span className="font-mono text-red-600">HESABIMI SİL</span> yazın
-                      </label>
-                      <input
-                        type="text"
-                        value={deleteForm.confirmation}
-                        onChange={(e) => setDeleteForm((f) => ({ ...f, confirmation: e.target.value }))}
-                        placeholder="HESABIMI SİL"
-                        className="w-full px-3 py-2 text-sm border border-red-200 rounded-lg bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300"
+                    <div className="divide-y divide-slate-100">
+                      <Toggle
+                        label="Mesaj Bildirimleri"
+                        description="Yeni mesaj aldığınızda anlık bildirim göster."
+                        checked={notifs.messages}
+                        onChange={(v) => setNotifs((n) => ({ ...n, messages: v }))}
+                      />
+                      <Toggle
+                        label="İlan Bildirimleri"
+                        description="Pazar ve kariyer ilanlarındaki tüm güncellemeler."
+                        checked={notifs.listings}
+                        onChange={(v) => setNotifs((n) => ({ ...n, listings: v }))}
+                      />
+                      <Toggle
+                        label="E-posta Bildirimleri"
+                        description="Önemli duyuruları ve özetleri e-posta ile al."
+                        checked={notifs.email}
+                        onChange={(v) => setNotifs((n) => ({ ...n, email: v }))}
                       />
                     </div>
-                    {deleteMsg && <FeedbackBanner type={deleteMsg.type} text={deleteMsg.text} />}
-                    <div className="flex gap-3 justify-end pt-1">
-                      <button
-                        type="button"
-                        onClick={() => { setShowDeleteSection(false); setDeleteMsg(null); }}
-                        className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                      >
-                        İptal
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={deleteLoading || deleteForm.confirmation !== 'HESABIMI SİL'}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40"
-                      >
-                        {deleteLoading ? 'Siliniyor...' : 'Hesabımı Kalıcı Olarak Sil'}
-                      </button>
+                  </div>
+                )}
+
+                {activeTab === 'privacy' && (
+                  <div className="glass-card rounded-3xl border-slate-200/60 overflow-hidden">
+                    <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight">Gizlilik Ayarları</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Profil Görünürlüğü</p>
                     </div>
-                  </form>
+                    <div className="p-8">
+                      <div className="space-y-4">
+                        {[
+                          { value: 'public', label: 'Tüm Öğrencilere Açık (Kampüs+)', desc: 'Profilinizi uygulamadaki tüm üniversite öğrencileri görebilir.' },
+                          { value: 'private', label: `Sadece Aynı Üniversite (${user?.university || 'Kendi Üniversitem'})`, desc: 'Profilinizi sadece sizinle aynı üniversitedeki öğrenciler görebilir.' },
+                        ].map((opt) => (
+                          <label 
+                            key={opt.value} 
+                            className={`
+                              flex items-start gap-4 p-5 rounded-2xl border cursor-pointer transition-all duration-300
+                              ${(opt.value === 'private' ? user?.is_private : !user?.is_private) 
+                                ? 'bg-sky-500/5 border-sky-200 shadow-sm' 
+                                : 'bg-slate-50/50 border-slate-100 hover:border-slate-200'}
+                            `}
+                          >
+                            <input 
+                              type="radio" 
+                              name="visibility" 
+                              value={opt.value} 
+                              checked={opt.value === 'private' ? user?.is_private === true : user?.is_private !== true}
+                              onChange={async () => {
+                                const is_private = opt.value === 'private';
+                                try {
+                                  await apiClient.put('/users/profile', { is_private });
+                                  updateUser({ is_private });
+                                } catch (err) {
+                                  console.error("Gizlilik güncellenemedi", err);
+                                }
+                              }}
+                              className="mt-1 w-4 h-4 accent-sky-500" 
+                            />
+                            <div>
+                              <p className={`text-sm font-black transition-colors ${opt.value === 'private' ? (user?.is_private ? 'text-sky-900' : 'text-slate-800') : (!user?.is_private ? 'text-sky-900' : 'text-slate-800')}`}>
+                                {opt.label}
+                              </p>
+                              <p className="text-xs font-bold text-slate-400 mt-1 leading-relaxed">{opt.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-8 pt-8 border-t border-slate-100">
+                        <button
+                          className="w-full flex items-center justify-between p-5 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all duration-300 group"
+                          onClick={() => navigate('/dashboard/profile')}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                              <Shield className="w-5 h-5 text-sky-400" />
+                            </div>
+                            <span className="text-sm font-black tracking-tight">Detaylı Profil Bilgilerini Düzenle</span>
+                          </div>
+                          <ChevronRight className="w-5 h-5 opacity-40 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'support' && (
+                  <div className="space-y-8">
+                    <div className="glass-card rounded-3xl border-slate-200/60 overflow-hidden">
+                      <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">Destek & İletişim</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Geri Bildirim ve Yardım Talebi</p>
+                      </div>
+                      <div className="p-8">
+                        <form onSubmit={handleSubmitContact} className="space-y-6">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Konu</label>
+                            <input
+                              type="text"
+                              value={contactForm.subject}
+                              onChange={(e) => setContactForm((f) => ({ ...f, subject: e.target.value }))}
+                              placeholder="Konuyu kısaca özetleyin"
+                              maxLength={100}
+                              required
+                              className="w-full px-5 py-3.5 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Mesajınız</label>
+                            <div className="relative">
+                              <textarea
+                                value={contactForm.message}
+                                onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))}
+                                placeholder="Sorununuzu veya geri bildiriminizi detaylıca açıklayın..."
+                                maxLength={2000}
+                                required
+                                rows={5}
+                                className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all resize-none"
+                              />
+                              <div className="absolute bottom-4 right-4 text-[10px] font-black text-slate-400 bg-white/80 px-2 py-1 rounded-lg">
+                                {contactForm.message.length}/2000
+                              </div>
+                            </div>
+                          </div>
+                          {contactMsg && <FeedbackBanner type={contactMsg.type} text={contactMsg.text} />}
+                          <div className="flex justify-end">
+                            <button
+                              type="submit"
+                              disabled={contactLoading || contactForm.subject.length < 3 || contactForm.message.length < 10}
+                              className="flex items-center gap-3 px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-xl shadow-lg shadow-slate-200 transition-all disabled:opacity-50"
+                            >
+                              <Send className="w-4 h-4" />
+                              {contactLoading ? 'Gönderiliyor...' : 'Mesajı İlet'}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+
+                    <div className="glass-card rounded-3xl border-slate-200/60 overflow-hidden">
+                      <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+                        <h3 className="text-sm font-black text-slate-900 tracking-tight uppercase tracking-[0.1em]">Önceki Mesajlarım</h3>
+                      </div>
+                      <div className="p-4">
+                        {historyLoading ? (
+                          <div className="p-8 text-center">
+                            <div className="animate-spin w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full mx-auto mb-3" />
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Yükleniyor...</p>
+                          </div>
+                        ) : contactHistory.length === 0 ? (
+                          <div className="p-8 text-center">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Henüz mesaj göndermediniz.</p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-100">
+                            {contactHistory.map((item) => (
+                              <ContactHistoryRow key={item.id} item={item} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'danger' && (
+                  <div className="glass-card rounded-3xl border-rose-200/60 overflow-hidden">
+                    <div className="px-8 py-6 border-b border-rose-100 bg-rose-50/50">
+                      <h3 className="text-lg font-black text-rose-900 tracking-tight">Tehlike Bölgesi</h3>
+                      <p className="text-xs font-bold text-rose-400 uppercase tracking-widest mt-1">Hesap Kapatma ve Silme</p>
+                    </div>
+                    <div className="p-8">
+                      {!showDeleteSection ? (
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 bg-rose-50/50 border border-rose-100 rounded-2xl">
+                          <div>
+                            <p className="text-sm font-black text-rose-900">Hesabımı Kalıcı Olarak Sil</p>
+                            <p className="text-xs font-bold text-rose-400 mt-1 uppercase tracking-tight">Tüm verileriniz geri döndürülemez şekilde silinecektir.</p>
+                          </div>
+                          <button
+                            onClick={() => setShowDeleteSection(true)}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white text-sm font-black rounded-xl shadow-lg shadow-rose-200 transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" /> Hesabı Sil
+                          </button>
+                        </div>
+                      ) : (
+                        <form onSubmit={handleDeleteAccount} className="space-y-6 animate-slide-up">
+                          <div className="bg-rose-600 text-white rounded-2xl p-6 shadow-xl shadow-rose-200">
+                            <div className="flex items-center gap-3 mb-3">
+                              <AlertTriangle className="w-6 h-6" />
+                              <p className="text-lg font-black tracking-tight">Kritik Uyarı!</p>
+                            </div>
+                            <p className="text-sm font-bold opacity-90 leading-relaxed">
+                              Hesabınızla birlikte tüm ilanlarınız, mesajlarınız ve favori listeniz kalıcı olarak silinecek. 
+                              Devam etmek için aşağıdaki kutuya <span className="underline decoration-2 underline-offset-4">HESABIMI SİL</span> yazın.
+                            </p>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <PasswordInput
+                              label="Mevcut Şifreniz"
+                              value={deleteForm.current_password}
+                              onChange={(v) => setDeleteForm((f) => ({ ...f, current_password: v }))}
+                              show={deletePw.show}
+                              Icon={deletePw.Icon}
+                              onToggle={deletePw.toggle}
+                            />
+                            <div>
+                              <label className="block text-[10px] font-black text-rose-400 uppercase tracking-[0.2em] mb-2 ml-1">Onay Kelimesi</label>
+                              <input
+                                type="text"
+                                value={deleteForm.confirmation}
+                                onChange={(e) => setDeleteForm((f) => ({ ...f, confirmation: e.target.value }))}
+                                placeholder="HESABIMI SİL"
+                                className="w-full px-5 py-3.5 bg-rose-50/50 border border-rose-200 rounded-2xl text-sm font-bold text-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all placeholder:text-rose-200"
+                              />
+                            </div>
+                          </div>
+
+                          {deleteMsg && <FeedbackBanner type={deleteMsg.type} text={deleteMsg.text} />}
+                          
+                          <div className="flex gap-4 justify-end pt-4 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => { setShowDeleteSection(false); setDeleteMsg(null); }}
+                              className="px-6 py-3 text-sm font-black text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all"
+                            >
+                              İptal
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={deleteLoading || deleteForm.confirmation !== 'HESABIMI SİL'}
+                              className="px-8 py-3 bg-rose-600 hover:bg-rose-700 text-white text-sm font-black rounded-xl shadow-lg shadow-rose-200 transition-all disabled:opacity-40"
+                            >
+                              {deleteLoading ? 'İşleniyor...' : 'Hesabımı Kalıcı Olarak Sil'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -523,18 +610,18 @@ const PasswordInput: React.FC<{
   onToggle: () => void;
 }> = ({ label, value, onChange, show, Icon, onToggle }) => (
   <div>
-    <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
-    <div className="relative">
+    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">{label}</label>
+    <div className="relative group">
       <input
         type={show ? 'text' : 'password'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 pr-9 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent"
+        className="w-full px-5 py-3.5 pr-12 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all group-hover:bg-white"
       />
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
       >
         <Icon className="w-4 h-4" />
       </button>
@@ -542,17 +629,48 @@ const PasswordInput: React.FC<{
   </div>
 );
 
+const Toggle: React.FC<{
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}> = ({ label, description, checked, onChange }) => (
+  <div className="flex items-center justify-between px-8 py-6 hover:bg-slate-50/50 transition-colors duration-300">
+    <div className="max-w-[80%]">
+      <p className="text-sm font-black text-slate-800 tracking-tight">{label}</p>
+      <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-tight leading-relaxed">{description}</p>
+    </div>
+    <button
+      onClick={() => onChange(!checked)}
+      className={`
+        relative inline-flex h-7 w-12 flex-shrink-0 rounded-full transition-all duration-300 focus:outline-none shadow-sm
+        ${checked ? 'bg-slate-900 ring-4 ring-slate-900/10' : 'bg-slate-200'}
+      `}
+    >
+      <span
+        className={`
+          inline-block h-5 w-5 rounded-full bg-white shadow-lg transform transition-transform duration-300 mt-1
+          ${checked ? 'translate-x-6' : 'translate-x-1'}
+        `}
+      />
+    </button>
+  </div>
+);
+
 const FeedbackBanner: React.FC<{ type: 'ok' | 'err'; text: string }> = ({ type, text }) => (
-  <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${type === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-    {type === 'ok' ? <Check className="w-4 h-4 flex-shrink-0" /> : <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
+  <div className={`
+    flex items-center gap-3 text-sm font-bold px-5 py-4 rounded-2xl shadow-sm animate-slide-up
+    ${type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}
+  `}>
+    {type === 'ok' ? <Check className="w-5 h-5 flex-shrink-0" /> : <AlertTriangle className="w-5 h-5 flex-shrink-0" />}
     {text}
   </div>
 );
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
-  pending:  { label: 'Bekliyor',   className: 'bg-amber-50 text-amber-700 border-amber-200' },
-  answered: { label: 'Yanıtlandı', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  spam:     { label: 'Spam',       className: 'bg-red-50 text-red-600 border-red-200' },
+  pending:  { label: 'BEKLEMEDE',   className: 'bg-amber-50 text-amber-600 border-amber-100' },
+  answered: { label: 'YANITLANDI', className: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+  spam:     { label: 'SPAM',       className: 'bg-rose-50 text-rose-600 border-rose-100' },
 };
 
 const ContactHistoryRow: React.FC<{ item: ContactMessageResponse }> = ({ item }) => {
@@ -561,15 +679,17 @@ const ContactHistoryRow: React.FC<{ item: ContactMessageResponse }> = ({ item })
     day: '2-digit', month: 'short', year: 'numeric',
   });
   return (
-    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-slate-100 last:border-0">
-      <div className="flex items-start gap-2 min-w-0">
-        <Clock className="w-3.5 h-3.5 text-slate-300 mt-0.5 flex-shrink-0" />
+    <div className="flex items-center justify-between gap-4 py-5 hover:bg-slate-50/50 px-4 -mx-4 rounded-2xl transition-all group">
+      <div className="flex items-start gap-4 min-w-0">
+        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 group-hover:bg-white group-hover:shadow-sm transition-all">
+          <Clock className="w-5 h-5 text-slate-400" />
+        </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-800 truncate">{item.subject}</p>
-          <p className="text-xs text-slate-400">{date}</p>
+          <p className="text-sm font-black text-slate-800 truncate tracking-tight">{item.subject}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{date}</p>
         </div>
       </div>
-      <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${meta.className}`}>
+      <span className={`flex-shrink-0 text-[9px] font-black px-3 py-1 rounded-lg border ${meta.className} tracking-widest`}>
         {meta.label}
       </span>
     </div>
