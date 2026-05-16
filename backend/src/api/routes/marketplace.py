@@ -182,6 +182,7 @@ async def get_categories(
 async def get_listings(
     university: Optional[str] = Query(None),
     category_id: Optional[str] = Query(None, description="Kategori UUID ile filtrele"),
+    scope: Optional[str] = Query(None, description="public veya university"),
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_db),
 ) -> List[dict]:
@@ -191,6 +192,28 @@ async def get_listings(
         .options(*_LISTING_OPTIONS)
         .order_by(desc(MarketplaceListing.created_at))
     )
+
+    is_admin = _is_admin(current_user)
+    if not is_admin:
+        if scope == "university":
+            stmt = stmt.outerjoin(User, MarketplaceListing.seller_id == User.id).where(
+                or_(
+                    MarketplaceListing.university_id == current_user.university_id,
+                    and_(
+                        MarketplaceListing.university_id.is_(None),
+                        User.university_id == current_user.university_id
+                    )
+                )
+            )
+        elif scope == "public":
+            stmt = stmt.where(MarketplaceListing.university_id.is_(None))
+        else:
+            stmt = stmt.where(
+                or_(
+                    MarketplaceListing.university_id == current_user.university_id,
+                    MarketplaceListing.university_id.is_(None)
+                )
+            )
 
     if category_id:
         stmt = stmt.where(MarketplaceListing.category_id == category_id)
@@ -211,6 +234,7 @@ async def create_listing(
     price: Decimal = Form(...),
     category_id: Optional[str] = Form(None),
     condition: str = Form(...),
+    visibility: str = Form("public"),
     files: Optional[List[UploadFile]] = File(None),
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_db),
@@ -248,6 +272,7 @@ async def create_listing(
         description=description,
         price=price,
         category_id=category_id,
+        university_id=None if visibility == "public" else current_user.university_id,
         condition=condition,
         image_urls=json.dumps(saved_image_urls) if saved_image_urls else None,
         status="active",

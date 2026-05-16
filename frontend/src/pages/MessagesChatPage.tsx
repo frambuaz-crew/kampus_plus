@@ -325,7 +325,7 @@ export const MessagesChatPage: React.FC = () => {
                         );
                       }
 
-                      const isMe = msg.sender_id === myId;
+                      const isMe = String(msg.sender_id) === String(myId);
                       return (
                         <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-0.5`}>
                           <div

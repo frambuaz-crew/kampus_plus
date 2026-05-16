@@ -165,31 +165,70 @@ async def get_student_dashboard(
             break
 
     # ── Global feed: latest 5 of each type, merged and sorted ────────────────
-    forum_result = await session.execute(
+    # Kural:
+    # - university_id IS NULL  → herkese açık, herkese göster
+    # - university_id == benim üniversitem → sadece benim üniversitemden, bana göster
+    # - university_id == başka üniversite  → gizle
+    uni_id = current_user.university_id
+
+    forum_query = (
         select(ForumTopic)
         .where(ForumTopic.is_deleted == False)
         .options(selectinload(ForumTopic.author))
         .order_by(ForumTopic.created_at.desc())
         .limit(5)
     )
+    if uni_id:
+        forum_query = forum_query.where(
+            or_(
+                ForumTopic.university_id == uni_id,
+                ForumTopic.university_id.is_(None),
+            )
+        )
+    else:
+        forum_query = forum_query.where(ForumTopic.university_id.is_(None))
+
+    forum_result = await session.execute(forum_query)
     forum_topics = forum_result.scalars().all()
 
-    market_result = await session.execute(
+    market_query = (
         select(MarketplaceListing)
         .where(MarketplaceListing.status == "active")
         .options(selectinload(MarketplaceListing.seller))
         .order_by(MarketplaceListing.created_at.desc())
         .limit(5)
     )
+    if uni_id:
+        market_query = market_query.where(
+            or_(
+                MarketplaceListing.university_id == uni_id,
+                MarketplaceListing.university_id.is_(None),
+            )
+        )
+    else:
+        market_query = market_query.where(MarketplaceListing.university_id.is_(None))
+
+    market_result = await session.execute(market_query)
     market_listings = market_result.scalars().all()
 
-    career_result = await session.execute(
+    career_query = (
         select(CareerListing)
         .where(CareerListing.status == "active")
         .options(selectinload(CareerListing.posted_by_user))
         .order_by(CareerListing.created_at.desc())
         .limit(5)
     )
+    if uni_id:
+        career_query = career_query.where(
+            or_(
+                CareerListing.university_id == uni_id,
+                CareerListing.university_id.is_(None),
+            )
+        )
+    else:
+        career_query = career_query.where(CareerListing.university_id.is_(None))
+
+    career_result = await session.execute(career_query)
     career_listings = career_result.scalars().all()
 
     feed_items: List[FeedItem] = []

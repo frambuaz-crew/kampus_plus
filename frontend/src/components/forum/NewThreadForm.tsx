@@ -52,6 +52,7 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
   const [tagsInput, setTagsInput] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [categoryId, setCategoryId] = useState<string>('');
+  const [visibility, setVisibility] = useState<'public' | 'university'>('public');
   const [categories, setCategories] = useState<ForumCategory[]>([]);
   const [imageItems, setImageItems] = useState<ImageEntry[]>([]);
   const [stats, setStats] = useState<ForumStats | null>(null);
@@ -150,6 +151,7 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
         title: title.trim(),
         content: content.trim(),
         topic_type: topicType,
+        visibility,
         ...(categoryId ? { category_id: categoryId } : {}),
       };
 
@@ -368,6 +370,38 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold text-slate-800 uppercase tracking-widest">
+                        Görünürlük
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setVisibility('public')}
+                          className={cn(
+                            'flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-bold transition-all text-sm',
+                            visibility === 'public'
+                              ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700'
+                              : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'
+                          )}
+                        >
+                          Herkese Açık
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVisibility('university')}
+                          className={cn(
+                            'flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-bold transition-all text-sm',
+                            visibility === 'university'
+                              ? 'border-indigo-600 bg-indigo-50/50 text-indigo-700'
+                              : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'
+                          )}
+                        >
+                          Üniversitem
+                        </button>
+                      </div>
                     </div>
 
                     {topicType === 'event' && (

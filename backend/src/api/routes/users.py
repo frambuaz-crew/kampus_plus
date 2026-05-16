@@ -10,6 +10,7 @@ from src.models.forum import ForumTopic
 from src.models.marketplace import MarketplaceListing
 from src.models.career import CareerListing
 from src.models.academic import AcademicContribution
+from src.models.notifications import Notification
 from src.core.security import hash_password, verify_password
 from src.schemas.user import (
     AdminUserItem,
@@ -476,6 +477,39 @@ async def toggle_favorite(
             target_id=data.target_id
         )
         session.add(new_fav)
+        
+        # Bildirim oluştur
+        if data.target_type == "marketplace_listing":
+            lst_res = await session.execute(select(MarketplaceListing).where(MarketplaceListing.id == data.target_id))
+            listing = lst_res.scalar_one_or_none()
+            if listing and listing.seller_id != current_user.id:
+                notif = Notification(
+                    id=str(uuid.uuid4()),
+                    user_id=listing.seller_id,
+                    type="marketplace_favorite",
+                    title="İlanınız favorilere eklendi",
+                    message=f"{current_user.first_name} {current_user.last_name} ilanınızı favorilerine ekledi.",
+                    actor_id=current_user.id,
+                    link=f"/dashboard/marketplace/{listing.id}",
+                    is_read=False,
+                )
+                session.add(notif)
+        elif data.target_type == "career_listing":
+            car_res = await session.execute(select(CareerListing).where(CareerListing.id == data.target_id))
+            career = car_res.scalar_one_or_none()
+            if career and career.posted_by != current_user.id:
+                notif = Notification(
+                    id=str(uuid.uuid4()),
+                    user_id=career.posted_by,
+                    type="career_favorite",
+                    title="İlanınız favorilere eklendi",
+                    message=f"{current_user.first_name} {current_user.last_name} ilanınızı favorilerine ekledi.",
+                    actor_id=current_user.id,
+                    link=f"/dashboard/career/{career.id}",
+                    is_read=False,
+                )
+                session.add(notif)
+        
         await session.commit()
         return {"success": True, "action": "added"}
 

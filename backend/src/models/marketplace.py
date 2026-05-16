@@ -79,6 +79,11 @@ class MarketplaceListing(Base):
         index=True,
     )
 
+    # Multi-tenant: university_id for listings
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("universities.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+
     # Relational category (replaces the old plain String column)
     category_id: Mapped[Optional[str]] = mapped_column(
         String(36),

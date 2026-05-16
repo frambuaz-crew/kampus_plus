@@ -40,6 +40,7 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
     price: '',
     category_id: '',
     condition: '',
+    visibility: 'public',
   });
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -79,6 +80,7 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
     data.append('price', form.price);
     if (form.category_id) data.append('category_id', form.category_id);
     data.append('condition', form.condition || 'good');
+    data.append('visibility', form.visibility);
     files.forEach(file => data.append('files', file));
     await onSubmit(data);
   };
@@ -174,6 +176,37 @@ export const NewListingForm: React.FC<NewListingFormProps> = ({
             ))}
           </select>
           <ChevronDown />
+        </div>
+      </div>
+
+      {/* Görünürlük */}
+      <div>
+        <label className="block text-sm font-semibold text-slate-800 mb-2">
+          Görünürlük
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => set('visibility', 'public')}
+            className={`py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+              form.visibility === 'public'
+                ? 'border-[#0ea5e9] bg-sky-50 text-[#0ea5e9]'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Herkese Açık
+          </button>
+          <button
+            type="button"
+            onClick={() => set('visibility', 'university')}
+            className={`py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+              form.visibility === 'university'
+                ? 'border-[#0ea5e9] bg-sky-50 text-[#0ea5e9]'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Sadece Üniversitem
+          </button>
         </div>
       </div>
 

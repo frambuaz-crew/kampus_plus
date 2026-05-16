@@ -24,6 +24,7 @@ from src.core.rate_limit import limiter
 from src.models.user import User, UserRole
 from src.models.forum import ForumCategory, ForumTopic, ForumReply, ForumReport
 from src.models.favorite import UserFavorite
+from src.models.notifications import Notification
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,7 @@ class CreateTopicRequest(BaseModel):
     tags: Optional[List[str]] = Field(None, description="Etiketler")
     image_urls: Optional[List[str]] = Field(None, description="Fotoğraf URL'leri")
     event_date: Optional[datetime] = Field(None, description="Etkinlik tarihi")
+    visibility: str = Field("public", description="public veya university")
 
 
 class CreateReplyRequest(BaseModel):
@@ -285,6 +287,7 @@ async def get_forum_stats(
 async def get_topics(
     category_id: Optional[str] = Query(None, description="Kategori ID ile filtrele"),
     topic_type: Optional[str] = Query(None, description="Konu tipi (text, event)"),
+    scope: Optional[str] = Query(None, description="public veya university"),
     search: Optional[str] = Query(None, description="Başlık, içerik veya etiketlerde arama"),
     page: int = Query(1, ge=1, description="Sayfa numarası"),
     limit: int = Query(20, ge=1, le=100, description="Sayfa başına kayıt"),
@@ -300,12 +303,26 @@ async def get_topics(
 
     # Multi-tenant filtre
     if UserRole(current_user.role) != UserRole.ADMIN:
-        query = query.where(
-            or_(
-                ForumTopic.university_id == current_user.university_id,
-                ForumTopic.university_id.is_(None),
+        if scope == "university":
+            query = query.outerjoin(User, ForumTopic.author_id == User.id)
+            query = query.where(
+                or_(
+                    ForumTopic.university_id == current_user.university_id,
+                    and_(
+                        ForumTopic.university_id.is_(None),
+                        User.university_id == current_user.university_id
+                    )
+                )
             )
-        )
+        elif scope == "public":
+            query = query.where(ForumTopic.university_id.is_(None))
+        else:
+            query = query.where(
+                or_(
+                    ForumTopic.university_id == current_user.university_id,
+                    ForumTopic.university_id.is_(None),
+                )
+            )
 
     if category_id:
         query = query.where(ForumTopic.category_id == category_id)
@@ -549,7 +566,7 @@ async def create_topic(
         id=str(uuid4()),
         category_id=data.category_id,
         author_id=current_user.id,
-        university_id=current_user.university_id,
+        university_id=None if data.visibility == "public" else current_user.university_id,
         title=data.title,
         content=data.content,
         topic_type=data.topic_type,
@@ -678,6 +695,21 @@ async def toggle_topic_helpful(
         ))
         topic.helpful_count += 1
         action = "liked"
+        
+        # Bildirim oluştur
+        if topic.author_id != current_user.id:
+            notif = Notification(
+                id=str(uuid4()),
+                user_id=topic.author_id,
+                type="forum_like",
+                title="Gönderiniz beğenildi",
+                message=f"{current_user.first_name} {current_user.last_name} gönderinizi beğendi.",
+                actor_id=current_user.id,
+                link=f"/dashboard/forum/{topic_id}",
+                is_read=False,
+                created_at=datetime.now()
+            )
+            session.add(notif)
 
     topic.updated_at = datetime.now()
     await session.commit()
@@ -774,6 +806,21 @@ async def toggle_reply_helpful(
         ))
         reply.helpful_count += 1
         action = "liked"
+        
+        # Bildirim oluştur
+        if reply.author_id != current_user.id:
+            notif = Notification(
+                id=str(uuid4()),
+                user_id=reply.author_id,
+                type="forum_like",
+                title="Yanıtınız beğenildi",
+                message=f"{current_user.first_name} {current_user.last_name} yanıtınızı beğendi.",
+                actor_id=current_user.id,
+                link=f"/dashboard/forum/{reply.topic_id}",
+                is_read=False,
+                created_at=datetime.now()
+            )
+            session.add(notif)
 
     reply.updated_at = datetime.now()
     await session.commit()

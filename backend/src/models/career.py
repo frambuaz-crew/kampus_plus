@@ -47,6 +47,11 @@ class CareerListing(Base):
         index=True,
     )
     
+    # Multi-tenant: university_id for listings
+    university_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("universities.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+    
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     company_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

@@ -19,6 +19,7 @@ interface ThreadViewProps {
   onRefresh: () => void;
   isSubmitting?: boolean;
   autoOpenReply?: boolean;
+  onDeleted?: (id: string) => void;
 }
 
 const ReplyCard: React.FC<{
@@ -280,6 +281,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
   onRefresh,
   isSubmitting,
   autoOpenReply,
+  onDeleted,
 }) => {
   const [activeReplyId, setActiveReplyId] = useState<string | null>(autoOpenReply ? 'top' : null);
   const { thread, replies } = data;
@@ -370,6 +372,7 @@ export const ThreadView: React.FC<ThreadViewProps> = ({
         post={thread}
         onClick={() => {}}
         onCommentClick={() => handleReplyClick('top')}
+        onDeleted={onDeleted}
         interactive={false}
       />
 

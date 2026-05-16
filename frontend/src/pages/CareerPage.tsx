@@ -115,6 +115,7 @@ interface NewListingForm {
   required_position: string;
   duration: 'short_term' | 'long_term' | '';
   payment_type: string;
+  visibility: 'public' | 'university';
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────────
@@ -555,6 +556,7 @@ const NewListingFormView: React.FC<{
     listing_type: '', title: '', description: '', sector: '', location: '',
     company_name: '', external_link: '', salary_range: '',
     required_position: '', duration: '', payment_type: '',
+    visibility: 'public',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof NewListingForm, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -617,7 +619,7 @@ const NewListingFormView: React.FC<{
 
   const resetForm = () => {
     setSuccess(false);
-    setForm({ listing_type: '', title: '', description: '', sector: '', location: '', company_name: '', external_link: '', salary_range: '', required_position: '', duration: '', payment_type: '' });
+    setForm({ listing_type: '', title: '', description: '', sector: '', location: '', company_name: '', external_link: '', salary_range: '', required_position: '', duration: '', payment_type: '', visibility: 'public' });
     setErrors({});
   };
 
@@ -866,6 +868,37 @@ const NewListingFormView: React.FC<{
         </>
       )}
 
+      {/* Görünürlük */}
+      <div>
+        <label className="block text-sm font-semibold text-slate-800 mb-2">
+          Görünürlük
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => set('visibility', 'public')}
+            className={`py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+              form.visibility === 'public'
+                ? 'border-[#0ea5e9] bg-sky-50 text-[#0ea5e9]'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Herkese Açık
+          </button>
+          <button
+            type="button"
+            onClick={() => set('visibility', 'university')}
+            className={`py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+              form.visibility === 'university'
+                ? 'border-[#0ea5e9] bg-sky-50 text-[#0ea5e9]'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Sadece Üniversitem
+          </button>
+        </div>
+      </div>
+
       {/* Footer buttons */}
       <div className="flex gap-3 pt-2">
         <button
@@ -980,6 +1013,7 @@ export const CareerPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'university'>('all');
 
   const currentUser = getCurrentUser();
   const currentUserId: string | null = currentUser?.id || currentUser?.user_id || null;
@@ -993,7 +1027,11 @@ export const CareerPage: React.FC = () => {
       let page = 1;
       const pageSize = 100;
       while (true) {
-        const res = await apiClient.get('/career/listings', { params: { limit: pageSize, page, sort: sortOrder } });
+        let scopeParam: string | undefined = undefined;
+        if (scopeFilter === 'university') scopeParam = 'university';
+        if (scopeFilter === 'public') scopeParam = 'public';
+
+        const res = await apiClient.get('/career/listings', { params: { limit: pageSize, page, sort: sortOrder, scope: scopeParam } });
         const batch: CareerListing[] = res.data?.items || res.data || [];
         all = [...all, ...batch];
         if (batch.length < pageSize) break;
@@ -1004,7 +1042,7 @@ export const CareerPage: React.FC = () => {
       setError('İlanlar yüklenemedi. Lütfen daha sonra tekrar deneyin.');
       setListings([]);
     } finally { setLoading(false); }
-  }, [sortOrder]);
+  }, [sortOrder, scopeFilter]);
 
   const loadFavorites = useCallback(async () => {
     try {
@@ -1082,7 +1120,12 @@ export const CareerPage: React.FC = () => {
     navigate(`/dashboard/career/${listing.id}`);
   };
   const handleDelete = async (id: string) => {
-    try { await apiClient.delete(`/career/listings/${id}`); setView('list'); await loadListings(); }
+    try { 
+      await apiClient.delete(`/career/listings/${id}`); 
+      setListings(prev => prev.filter(l => l.id !== id));
+      setView('list'); 
+      navigate('/dashboard/career', { replace: true });
+    }
     catch { alert('İlan silinemedi.'); }
   };
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); setSearch(searchInput); };
@@ -1223,6 +1266,27 @@ export const CareerPage: React.FC = () => {
                     <SelectItem value="oldest">Eski İlanlar</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex bg-slate-100 p-1 rounded-xl mb-5 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('all')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    scopeFilter === 'all' ? "bg-white text-[#0ea5e9] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Tüm İlanlar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('university')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    scopeFilter === 'university' ? "bg-white text-[#0ea5e9] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Sadece Üniversitem
+                </button>
               </div>
 
               {/* Error */}

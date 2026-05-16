@@ -8,7 +8,7 @@ from typing import List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from sqlalchemy import desc, asc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,6 +69,7 @@ class CreateCareerListingRequest(BaseModel):
     required_position: Optional[str] = None
     duration: Optional[str] = None
     payment_type: Optional[str] = None
+    visibility: str = Field("public")
 
     @field_validator("listing_type")
     @classmethod
@@ -179,6 +180,7 @@ async def get_listings(
     location: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     sort: str = Query("newest"),
+    scope: Optional[str] = Query(None, description="public veya university"),
     page: int = Query(1, ge=1),
     limit: int = Query(24, ge=1, le=100),
     university_id: Optional[str] = Query(None),
@@ -195,7 +197,25 @@ async def get_listings(
     )
 
     if not is_admin:
-        stmt = stmt.where(User.university_id == current_user.university_id)
+        if scope == "university":
+            stmt = stmt.where(
+                or_(
+                    CareerListing.university_id == current_user.university_id,
+                    and_(
+                        CareerListing.university_id.is_(None),
+                        User.university_id == current_user.university_id
+                    )
+                )
+            )
+        elif scope == "public":
+            stmt = stmt.where(CareerListing.university_id.is_(None))
+        else:
+            stmt = stmt.where(
+                or_(
+                    CareerListing.university_id == current_user.university_id,
+                    CareerListing.university_id.is_(None)
+                )
+            )
 
     if listing_type:
         stmt = stmt.where(CareerListing.type == listing_type)
@@ -272,6 +292,7 @@ async def create_listing(
         id=str(uuid4()),
         type=body.listing_type,
         posted_by=current_user.id,
+        university_id=None if body.visibility == "public" else current_user.university_id,
         title=body.title,
         description=body.description,
         sector=body.sector,
@@ -465,3 +486,30 @@ async def apply_to_listing(
         raise HTTPException(status_code=500, detail=f"Başvuru gönderilemedi: {str(e)}")
 
     return {"conversation_id": conversation.id, "success": True}
+ 
+ 
+@router.delete("/listings/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_listing(
+    listing_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """İlan sahibi veya admin silebilir."""
+    stmt = select(CareerListing).where(CareerListing.id == listing_id)
+    result = await session.execute(stmt)
+    listing = result.scalar_one_or_none()
+ 
+    if not listing:
+        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
+ 
+    # Sadece sahibi veya admin silebilir
+    is_admin = UserRole(current_user.role) in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN}
+    if listing.posted_by != current_user.id and not is_admin:
+        raise HTTPException(status_code=403, detail="Bu ilanı silme yetkiniz bulunmamaktadır.")
+ 
+    await session.delete(listing)
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="İlan silinirken bir hata oluştu.")

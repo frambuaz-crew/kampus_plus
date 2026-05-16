@@ -18,6 +18,7 @@ import {
   MessageCircle,
   Tag,
   Sparkles,
+  Briefcase,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getImageUrl } from '../utils/imageUrl';

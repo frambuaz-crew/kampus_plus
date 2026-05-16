@@ -38,6 +38,7 @@ export const ForumPage: React.FC = () => {
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [currentThread, setCurrentThread] = useState<ThreadWithReplies | null>(null);
   const [autoOpenReply, setAutoOpenReply] = useState(false);
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'university'>('all');
 
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +53,7 @@ export const ForumPage: React.FC = () => {
         page: 1,
         limit: 20,
         sort: 'newest',
+        scope: scopeFilter === 'university' ? 'university' : undefined,
       });
       setThreads(res.topics || []);
     } catch {
@@ -62,8 +64,12 @@ export const ForumPage: React.FC = () => {
   };
 
   useEffect(() => {
-    void fetchFeed();
-  }, []);
+    if (activeFilter === 'all') {
+      void fetchFeed();
+    } else {
+      void loadTopicsByType(activeFilter);
+    }
+  }, [scopeFilter]);
 
   useEffect(() => {
     if (!id) {
@@ -104,6 +110,7 @@ export const ForumPage: React.FC = () => {
         page: 1,
         limit: 20,
         sort: 'newest',
+        scope: scopeFilter === 'university' ? 'university' : undefined,
       });
       setThreads(res.topics || []);
       setView('feed');
@@ -360,9 +367,31 @@ export const ForumPage: React.FC = () => {
                     </Button>
                   </div>
 
+                  <div className="flex bg-slate-100 p-1 rounded-xl mb-6 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setScopeFilter('all')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        scopeFilter === 'all' ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Tüm Gönderiler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScopeFilter('university')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        scopeFilter === 'university' ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      Sadece Üniversitem
+                    </button>
+                  </div>
+
                   <ThreadList
                     threads={threads}
                     onThreadClick={handleThreadClick}
+                    onDeleted={(id) => setThreads(prev => prev.filter(t => t.id !== id))}
                     loading={loading}
                     isFeed
                     listTitle={listTitle}
@@ -396,6 +425,10 @@ export const ForumPage: React.FC = () => {
                     }}
                     isSubmitting={isSubmitting}
                     autoOpenReply={autoOpenReply}
+                    onDeleted={(id) => {
+                      setThreads(prev => prev.filter(t => t.id !== id));
+                      goBackFromThread();
+                    }}
                   />
                 </div>
               )}

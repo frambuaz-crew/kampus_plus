@@ -43,7 +43,7 @@ function timeAgo(dateStr: string | undefined): string {
   return `${Math.floor(diff / 86400)} gün önce`;
 }
 
-export const CONDITION_LABELS: Record<string, string> = {
+const CONDITION_LABELS: Record<string, string> = {
   new: 'Sıfır',
   like_new: 'Yeni Gibi',
   good: 'İyi',
@@ -82,6 +82,7 @@ export const MarketplacePage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'university'>('all');
   const [categories, setCategories] = useState<MarketplaceCategory[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
@@ -104,7 +105,9 @@ export const MarketplacePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<MarketplaceListing[]>('/marketplace/');
+      const response = await apiClient.get<MarketplaceListing[]>('/marketplace/', {
+        params: { scope: scopeFilter === 'all' ? undefined : scopeFilter }
+      });
       const sortedData = (response.data || []).sort(
         (left, right) =>
           new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime(),
@@ -119,6 +122,9 @@ export const MarketplacePage: React.FC = () => {
 
   useEffect(() => {
     void loadListings();
+  }, [scopeFilter]);
+
+  useEffect(() => {
     getMarketplaceCategories()
       .then(res => setCategories(res.categories.filter(c => c.is_active)))
       .catch(() => {});
@@ -169,8 +175,8 @@ export const MarketplacePage: React.FC = () => {
   const handleDeleteListing = async (listingId: string) => {
     try {
       await apiClient.delete(`/marketplace/${listingId}`);
+      setListings(prev => prev.filter(l => l.id !== listingId));
       setView('list');
-      await loadListings();
       if (id) navigate('/dashboard/marketplace', { replace: true });
     } catch {
       setError('İlan silinirken bir hata oluştu.');
@@ -319,6 +325,27 @@ export const MarketplacePage: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex bg-slate-100 p-1 rounded-xl mb-6 w-fit">
+              <button
+                type="button"
+                onClick={() => setScopeFilter('all')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  scopeFilter === 'all' ? "bg-white text-[#0ea5e9] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Tüm İlanlar
+              </button>
+              <button
+                type="button"
+                onClick={() => setScopeFilter('university')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  scopeFilter === 'university' ? "bg-white text-[#0ea5e9] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Sadece Üniversitem
+              </button>
             </div>
 
             {/* Grid */}
@@ -477,7 +504,6 @@ const ContactDialog: React.FC<{
 
   const userRaw = localStorage.getItem('user');
   const me = userRaw ? (JSON.parse(userRaw) as { first_name?: string; last_name?: string }) : null;
-  const myName = me ? `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim() : 'Biri';
 
   const handleSend = async () => {
     if (!message.trim() || !listing) return;

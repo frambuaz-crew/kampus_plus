@@ -7,6 +7,7 @@ interface ThreadListProps {
   threads: ThreadListItem[];
   onThreadClick: (id: string) => void;
   onCommentClick?: (id: string) => void;
+  onDeleted?: (id: string) => void;
   loading: boolean;
   isFeed?: boolean;
   /** Sayfa başlığı (ForumPage üstündeki hero ile çakışmasın diye burada tekrar “Forum” yazılmaz) */
@@ -18,6 +19,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   threads,
   onThreadClick,
   onCommentClick,
+  onDeleted,
   loading,
   listTitle = 'Konular',
   listSubtitle,
@@ -68,7 +70,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
 
       <div className="space-y-3">
         {sortedThreads.map((thread) => (
-          <PostCard key={thread.id} post={thread} onClick={onThreadClick} onCommentClick={onCommentClick} />
+          <PostCard key={thread.id} post={thread} onClick={onThreadClick} onCommentClick={onCommentClick} onDeleted={onDeleted} />
         ))}
 
         {!loading && threads.length === 0 && (
