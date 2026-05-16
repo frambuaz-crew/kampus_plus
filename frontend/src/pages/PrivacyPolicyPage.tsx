@@ -1,16 +1,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ShieldCheck, Scale, ScrollText, Lock, RefreshCcw } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, Eye, Database, UserCheck, Bell } from 'lucide-react';
 
-export const TermsOfServicePage: React.FC = () => {
+export const PrivacyPolicyPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-slate-50 font-body text-slate-700 selection:bg-sky-100 selection:text-sky-900">
       {/* Background decoration */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-sky-100/50 rounded-full blur-[100px]" />
-        <div className="absolute -bottom-40 -right-40 w-[400px] h-[400px] bg-indigo-100/30 rounded-full blur-[100px]" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-sky-100/50 rounded-full blur-[100px]" />
+        <div className="absolute -bottom-40 -left-40 w-[400px] h-[400px] bg-indigo-100/30 rounded-full blur-[100px]" />
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-16 relative z-10">
@@ -28,13 +28,13 @@ export const TermsOfServicePage: React.FC = () => {
         {/* Header */}
         <div className="mb-12 animate-slide-up">
           <div className="w-16 h-16 bg-sky-600 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-sky-200">
-            <Scale className="w-8 h-8 text-white" />
+            <ShieldCheck className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight font-heading">
-            Kullanım <span className="text-sky-600">Şartları</span>
+            Gizlilik <span className="text-sky-600">Politikası</span>
           </h1>
           <p className="text-slate-500 text-lg max-w-2xl font-medium">
-            KAMPUS+ platformunun güvenli ve verimli kullanımı için belirlenen kurallar ve sorumluluklar.
+            Verilerinizin nasıl toplandığını, kullanıldığını ve korunduğunu şeffaf bir şekilde açıklıyoruz.
           </p>
         </div>
 
@@ -45,56 +45,54 @@ export const TermsOfServicePage: React.FC = () => {
             <section className="group">
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-sky-50 transition-colors">
-                  <ScrollText className="w-5 h-5 text-sky-600" />
+                  <Database className="w-5 h-5 text-sky-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900">1. Genel Hükümler</h2>
+                <h2 className="text-2xl font-bold text-slate-900">1. Toplanan Veriler</h2>
               </div>
               <p className="leading-relaxed text-slate-600 ml-14">
-                KAMPUS+ platformunu kullanarak, bu kullanım şartlarını kabul etmiş sayılırsınız. 
-                Platformumuz sadece üniversite öğrencilerine ve akademik personellere yöneliktir. 
-                Hizmetlerimizin kötüye kullanımı durumunda hesabınız askıya alınabilir.
+                Kayıt sırasında verdiğiniz ad, soyad, üniversite e-postası, üniversite ve bölüm bilgilerini topluyoruz. 
+                Ayrıca platformu kullanımınız sırasında oluşturduğunuz içerikler (notlar, forum mesajları vb.) ve teknik loglar sistemimizde saklanır.
               </p>
             </section>
 
             <section className="group">
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-sky-50 transition-colors">
-                  <Lock className="w-5 h-5 text-sky-600" />
+                  <Eye className="w-5 h-5 text-sky-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900">2. Kullanıcı Sorumlulukları</h2>
+                <h2 className="text-2xl font-bold text-slate-900">2. Verilerin Kullanımı</h2>
               </div>
               <ul className="space-y-3 text-slate-600 ml-14 list-disc marker:text-sky-500">
-                <li>Hesap bilgilerinizin güvenliğini sağlamak sizin sorumluluğunuzdadır.</li>
-                <li>Platform üzerinden paylaşılan her türlü içerik yasalara uygun olmalıdır.</li>
-                <li>Diğer kullanıcıları rahatsız edici, spam veya yanıltıcı faaliyetler kesinlikle yasaktır.</li>
-                <li>Akademik dürüstlük ilkesine aykırı paylaşımlardan kaçınılmalıdır.</li>
+                <li>Hesap doğrulama ve güvenliğini sağlamak.</li>
+                <li>Size özel akademik içerikler ve bildirimler sunmak.</li>
+                <li>Platformun performansını analiz etmek ve özelliklerini geliştirmek.</li>
+                <li>Üniversite topluluğu içinde etkileşimi kolaylaştırmak.</li>
               </ul>
             </section>
 
             <section className="group">
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-sky-50 transition-colors">
-                  <ShieldCheck className="w-5 h-5 text-sky-600" />
+                  <UserCheck className="w-5 h-5 text-sky-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900">3. İçerik ve Telif Hakları</h2>
+                <h2 className="text-2xl font-bold text-slate-900">3. Veri Paylaşımı</h2>
               </div>
               <p className="leading-relaxed text-slate-600 ml-14">
-                Platform üzerinde paylaşılan notlar, sorular ve diğer materyallerin telif hakları paylaşan kişiye aittir. 
-                Ancak KAMPUS+, bu içeriklerin platformun işleyişi gereği diğer kullanıcılar tarafından görüntülenmesine olanak sağlar. 
-                İzinsiz ticari kullanım yasaktır.
+                Kişisel verileriniz, yasal zorunluluklar haricinde asla üçüncü şahıslarla ticari amaçlarla paylaşılmaz. 
+                Sadece platformun işlevselliği için gerekli olan anonimleştirilmiş veriler analiz araçlarıyla paylaşılabilir.
               </p>
             </section>
 
             <section className="group">
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-sky-50 transition-colors">
-                  <RefreshCcw className="w-5 h-5 text-sky-600" />
+                  <Bell className="w-5 h-5 text-sky-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900">4. Değişiklik Hakları</h2>
+                <h2 className="text-2xl font-bold text-slate-900">4. Haklarınız</h2>
               </div>
               <p className="leading-relaxed text-slate-600 ml-14">
-                KAMPUS+, bu kullanım şartlarını dilediği zaman güncelleme hakkını saklı tutar. 
-                Yapılan önemli güncellemeler kullanıcılara e-posta veya uygulama içi bildirimle duyurulacaktır.
+                Dilediğiniz zaman verilerinize erişebilir, güncelleyebilir veya hesabınızın silinmesini talep edebilirsiniz. 
+                Bu haklarınızı kullanmak için ayarlar sayfasını ziyaret edebilir veya destek birimimize ulaşabilirsiniz.
               </p>
             </section>
 
@@ -117,4 +115,3 @@ export const TermsOfServicePage: React.FC = () => {
     </div>
   );
 };
-

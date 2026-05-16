@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/config';
+import { ChevronLeft, Lock, ShieldCheck, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
 export const ResetPasswordPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   
@@ -47,7 +49,6 @@ export const ResetPasswordPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    // Client-side kontroller
     if (password !== confirmPassword) {
       setError('Şifreler eşleşmiyor');
       return;
@@ -61,15 +62,13 @@ export const ResetPasswordPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 🚀 DÜZELTME: Backend'in beklediği tüm alanları gönderiyoruz
       await apiClient.post('/auth/reset-password', {
         token: token,
         new_password: password,
-        confirm_password: confirmPassword, // ✅ Eksik olan alan eklendi
+        confirm_password: confirmPassword,
       });
       setIsSuccess(true);
     } catch (err: unknown) {
-      // Backend'den dönen spesifik hata mesajını göster
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.error?.message || 'Bir hata oluştu');
       } else {
@@ -80,127 +79,145 @@ export const ResetPasswordPage: React.FC = () => {
     }
   };
 
-  // Yükleme ekranı
-  if (isValidating) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center animate-pulse">
-          <p className="text-gray-600 font-medium text-lg">Güvenlik kontrolü yapılıyor...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-500 via-pink-500 to-red-500 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-extrabold text-white mb-4 tracking-tight drop-shadow-md">
-            🎓 KAMPÜS+
-          </h1>
-          <p className="text-xl text-purple-50. font-medium opacity-90">
-            Şifre Sıfırlama
-          </p>
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 overflow-hidden relative font-body">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-sky-600/20 rounded-full blur-[120px] animate-pulse-slow" />
+        <div className="absolute -bottom-40 -right-40 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[100px] animate-pulse-slow delay-700" />
+      </div>
+
+      <div className="max-w-md w-full relative z-10 animate-slide-up">
+        {/* Logo Section */}
+        <div className="text-center mb-10">
+          <button onClick={() => navigate('/')} className="inline-flex items-center gap-3 group mb-4">
+            <div className="w-12 h-12 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-sky-900/50 group-hover:scale-110 transition-transform">
+              <span className="text-white font-black text-lg">K+</span>
+            </div>
+            <span className="text-white font-bold text-3xl tracking-tight">KAMPUS<span className="text-sky-400">+</span></span>
+          </button>
         </div>
 
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-10 border border-white/20">
-          {isSuccess ? (
+        <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl p-8 md:p-10 border border-white/20">
+          {isValidating ? (
+            <div className="text-center py-10">
+              <RefreshCw className="w-12 h-12 text-sky-500 animate-spin mx-auto mb-4" />
+              <p className="text-slate-500 font-bold">Güvenlik kontrolü yapılıyor...</p>
+            </div>
+          ) : isSuccess ? (
             <div className="text-center animate-fade-in">
-              <span className="text-6xl block mb-6 drop-shadow-sm">✅</span>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Şifre Başarıyla Sıfırlandı
-              </h2>
-              <p className="text-gray-600 mb-8 leading-relaxed">
-                Artık yeni şifrenizle giriş yapmaya hazırsınız!
+              <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="w-10 h-10 text-green-500" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-4">Şifre Sıfırlandı</h2>
+              <p className="text-slate-500 mb-8 leading-relaxed">
+                Yeni şifreniz başarıyla kaydedildi. Artık giriş yapabilirsiniz.
               </p>
-              <Link
-                to="/login"
-                className="block w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl hover:from-indigo-700 hover:to-purple-700 transition-all font-bold shadow-lg active:scale-95"
+              <button 
+                onClick={() => navigate('/login')}
+                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl transition-all shadow-xl"
               >
                 Giriş Yap
-              </Link>
+              </button>
             </div>
           ) : !isValid ? (
             <div className="text-center animate-fade-in">
-              <span className="text-6xl block mb-6">❌</span>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Geçersiz Bağlantı
-              </h2>
-              <p className="text-gray-600 mb-8 leading-relaxed">
-                {error || 'Bu linkin süresi dolmuş olabilir.'}
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-10 h-10 text-red-500" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-4">Geçersiz Bağlantı</h2>
+              <p className="text-slate-500 mb-8 leading-relaxed">
+                {error || 'Bu bağlantının süresi dolmuş veya geçersiz olabilir.'}
               </p>
               <Link
                 to="/forgot-password"
-                className="inline-block text-indigo-600 hover:text-indigo-800 font-bold border-b-2 border-indigo-600 pb-1"
+                className="inline-flex items-center gap-2 text-sky-600 hover:text-sky-700 font-bold transition-all"
               >
-                Yeni bir link iste →
+                Yeni bir link iste <ChevronLeft className="w-4 h-4 rotate-180" />
               </Link>
             </div>
           ) : (
             <>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                Yeni Şifre Belirle
-              </h2>
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-sky-50 rounded-2xl flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6 text-sky-600" />
+                </div>
+                <div className="text-left">
+                  <h1 className="text-2xl font-black text-slate-900 leading-tight">Şifreyi <span className="text-sky-600">Yenile</span></h1>
+                  <p className="text-slate-400 text-sm font-medium">Yeni güvenli şifreni belirle</p>
+                </div>
+              </div>
               
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label htmlFor="password" className="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                  <label htmlFor="password" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
                     Yeni Şifre
                   </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    className="w-full px-4 py-3.5 border-2 border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-gray-50/50"
-                    placeholder="En az 8 karakter"
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="w-full px-5 py-4 border-2 border-slate-50 rounded-2xl bg-slate-50 focus:bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 font-medium"
+                      placeholder="••••••••"
+                    />
+                    <Lock className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                  </div>
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                  <label htmlFor="confirmPassword" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
                     Şifre Tekrar
                   </label>
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    className="w-full px-4 py-3.5 border-2 border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-gray-50/50"
-                    placeholder="Şifreyi tekrar girin"
-                  />
+                  <div className="relative">
+                    <input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="w-full px-5 py-4 border-2 border-slate-50 rounded-2xl bg-slate-50 focus:bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 font-medium"
+                      placeholder="••••••••"
+                    />
+                    <Lock className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                  </div>
                 </div>
 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm font-medium animate-shake">
-                    ⚠️ {error}
+                  <div className="flex items-center gap-3 bg-red-50 border border-red-100 text-red-600 px-5 py-4 rounded-2xl text-sm font-bold animate-shake">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    {error}
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full px-4 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl hover:from-indigo-700 hover:to-purple-700 transition-all font-bold shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-4 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl transition-all font-bold shadow-xl shadow-sky-100 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Sıfırlanıyor...' : 'Şifreyi Sıfırla'}
                 </button>
               </form>
 
-              <div className="mt-8 text-center border-t border-gray-100 pt-6">
+              <div className="mt-8 text-center border-t border-slate-50 pt-6">
                 <Link
                   to="/login"
-                  className="text-gray-500 hover:text-indigo-600 font-bold text-sm transition-colors"
+                  className="text-slate-400 hover:text-sky-600 font-bold text-sm transition-colors"
                 >
-                  ← Giriş sayfasına dön
+                  Giriş sayfasına dön
                 </Link>
               </div>
             </>
           )}
         </div>
+        
+        <p className="text-center mt-10 text-slate-500 text-xs font-bold uppercase tracking-widest opacity-50">
+          © 2026 KAMPUS+ PLATFORM
+        </p>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { GlobalSearchPage } from './pages/GlobalSearchPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -28,6 +29,7 @@ import { Error404Page } from './pages/Error404Page';
 import { Error500Page } from './pages/Error500Page';
 import { Error403Page } from './pages/Error403Page';
 import { AuthProvider } from './contexts/AuthContext';
+import { RegistrationProvider } from './contexts/RegistrationContext';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminAcademicPage } from './pages/admin/AdminAcademicPage';
@@ -45,7 +47,8 @@ import './App.css';
 
 function App() {
   return (
-    <AuthProvider>
+    <RegistrationProvider>
+      <AuthProvider>
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
@@ -57,6 +60,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
 
           {/* Protected Routes - Dashboard */}
           <Route
@@ -297,6 +301,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </RegistrationProvider>
   );
 }
 

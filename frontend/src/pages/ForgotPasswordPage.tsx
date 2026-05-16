@@ -1,17 +1,11 @@
-/**
- * Forgot Password Page
- * 
- * Spec: 016-forgot-password/spec.md
- * 
- * Şifre sıfırlama isteği sayfası
- */
-
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../api/config';
+import { ChevronLeft, Mail, KeyRound, CheckCircle2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
 export const ForgotPasswordPage: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -37,62 +31,80 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            🎓 KAMPÜS+
-          </h1>
-          <p className="text-xl text-blue-100">
-            Şifremi Unuttum
-          </p>
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 overflow-hidden relative">
+      {/* Background decoration (AuthPage style) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-sky-600/20 rounded-full blur-[120px] animate-pulse-slow" />
+        <div className="absolute -bottom-40 -right-40 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[100px] animate-pulse-slow delay-700" />
+      </div>
+
+      <div className="max-w-md w-full relative z-10 animate-slide-up">
+        {/* Logo Section */}
+        <div className="text-center mb-10">
+          <button onClick={() => navigate('/')} className="inline-flex items-center gap-3 group mb-4">
+            <div className="w-12 h-12 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-sky-900/50 group-hover:scale-110 transition-transform">
+              <span className="text-white font-black text-lg">K+</span>
+            </div>
+            <span className="text-white font-bold text-3xl tracking-tight">KAMPUS<span className="text-sky-400">+</span></span>
+          </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
+        {/* Content Card */}
+        <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl p-8 md:p-10 border border-white/20">
           {isSuccess ? (
-            <div className="text-center">
-              <span className="text-6xl block mb-4">✅</span>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                Email Gönderildi
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Şifre sıfırlama linki <strong>{email}</strong> adresine gönderildi.
-                Lütfen email kutunuzu kontrol edin.
+            <div className="text-center animate-fade-in">
+              <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="w-10 h-10 text-green-500" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-4">Email Gönderildi</h2>
+              <p className="text-slate-500 mb-8 leading-relaxed">
+                Şifre sıfırlama linki <span className="text-slate-900 font-bold underline decoration-sky-500 underline-offset-4">{email}</span> adresine başarıyla gönderildi.
               </p>
-              <Link
-                to="/login"
-                className="text-indigo-600 hover:text-indigo-700 font-semibold"
+              <button 
+                onClick={() => navigate('/login')}
+                className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl transition-all shadow-xl"
               >
-                Giriş sayfasına dön
-              </Link>
+                Giriş Yap
+              </button>
             </div>
           ) : (
             <>
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-                Şifre Sıfırlama
-              </h2>
-              <p className="text-gray-600 mb-6 text-center">
-                Email adresinizi girin, size şifre sıfırlama linki gönderelim.
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-sky-50 rounded-2xl flex items-center justify-center">
+                  <KeyRound className="w-6 h-6 text-sky-600" />
+                </div>
+                <div className="text-left">
+                  <h1 className="text-2xl font-black text-slate-900 leading-tight">Şifremi <span className="text-sky-600">Unuttum</span></h1>
+                  <p className="text-slate-400 text-sm font-medium">Güvenli bir şekilde sıfırla</p>
+                </div>
+              </div>
+
+              <p className="text-slate-500 mb-8 text-sm leading-relaxed">
+                Üniversite email adresini gir, sana özel şifre sıfırlama linkini hemen gönderelim.
               </p>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
+                  <label htmlFor="email" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+                    Email Adresi
                   </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="ornek@selcuk.edu.tr"
-                  />
+                  <div className="relative">
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="w-full px-5 py-4 border-2 border-slate-50 rounded-2xl bg-slate-50 focus:bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 outline-none transition-all text-slate-900 placeholder:text-slate-400 font-medium"
+                      placeholder="ali@uni.edu.tr"
+                    />
+                    <Mail className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                  </div>
                 </div>
 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  <div className="flex items-center gap-3 bg-red-50 border border-red-100 text-red-600 px-5 py-4 rounded-2xl text-sm font-bold animate-shake">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
                     {error}
                   </div>
                 )}
@@ -100,23 +112,35 @@ export const ForgotPasswordPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-4 bg-sky-600 hover:bg-sky-700 text-white rounded-2xl transition-all font-bold shadow-xl shadow-sky-100 disabled:opacity-60 disabled:cursor-not-allowed group"
                 >
-                  {isLoading ? 'Gönderiliyor...' : 'Şifre Sıfırlama Linki Gönder'}
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Gönderiliyor...</span>
+                    </div>
+                  ) : (
+                    'Sıfırlama Linki Gönder'
+                  )}
                 </button>
               </form>
 
-              <div className="mt-6 text-center">
+              <div className="mt-8 text-center">
                 <Link
                   to="/login"
-                  className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm"
+                  className="inline-flex items-center gap-2 text-slate-400 hover:text-sky-600 font-bold text-sm transition-all group"
                 >
-                  ← Giriş sayfasına dön
+                  <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  Giriş sayfasına dön
                 </Link>
               </div>
             </>
           )}
         </div>
+        
+        <p className="text-center mt-10 text-slate-500 text-xs font-bold uppercase tracking-widest opacity-50">
+          © 2026 KAMPUS+ PLATFORM
+        </p>
       </div>
     </div>
   );

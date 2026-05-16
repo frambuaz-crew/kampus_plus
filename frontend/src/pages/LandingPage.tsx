@@ -1,138 +1,130 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot, MessageSquare, ShoppingBag, Briefcase, CalendarDays, Users,
-  ArrowRight, ChevronDown, Star, Zap, Shield,
+  ArrowRight, ChevronDown, Star, Zap, Shield, CheckCircle2, 
+  Sparkles, Globe, Rocket
 } from 'lucide-react';
 
 const NAV_LINKS = [
   { label: 'Özellikler', href: '#features' },
-  { label: 'Forum', href: '/register' },
-  { label: 'Pazar', href: '/register' },
-  { label: 'Kariyer', href: '/register' },
-  { label: 'AI Asistanı', href: '/register' },
+  { label: 'Topluluk', href: '#testimonials' },
+  { label: 'Sıkça Sorulanlar', href: '#faq' },
 ];
 
 const FEATURES = [
   {
     icon: Bot,
-    title: 'AI Asistanı',
-    desc: 'Akademik sorularına anında yanıt al, ödevlerinde yardım iste',
-    route: '/dashboard/ai-assistant',
-    color: 'text-[#0ea5e9] bg-[#e0f2fe]',
+    title: 'Akademik AI Asistanı',
+    desc: 'Ders notlarını analiz eden, ödevlerine yardım eden ve sorularına 7/24 yanıt veren yapay zeka.',
+    color: 'text-sky-600 bg-sky-50',
+    border: 'border-sky-100',
   },
   {
     icon: MessageSquare,
-    title: 'Forum',
-    desc: 'Üniversiteli arkadaşlarınla tartış, deneyimlerini paylaş',
-    route: '/forum',
+    title: 'Öğrenci Forumu',
+    desc: 'Kampüsündeki ve Türkiye genelindeki öğrencilerle tartış, not paylaş ve yardımlaş.',
     color: 'text-violet-600 bg-violet-50',
+    border: 'border-violet-100',
   },
   {
     icon: ShoppingBag,
-    title: 'Pazar',
-    desc: 'İkinci el kitap, elektronik ve daha fazlası al-sat',
-    route: '/dashboard/marketplace',
+    title: 'Güvenli Pazar Yeri',
+    desc: 'İkinci el kitap, elektronik eşya ve daha fazlasını sadece öğrenciler arasında al-sat.',
     color: 'text-emerald-600 bg-emerald-50',
+    border: 'border-emerald-100',
   },
   {
     icon: Briefcase,
-    title: 'Kariyer',
-    desc: 'İş ilanları, staj fırsatları ve proje ortaklıkları',
-    route: '/dashboard/career',
+    title: 'Kariyer & Staj',
+    desc: 'Sektör liderlerinden staj fırsatları, yarı zamanlı işler ve proje ortaklıkları.',
     color: 'text-amber-600 bg-amber-50',
+    border: 'border-amber-100',
   },
   {
     icon: CalendarDays,
-    title: 'Akademik Araçlar',
-    desc: 'Ders programın, akademik takvim ve önemli tarihler',
-    route: '/dashboard',
+    title: 'Akademik Planlayıcı',
+    desc: 'Ders programın, sınav tarihlerin ve önemli akademik duyurular tek bir panelde.',
     color: 'text-rose-600 bg-rose-50',
+    border: 'border-rose-100',
   },
   {
     icon: Users,
-    title: 'Ağ',
-    desc: 'Kampüsünden ve diğer üniversitelerden arkadaş edin',
-    route: '/dashboard',
+    title: 'Geniş Kampüs Ağı',
+    desc: 'İlgi alanlarına göre yeni arkadaşlar edin ve kulüp etkinliklerini takip et.',
     color: 'text-indigo-600 bg-indigo-50',
+    border: 'border-indigo-100',
   },
-];
-
-const STATS = [
-  { value: '12.000+', label: 'Öğrenci' },
-  { value: '4+', label: 'Üniversite' },
-  { value: '500K+', label: 'Forum Gönderisi' },
 ];
 
 const TESTIMONIALS = [
   {
-    name: 'Ayşe K.',
+    name: 'Ayşe Kaya',
     uni: 'Boğaziçi Üniversitesi',
-    text: 'AI asistanı sayesinde ders çalışma sürem yarıya indi. Harika bir platform!',
+    text: 'AI asistanı sınav haftalarımın kurtarıcısı oldu. Karmaşık konuları o kadar iyi özetliyor ki!',
+    avatar: 'AK',
   },
   {
-    name: 'Mert D.',
+    name: 'Mert Demir',
     uni: 'ODTÜ',
-    text: 'Staj ilanını Kariyer bölümünden buldum. Tek platform, her şey var.',
+    text: 'Pazar yeri üzerinden tüm hazırlık kitaplarımı çok uygun fiyata aldım. Sistem çok güvenli.',
+    avatar: 'MD',
   },
   {
-    name: 'Zeynep A.',
+    name: 'Zeynep Aydın',
     uni: 'İTÜ',
-    text: 'Pazar bölümünden ders kitaplarımı ucuza aldım. Kesinlikle tavsiye ederim.',
+    text: 'Kariyer bölümündeki staj ilanları sayesinde hayalimdeki şirkette çalışmaya başladım.',
+    avatar: 'ZA',
   },
 ];
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-white font-sans">
-
+    <div className="min-h-screen bg-white selection:bg-sky-100 selection:text-sky-900 overflow-x-hidden">
+      
       {/* ─── Navbar ─── */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <button onClick={() => window.scrollTo(0, 0)} className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#0ea5e9] rounded-lg flex items-center justify-center">
+      <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+        scrolled ? 'glass-nav h-16 shadow-sm' : 'bg-transparent h-20'
+      }`}>
+        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 bg-gradient-to-tr from-sky-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-200 group-hover:scale-110 transition-transform duration-300">
               <span className="text-white font-black text-sm">K+</span>
             </div>
-            <span className="font-bold text-slate-900 text-lg tracking-tight">KAMPUS+</span>
+            <span className="font-bold text-slate-900 text-xl tracking-tight">KAMPUS<span className="text-sky-600">+</span></span>
           </button>
 
-          {/* Nav */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-10">
             {NAV_LINKS.map((l) => (
-              l.href.startsWith('#') ? (
-                <a
-                  key={l.label}
-                  href={l.href}
-                  className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                  {l.label}
-                </a>
-              ) : (
-                <button
-                  key={l.label}
-                  onClick={() => navigate(l.href)}
-                  className="text-sm text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                  {l.label}
-                </button>
-              )
+              <a
+                key={l.label}
+                href={l.href}
+                className="text-sm font-semibold text-slate-600 hover:text-sky-600 transition-colors relative after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-0.5 after:bg-sky-600 after:transition-all hover:after:w-full"
+              >
+                {l.label}
+              </a>
             ))}
           </nav>
 
-          {/* Auth */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/login')}
-              className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium"
+              className="hidden sm:block text-sm font-bold text-slate-700 hover:text-sky-600 transition-colors"
             >
               Giriş Yap
             </button>
             <button
               onClick={() => navigate('/register')}
-              className="text-sm bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="btn-premium bg-slate-900 text-white text-sm font-bold px-6 py-2.5 rounded-full hover:bg-slate-800 shadow-lg shadow-slate-200"
             >
               Kayıt Ol
             </button>
@@ -140,221 +132,272 @@ export const LandingPage: React.FC = () => {
         </div>
       </header>
 
-      {/* ─── Hero ─── */}
-      <section className="bg-gradient-to-b from-slate-50 to-white pt-20 pb-24 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      {/* ─── Hero Section ─── */}
+      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6 bg-mesh overflow-hidden">
+        {/* Animated Blobs */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-sky-200/50 rounded-full blur-3xl animate-pulse-slow -z-10" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-200/40 rounded-full blur-3xl animate-pulse-slow delay-500 -z-10" />
 
-          {/* Left */}
-          <div>
-            <div className="inline-flex items-center gap-2 bg-[#e0f2fe] text-[#0284c7] text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-              <Zap className="w-3.5 h-3.5" />
-              Türkiye'nin #1 Öğrenci Platformu
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="animate-slide-up">
+            <div className="inline-flex items-center gap-2 bg-sky-100/80 backdrop-blur-sm text-sky-700 text-[13px] font-bold px-4 py-2 rounded-full mb-8 border border-sky-200/50">
+              <Sparkles className="w-4 h-4 text-sky-500" />
+              Türkiye'nin En Modern Öğrenci Platformu
             </div>
 
-            <h1 className="text-5xl font-extrabold text-slate-900 leading-tight tracking-tight mb-5">
-              Kampüs Hayatını Yönet,{' '}
-              <span className="text-[#0ea5e9]">Geleceğini Şekillendir</span>
+            <h1 className="text-5xl lg:text-7xl font-extrabold text-slate-900 leading-[1.1] mb-8">
+              Üniversite Hayatını <br />
+              <span className="text-gradient">Akıllandır.</span>
             </h1>
 
-            <p className="text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              Türkiye'nin en kapsamlı üniversite öğrenci platformu. AI asistanı,
-              forum, pazar yeri ve kariyer fırsatları tek bir yerde.
+            <p className="text-lg lg:text-xl text-slate-600 leading-relaxed mb-10 max-w-lg">
+              KAMPUS+ ile akademik başarını artır, güvenle alışveriş yap ve 
+              hayalindeki kariyer fırsatlarını yakala. Hepsi tek bir yerde.
             </p>
 
-            <div className="flex items-center gap-4 mb-12">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
               <button
                 onClick={() => navigate('/register')}
-                className="flex items-center gap-2 bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm shadow-lg shadow-sky-200"
+                className="btn-premium w-full sm:w-auto flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-bold px-8 py-4 rounded-2xl shadow-xl shadow-sky-200 text-base"
               >
-                Hemen Başla <ArrowRight className="w-4 h-4" />
+                Hemen Ücretsiz Katıl <ArrowRight className="w-5 h-5" />
               </button>
-              <a
-                href="#features"
-                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors"
-              >
-                Nasıl Çalışır <ChevronDown className="w-4 h-4" />
-              </a>
+            </div>
+          </div>
+
+          <div className="relative animate-slide-in-right">
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-sky-400 to-indigo-500 rounded-[2.5rem] blur opacity-20 group-hover:opacity-30 transition duration-1000" />
+              <div className="relative rounded-[2.5rem] overflow-hidden border border-white/40 shadow-2xl aspect-[4/3] lg:aspect-square">
+                <img 
+                  src="/campus_hero.png" 
+                  alt="Kampüs Hayatı" 
+                  className="w-full h-full object-cover transform transition-transform duration-1000 group-hover:scale-110"
+                />
+                {/* Overlay gradient for better contrast with floating elements */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent" />
+              </div>
             </div>
 
-            {/* Stats */}
-            <div className="flex items-center gap-10">
-              {STATS.map((s) => (
-                <div key={s.label}>
-                  <p className="text-2xl font-extrabold text-[#0ea5e9]">{s.value}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+            {/* Floating Badges */}
+            <div className="absolute -top-6 -right-6 glass-card p-4 rounded-2xl animate-float shadow-xl border border-white/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Güvenli Pazar</p>
+                  <p className="text-sm font-extrabold text-slate-900">Doğrulanmış Öğrenciler</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute -bottom-10 -left-10 glass-card p-4 rounded-2xl animate-float delay-500 shadow-xl border border-white/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
+                  <Star className="w-6 h-6 fill-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Yüksek Puan</p>
+                  <p className="text-sm font-extrabold text-slate-900">4.9/5 Kullanıcı Memnuniyeti</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Features Section ─── */}
+      <section id="features" className="py-24 lg:py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20 animate-slide-up">
+            <h2 className="text-4xl lg:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">
+              İhtiyacın Olan <span className="text-sky-600">Her Şey</span> Burada
+            </h2>
+            <p className="text-slate-500 text-lg max-w-2xl mx-auto font-medium">
+              Sadece bir uygulama değil, tüm üniversite hayatını organize edebileceğin bir ekosistem.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {FEATURES.map((f, idx) => (
+              <div
+                key={f.title}
+                onClick={() => navigate('/register')}
+                className={`group p-8 rounded-[2rem] border cursor-pointer transition-all duration-500 hover:shadow-2xl hover:shadow-sky-100/50 hover:-translate-y-2 bg-white animate-slide-up delay-${(idx + 1) * 100}`}
+              >
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-transform duration-500 group-hover:scale-110 ${f.color}`}>
+                  <f.icon className="w-7 h-7" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-3">{f.title}</h3>
+                <p className="text-slate-500 leading-relaxed font-medium mb-6">
+                  {f.desc}
+                </p>
+                <div className="flex items-center text-sky-600 font-bold text-sm gap-2 group-hover:translate-x-1 transition-transform">
+                  Keşfet <ArrowRight className="w-4 h-4" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Social Proof / Testimonials ─── */}
+      <section id="testimonials" className="py-24 bg-slate-50 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+            <div className="lg:col-span-4">
+              <h2 className="text-4xl font-extrabold text-slate-900 mb-6">
+                Öğrenciler <br /> 
+                <span className="text-sky-600">Bize Güveniyor</span>
+              </h2>
+              <p className="text-slate-500 font-medium mb-8">
+                Kampüsünü dijital dünyaya taşıyan binlerce öğrencinin deneyimlerine göz at.
+              </p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                ))}
+                <span className="ml-2 font-bold text-slate-900">4.9 / 5.0</span>
+              </div>
+            </div>
+
+            <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {TESTIMONIALS.map((t, i) => (
+                <div key={t.name} className={`p-8 bg-white rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-xl transition-shadow duration-300 ${i === 2 ? 'md:col-span-2' : ''}`}>
+                  <p className="text-slate-600 italic mb-8 font-medium leading-relaxed">
+                    "{t.text}"
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-sky-100 rounded-full flex items-center justify-center font-bold text-sky-600">
+                      {t.avatar}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900">{t.name}</h4>
+                      <p className="text-xs text-slate-400 font-bold uppercase">{t.uni}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Right – Dashboard Preview Card */}
-          <div className="relative">
-            <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200 overflow-hidden">
-              {/* Card header */}
-              <div className="bg-slate-50 border-b border-slate-100 px-5 py-3 flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-amber-400" />
-                <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                <span className="ml-3 text-xs text-slate-400">kampusplus.app/dashboard</span>
+      {/* ─── FAQ Section ─── */}
+      <section id="faq" className="py-24 lg:py-32 px-6 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16 animate-slide-up">
+            <h2 className="text-3xl lg:text-4xl font-extrabold text-slate-900 mb-4">Sıkça Sorulan Sorular</h2>
+            <p className="text-slate-500 font-medium">Aklınıza takılan soruların yanıtlarını burada bulabilirsiniz.</p>
+          </div>
+          
+          <div className="space-y-4">
+            {[
+              { q: 'Platformu kullanmak ücretli mi?', a: 'Hayır, KAMPUS+ temel özellikleri tüm öğrenciler için tamamen ücretsizdir.' },
+              { q: 'Sadece belirli üniversiteler mi katılabiliyor?', a: 'Hayır, Türkiye genelindeki tüm üniversite öğrencileri platforma kayıt olabilir.' },
+              { q: 'Verilerim güvende mi?', a: 'Evet, verileriniz en üst düzey güvenlik standartlarıyla korunur ve üçüncü taraflarla paylaşılmaz.' },
+              { q: 'AI Asistanı her ders için yardımcı olabilir mi?', a: 'Evet, AI asistanımız geniş bir akademik bilgi birikimine sahiptir ve çoğu branşta size rehberlik edebilir.' }
+            ].map((item, i) => (
+              <div key={i} className="p-6 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all">
+                <h4 className="font-bold text-slate-900 mb-2">{item.q}</h4>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">{item.a}</p>
               </div>
-
-              {/* Preview body */}
-              <div className="p-6 min-h-[320px] flex flex-col gap-4">
-                {/* Top badge */}
-                <div className="flex justify-end">
-                  <span className="bg-[#0ea5e9] text-white text-xs font-semibold px-3 py-1 rounded-full">
-                    247 aktif ilan
-                  </span>
-                </div>
-
-                {/* Mock stats row */}
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Mesajlar', value: '3', color: 'bg-sky-50 border-sky-100' },
-                    { label: 'AI Kredisi', value: '50', color: 'bg-violet-50 border-violet-100' },
-                    { label: 'İlanlarım', value: '2', color: 'bg-emerald-50 border-emerald-100' },
-                    { label: 'Arkadaşlar', value: '12', color: 'bg-amber-50 border-amber-100' },
-                  ].map((item) => (
-                    <div key={item.label} className={`rounded-xl border p-3 ${item.color}`}>
-                      <p className="text-lg font-bold text-slate-900">{item.value}</p>
-                      <p className="text-xs text-slate-500">{item.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Recent activity mock */}
-                <div className="space-y-2 mt-2">
-                  {[
-                    { icon: '💬', text: 'Forum\'da yeni yanıt', time: '2dk' },
-                    { icon: '📦', text: 'Pazar ilanınıza mesaj', time: '5dk' },
-                    { icon: '💼', text: 'Staj başvurusu onaylandı', time: '1sa' },
-                  ].map((item) => (
-                    <div key={item.text} className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-lg">
-                      <span className="text-sm">{item.icon}</span>
-                      <span className="text-xs text-slate-600 flex-1">{item.text}</span>
-                      <span className="text-[10px] text-slate-400">{item.time}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* AI button */}
-                <button
-                  onClick={() => navigate('/register')}
-                  className="mt-auto flex items-center gap-2 text-sm text-[#0ea5e9] font-medium hover:underline"
-                >
-                  <Bot className="w-4 h-4" />
-                  AI ile soru sor
-                </button>
-              </div>
-            </div>
-
-            {/* Floating badge */}
-            <div className="absolute -top-4 -right-4 bg-white border border-slate-200 rounded-xl shadow-lg px-4 py-2 flex items-center gap-2">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              <span className="text-xs font-semibold text-slate-700">4.9/5 öğrenci memnuniyeti</span>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ─── Features ─── */}
-      <section id="features" className="py-24 px-6 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl font-extrabold text-slate-900 mb-3">Kampüs Hayatın İçin Her Şey</h2>
-            <p className="text-slate-500 text-base max-w-xl mx-auto">
-              Akademik başarıdan sosyal hayata kadar ihtiyacın olan tüm araçlar
+      {/* ─── CTA Section ─── */}
+      <section className="py-24 px-6">
+        <div className="max-w-6xl mx-auto relative bg-slate-900 rounded-[3rem] overflow-hidden p-12 lg:p-24 text-center">
+          {/* Decorative shapes */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/20 rounded-full blur-3xl -z-0" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -z-0" />
+          
+          <div className="relative z-10">
+            <h2 className="text-4xl lg:text-6xl font-extrabold text-white mb-8 tracking-tight">
+              Kampüs Hayatını <br /> Bugün Değiştir.
+            </h2>
+            <p className="text-sky-100/60 text-lg lg:text-xl mb-12 max-w-2xl mx-auto font-medium">
+              Sadece birkaç dakika içinde üye ol ve üniversitenin dijital dünyasına adım at. Üstelik tamamen ücretsiz.
             </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {FEATURES.map((f) => (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <button
-                key={f.title}
                 onClick={() => navigate('/register')}
-                className="group text-left p-6 rounded-2xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all bg-white"
+                className="btn-premium w-full sm:w-auto bg-white text-slate-900 font-extrabold px-10 py-5 rounded-2xl text-lg hover:scale-105 transition-transform"
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${f.color}`}>
-                  <f.icon className="w-5 h-5" />
-                </div>
-                <h3 className="font-semibold text-slate-900 text-base mb-1.5">{f.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{f.desc}</p>
+                Hemen Ücretsiz Kaydol
               </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Testimonials ─── */}
-      <section className="py-20 px-6 bg-slate-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Öğrenciler Ne Diyor?</h2>
-            <p className="text-sm text-slate-500">Binlerce öğrencinin güvendiği platform</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="bg-white rounded-2xl border border-slate-200 p-6">
-                <div className="flex gap-0.5 mb-4">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
-                  ))}
-                </div>
-                <p className="text-sm text-slate-600 leading-relaxed mb-5">"{t.text}"</p>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{t.name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{t.uni}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── CTA ─── */}
-      <section className="py-20 px-6 bg-[#0ea5e9]">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
-            <Shield className="w-3.5 h-3.5" />
-            Ücretsiz · Güvenli · Öğrencilere Özel
-          </div>
-          <h2 className="text-3xl font-extrabold text-white mb-4">
-            Hemen Katıl, Ücretsiz Başla
-          </h2>
-          <p className="text-sky-100 text-base mb-8 max-w-lg mx-auto">
-            Binlerce öğrenciye katıl. Dakikalar içinde hesabını oluştur ve tüm özelliklere eriş.
-          </p>
-          <div className="flex items-center justify-center gap-4">
-            <button
-              onClick={() => navigate('/register')}
-              className="flex items-center gap-2 bg-white text-[#0ea5e9] hover:bg-sky-50 font-bold px-8 py-3.5 rounded-xl transition-colors text-sm shadow-xl"
-            >
-              Ücretsiz Hesap Oluştur <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => navigate('/login')}
-              className="text-white/80 hover:text-white text-sm font-medium transition-colors"
-            >
-              Giriş Yap
-            </button>
+              <button
+                onClick={() => navigate('/login')}
+                className="flex items-center gap-2 text-white font-bold hover:text-sky-300 transition-colors"
+              >
+                Giriş Yap <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mt-16 flex flex-wrap justify-center gap-10 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+               <div className="flex items-center gap-2 text-white font-bold"><Globe className="w-5 h-5"/> Global Ağ</div>
+               <div className="flex items-center gap-2 text-white font-bold"><Shield className="w-5 h-5"/> Güvenli Veri</div>
+               <div className="flex items-center gap-2 text-white font-bold"><Rocket className="w-5 h-5"/> Hızlı Erişim</div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="bg-slate-900 text-slate-400 py-12 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-[#0ea5e9] rounded-lg flex items-center justify-center">
-              <span className="text-white font-black text-xs">K+</span>
+      <footer className="bg-white border-t border-slate-100 py-16 px-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+          <div className="md:col-span-1">
+            <div className="flex items-center gap-2.5 mb-6">
+              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
+                <span className="text-white font-black text-xs">K+</span>
+              </div>
+              <span className="font-bold text-slate-900 text-lg tracking-tight">KAMPUS+</span>
             </div>
-            <span className="font-bold text-white text-base">KAMPUS+</span>
+            <p className="text-slate-400 text-sm leading-relaxed font-medium">
+              Üniversite öğrencilerinin sosyal ve akademik hayatını kolaylaştırmak için geliştirildi.
+            </p>
           </div>
-          <p className="text-xs text-slate-500">© 2026 Kampus+. Tüm hakları saklıdır.</p>
-          <div className="flex gap-6 text-xs">
-            <a href="#" className="hover:text-white transition-colors">Gizlilik</a>
-            <a href="#" className="hover:text-white transition-colors">Kullanım Koşulları</a>
-            <a href="#" className="hover:text-white transition-colors">İletişim</a>
+          
+          <div>
+            <h4 className="font-bold text-slate-900 mb-6">Platform</h4>
+            <ul className="space-y-4 text-sm font-medium text-slate-500">
+              <li onClick={() => navigate('/register')} className="hover:text-sky-600 cursor-pointer transition-colors">Forum</li>
+              <li onClick={() => navigate('/register')} className="hover:text-sky-600 cursor-pointer transition-colors">Pazar Yeri</li>
+              <li onClick={() => navigate('/register')} className="hover:text-sky-600 cursor-pointer transition-colors">Kariyer</li>
+              <li onClick={() => navigate('/register')} className="hover:text-sky-600 cursor-pointer transition-colors">AI Asistan</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-900 mb-6">Kurumsal</h4>
+            <ul className="space-y-4 text-sm font-medium text-slate-500">
+              <li className="hover:text-sky-600 cursor-pointer transition-colors">Hakkımızda</li>
+              <li className="hover:text-sky-600 cursor-pointer transition-colors">Gizlilik Politikası</li>
+              <li className="hover:text-sky-600 cursor-pointer transition-colors">Kullanım Koşulları</li>
+              <li className="hover:text-sky-600 cursor-pointer transition-colors">İletişim</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-900 mb-6">Takipte Kal</h4>
+            <div className="flex gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-10 h-10 bg-slate-50 rounded-full flex items-center justify-center hover:bg-sky-50 hover:text-sky-600 cursor-pointer transition-all border border-slate-100">
+                  <div className="w-4 h-4 bg-current rounded-sm opacity-20" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-slate-100">
+          <p className="text-xs text-slate-400 font-bold">© 2026 KAMPUS+. TÜM HAKLARI SAKLIDIR.</p>
+          <div className="flex gap-8 text-xs font-bold text-slate-400">
+            <span className="hover:text-slate-900 cursor-pointer">TÜRKÇE</span>
+            <span className="hover:text-slate-900 cursor-pointer">ENGLISH</span>
           </div>
         </div>
       </footer>

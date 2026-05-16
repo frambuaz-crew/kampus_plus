@@ -121,11 +121,6 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
 
   // ── Üniversiteleri yükle ──────────────────────────────────────────────────
   useEffect(() => {
-    if (initialUniversityId) {
-      setLoadingUni(false);
-      return;
-    }
-
     setLoadingUni(true);
     getUniversities()
       .then((data) => {
@@ -161,19 +156,22 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
       setSelectedDeptId('');
       return;
     }
-    if (isPrefilledUniversity && !hasUserChangedUniversity) return;
+    
+    // 🎯 DÜZELTME: Eğer initial ID varsa ama kullanıcı henüz dokunmadıysa bile yükle
+    // isPrefilledUniversity kontrolü kilitli (locked) senaryolar içindi,
+    // hafızadan geri yükleme senaryosu için yüklemeyi zorunlu kılıyoruz.
     loadFaculties(selectedUnivId);
-  }, [selectedUnivId, isPrefilledUniversity, hasUserChangedUniversity]);
+  }, [selectedUnivId]);
 
   // ── Varsayılan fakülteyi uygula ──────────────────────────────────────────
   useEffect(() => {
-    if (!showDepartment || !initialFacultyId || !faculties.length || selectedFacId) return;
+    if (!showDepartment || !initialFacultyId || !faculties.length) return;
 
     const match = faculties.find((f) => f.id === initialFacultyId);
     if (!match) return;
 
     setSelectedFacId(match.id);
-    onChange({ facultyId: match.id, facultyName: match.name });
+    // onChange'i burada tekrar çağırmaya gerek yok çünkü RegisterForm'da zaten var
   }, [faculties, initialFacultyId, onChange, selectedFacId, showDepartment]);
 
   // ── Fakülte değişince bölümleri yükle ────────────────────────────────────
@@ -199,13 +197,13 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
 
   // ── Varsayılan bölümü uygula ─────────────────────────────────────────────
   useEffect(() => {
-    if (!showDepartment || !initialDepartmentId || !departments.length || selectedDeptId) return;
+    if (!showDepartment || !initialDepartmentId || !departments.length) return;
 
     const match = departments.find((d) => d.id === initialDepartmentId);
     if (!match) return;
 
     setSelectedDeptId(match.id);
-    onChange({ departmentId: match.id, departmentName: match.name });
+    // onChange'i burada tekrar çağırmaya gerek yok
   }, [departments, initialDepartmentId, onChange, selectedDeptId, showDepartment]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -233,23 +231,23 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
   };
 
   return (
-    <div className={`grid gap-3 ${showDepartment ? 'grid-cols-1' : 'grid-cols-1'}`}>
+    <div className="space-y-3.5">
       {/* Üniversite */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
           Üniversite{!lockedUniversity && ' *'}
         </label>
         {lockedUniversity ? (
-          <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 bg-gray-50">
-            <span className="text-sm text-gray-700 font-medium flex-1 truncate">{lockedUniversity}</span>
-            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">Kilitli</span>
+          <div className="flex items-center gap-2 border border-slate-200 rounded-2xl px-4 py-3 bg-slate-50">
+            <span className="text-sm text-slate-700 font-medium flex-1 truncate">{lockedUniversity}</span>
+            <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-bold whitespace-nowrap">Kilitli</span>
           </div>
         ) : (
           <select
             value={selectedUnivId}
             onChange={handleUnivChange}
             disabled={loadingUni}
-            className={SELECT_CLS}
+            className={`${SELECT_CLS} rounded-2xl px-4 py-3`}
           >
             <option value="">
               {loadingUni ? 'Yükleniyor...' : '— Üniversite seçin —'}
@@ -263,59 +261,59 @@ export const CascadingInstitutionSelect: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Fakülte — sadece showDepartment=true ise */}
       {showDepartment && (
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Fakülte *
-          </label>
-          <select
-            value={selectedFacId}
-            onChange={handleFacChange}
-            disabled={!selectedUnivId || faculties.length === 0}
-            className={SELECT_CLS}
-          >
-            <option value="">
-              {loadingFac
-                ? 'Yükleniyor...'
-                : !selectedUnivId
-                ? '— Önce üniversite seçin —'
-                : '— Fakülte seçin —'}
-            </option>
-            {faculties.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Fakülte */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Fakülte *
+            </label>
+            <select
+              value={selectedFacId}
+              onChange={handleFacChange}
+              disabled={!selectedUnivId || faculties.length === 0}
+              className={`${SELECT_CLS} rounded-2xl px-4 py-3`}
+            >
+              <option value="">
+                {loadingFac
+                  ? 'Yükleniyor...'
+                  : !selectedUnivId
+                  ? '— Önce üniversite seçin —'
+                  : '— Fakülte seçin —'}
               </option>
-            ))}
-          </select>
-        </div>
-      )}
+              {faculties.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {/* Bölüm — sadece showDepartment=true ise */}
-      {showDepartment && (
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Bölüm *
-          </label>
-          <select
-            value={selectedDeptId}
-            onChange={handleDeptChange}
-            disabled={!selectedFacId || departments.length === 0}
-            className={SELECT_CLS}
-          >
-            <option value="">
-              {loadingDept
-                ? 'Yükleniyor...'
-                : !selectedFacId
-                ? '— Önce fakülte seçin —'
-                : '— Bölüm seçin —'}
-            </option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
+          {/* Bölüm */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Bölüm *
+            </label>
+            <select
+              value={selectedDeptId}
+              onChange={handleDeptChange}
+              disabled={!selectedFacId || departments.length === 0}
+              className={`${SELECT_CLS} rounded-2xl px-4 py-3`}
+            >
+              <option value="">
+                {loadingDept
+                  ? 'Yükleniyor...'
+                  : !selectedFacId
+                  ? '— Önce fakülte seçin —'
+                  : '— Bölüm seçin —'}
               </option>
-            ))}
-          </select>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
     </div>

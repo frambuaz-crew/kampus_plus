@@ -17,6 +17,7 @@ import { useAuth } from '../../hooks/useAuth';
 import type { RegisterData } from '../../types/auth';
 import type { InstitutionSelection } from '../institution/CascadingInstitutionSelect';
 import { CascadingInstitutionSelect } from '../institution/CascadingInstitutionSelect';
+import { useRegistration } from '../../contexts/RegistrationContext';
 import { RegisterSuccessMessage } from './register';
 import axios from 'axios';
 
@@ -26,25 +27,20 @@ interface RegisterFormProps {
 
 export const RegisterForm: React.FC<RegisterFormProps> = () => {
   const { register } = useAuth();
+  const { regFormData, setRegFormData, clearRegFormData } = useRegistration();
 
-  const [formData, setFormData] = useState({
-    email: '',
-    university: '',
-    university_id: '',         // ✅ Üniversite UUID'si
-    password: '',
-    confirmPassword: '',
-    first_name: '',
-    last_name: '',
-    department_id: '',
-    terms_accepted: false,
-  });
-
+  const [formData, setFormData] = useState(regFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+
+  // Veri her değiştiğinde global context'i de güncelle
+  React.useEffect(() => {
+    setRegFormData(formData);
+  }, [formData, setRegFormData]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -139,6 +135,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
       };
 
       await register(registerData);
+      
+      // Success - clear storage
+      clearRegFormData();
 
       // Success - show email verification message
       setRegisteredEmail(formData.email.trim().toLowerCase());
@@ -176,6 +175,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
         selection.universityId !== undefined
           ? selection.universityId
           : prev.university_id,
+      faculty_id:
+        selection.facultyId !== undefined
+          ? selection.facultyId
+          : prev.faculty_id,
       department_id:
         selection.departmentId !== undefined
           ? selection.departmentId
@@ -219,7 +222,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
   }
 
   const inp = (err: boolean) =>
-    `w-full px-3.5 py-2.5 text-sm border rounded-xl bg-slate-50 text-slate-900 placeholder:text-slate-400 outline-none transition-all ${err ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100' : 'border-slate-200 focus:border-[#0ea5e9] focus:ring-2 focus:ring-[#0ea5e9]/15 focus:bg-white'}`;
+    `w-full px-4 py-3 text-sm border rounded-2xl bg-slate-50 text-slate-900 placeholder:text-slate-400 outline-none transition-all ${err ? 'border-red-300 focus:border-red-400 focus:ring-4 focus:ring-red-100' : 'border-slate-200 focus:border-sky-600 focus:ring-4 focus:ring-sky-100 focus:bg-white'}`;
   const errTxt = (msg: string) => <p className="mt-1 text-xs text-red-500">{msg}</p>;
 
   return (
@@ -250,54 +253,60 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
 
       {/* Üniversite / Bölüm */}
       <div>
-        <CascadingInstitutionSelect showDepartment={true} onChange={handleInstitutionChange} />
+        <CascadingInstitutionSelect 
+          showDepartment={true} 
+          onChange={handleInstitutionChange}
+          initialUniversityId={formData.university_id}
+          initialFacultyId={formData.faculty_id}
+          initialDepartmentId={formData.department_id}
+        />
         {(errors.university || errors.department_id) && errTxt(errors.university ?? errors.department_id ?? '')}
       </div>
 
-      {/* Şifre */}
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">Şifre</label>
-        <div className="relative">
-          <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={formData.password}
-            onChange={handleChange} placeholder="En az 8 karakter" className={`${inp(!!errors.password)} pr-10`}
-            disabled={isLoading} autoComplete="new-password" />
-          <button type="button" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-            {showPassword
-              ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-              : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-            }
-          </button>
+      {/* Şifre & Şifre Tekrar (Yan Yana) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">Şifre</label>
+          <div className="relative">
+            <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={formData.password}
+              onChange={handleChange} placeholder="En az 8 karakter" className={`${inp(!!errors.password)} pr-10`}
+              disabled={isLoading} autoComplete="new-password" />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+              {showPassword
+                ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              }
+            </button>
+          </div>
+          {errors.password && errTxt(errors.password)}
         </div>
-        {errors.password && errTxt(errors.password)}
-      </div>
 
-      {/* Şifre Tekrar */}
-      <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1.5">Şifre Tekrar</label>
-        <div className="relative">
-          <input id="confirmPassword" name="confirmPassword" type={showConfirmPassword ? 'text' : 'password'}
-            value={formData.confirmPassword} onChange={handleChange} placeholder="Şifrenizi tekrar girin"
-            className={`${inp(!!errors.confirmPassword)} pr-10`} disabled={isLoading} autoComplete="new-password" />
-          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} tabIndex={-1}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-            {showConfirmPassword
-              ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-              : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-            }
-          </button>
+        <div>
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1.5">Şifre Tekrar</label>
+          <div className="relative">
+            <input id="confirmPassword" name="confirmPassword" type={showConfirmPassword ? 'text' : 'password'}
+              value={formData.confirmPassword} onChange={handleChange} placeholder="Şifrenizi onaylayın"
+              className={`${inp(!!errors.confirmPassword)} pr-10`} disabled={isLoading} autoComplete="new-password" />
+            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} tabIndex={-1}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+              {showConfirmPassword
+                ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              }
+            </button>
+          </div>
+          {errors.confirmPassword && errTxt(errors.confirmPassword)}
         </div>
-        {errors.confirmPassword && errTxt(errors.confirmPassword)}
       </div>
 
       {/* Kullanım Koşulları */}
-      <div>
+      <div className="pt-1">
         <div className="flex items-start gap-2">
           <input id="terms_accepted" name="terms_accepted" type="checkbox" checked={formData.terms_accepted}
-            onChange={handleChange} className="w-4 h-4 mt-0.5 accent-[#0ea5e9] cursor-pointer rounded flex-shrink-0" disabled={isLoading} />
-          <label htmlFor="terms_accepted" className="text-xs text-slate-600 cursor-pointer leading-relaxed">
-            <Link to="/terms" className="text-[#0ea5e9] hover:underline">Kullanım koşullarını</Link>{' '}
-            ve gizlilik politikasını okudum, kabul ediyorum
+            onChange={handleChange} className="w-4 h-4 mt-0.5 accent-sky-600 cursor-pointer rounded flex-shrink-0" disabled={isLoading} />
+          <label htmlFor="terms_accepted" className="text-[11px] text-slate-500 cursor-pointer leading-tight">
+            Kayıt olarak <Link to="/terms" className="text-sky-600 font-bold hover:underline">Kullanım Koşullarını</Link> ve <Link to="/privacy" className="text-sky-600 font-bold hover:underline">Gizlilik Politikasını</Link> kabul etmiş sayılırsınız.
           </label>
         </div>
         {errors.terms_accepted && errTxt(errors.terms_accepted)}
@@ -312,7 +321,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = () => {
 
       {/* Submit */}
       <button type="submit" disabled={isLoading}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0ea5e9] hover:bg-[#0284c7] text-white text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-sky-200">
+        className="btn-premium w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-sky-100">
         {isLoading ? (
           <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

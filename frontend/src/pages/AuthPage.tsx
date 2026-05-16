@@ -20,6 +20,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const isRegister = mode === 'register';
 
+  // URL değiştiğinde (örn: geri/ileri tıklandığında) formu güncelle
+  React.useEffect(() => {
+    if (window.location.pathname === '/register') {
+      setMode('register');
+    } else {
+      setMode('login');
+    }
+  }, [window.location.pathname]);
+
+  const handleToggleMode = (newMode: 'login' | 'register') => {
+    setMode(newMode);
+    navigate(newMode === 'register' ? '/register' : '/login');
+  };
+
   return (
     <div className="min-h-screen flex overflow-hidden bg-white">
 
@@ -44,13 +58,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
           transition: opacity 0.5s ease 0.55s,
                       width 1.1s cubic-bezier(0.76, 0, 0.24, 1);
         }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+        }
       `}</style>
 
       {/* ═══════════════════════════════════════════════
           Dark Panel — slides left↔right
       ═══════════════════════════════════════════════ */}
       <div
-        className="auth-panel hidden lg:flex absolute top-0 bottom-0 w-[42%] z-20 bg-slate-900 flex-col justify-between p-12 overflow-hidden"
+        className="auth-panel hidden lg:flex absolute top-0 bottom-0 w-[42%] z-20 bg-slate-900 flex-col justify-between p-12 overflow-hidden shadow-2xl"
         style={{
           left: isRegister ? '58%' : '0%',
           borderRadius: isRegister ? '48px 0 0 48px' : '0 48px 48px 0',
@@ -58,31 +81,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
       >
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#0ea5e9]/10 rounded-full" />
-          <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#0ea5e9]/5 rounded-full" />
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-sky-600/20 rounded-full blur-[120px] animate-pulse-slow" />
+          <div className="absolute -bottom-40 -right-40 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[100px] animate-pulse-slow delay-700" />
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-3xl" />
         </div>
 
         {/* Logo */}
         <div className="relative">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-[#0ea5e9] rounded-xl flex items-center justify-center">
-              <span className="text-white font-black text-sm">K+</span>
+          <button onClick={() => navigate('/')} className="flex items-center gap-3 group">
+            <div className="w-10 h-10 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-900/50 group-hover:scale-110 transition-transform">
+              <span className="text-white font-black text-base">K+</span>
             </div>
-            <span className="text-white font-bold text-xl tracking-tight">KAMPUS+</span>
+            <span className="text-white font-bold text-2xl tracking-tight">KAMPUS<span className="text-sky-400">+</span></span>
           </button>
         </div>
 
         {/* Center content — changes based on mode */}
-        <div className="relative space-y-8" style={{ transition: 'opacity 0.3s ease', opacity: 1 }}>
+        <div className="relative space-y-10">
           <div>
-            <h2 className="text-3xl font-extrabold text-white leading-tight mb-3">
+            <h2 className="text-4xl font-extrabold text-white leading-[1.1] mb-5 tracking-tight animate-slide-up">
               {isRegister ? (
-                <>Zaten hesabın<br />var mı?</>
+                <>Zaten hesabın<br /><span className="text-sky-400">var mı?</span></>
               ) : (
-                <>Kampüs hayatın<br />tek platformda.</>
+                <>Kampüs hayatın<br /><span className="text-sky-400">tek platformda.</span></>
               )}
             </h2>
-            <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
+            <p className="text-slate-400 text-base leading-relaxed max-w-xs font-medium animate-slide-up delay-100">
               {isRegister
                 ? 'Giriş yaparak kaldığın yerden devam et, mesajlarına ve ilanlarına bak.'
                 : "Türkiye'nin en kapsamlı üniversite öğrenci platformuna katıl."
@@ -91,13 +115,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
           </div>
 
           {!isRegister && (
-            <div className="space-y-3">
+            <div className="space-y-4 animate-slide-up delay-200">
               {PANEL_FEATURES.map((f) => (
-                <div key={f.text} className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-[#0ea5e9]/15 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <f.icon className="w-4 h-4 text-[#0ea5e9]" />
+                <div key={f.text} className="flex items-center gap-4 group">
+                  <div className="w-10 h-10 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-sky-500/20 transition-colors">
+                    <f.icon className="w-5 h-5 text-sky-400" />
                   </div>
-                  <span className="text-slate-300 text-sm">{f.text}</span>
+                  <span className="text-slate-300 text-sm font-medium">{f.text}</span>
                 </div>
               ))}
             </div>
@@ -105,25 +129,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
 
           {/* Stats (only in login mode) */}
           {!isRegister && (
-            <div className="flex gap-8">
-              {[{ v: '12K+', l: 'Öğrenci' }, { v: '350+', l: 'Üniversite' }].map((s) => (
+            <div className="flex gap-12 pt-4 animate-slide-up delay-300">
+              {[{ v: '12K+', l: 'Öğrenci' }, { v: '200+', l: 'Üniversite' }].map((s) => (
                 <div key={s.l}>
-                  <p className="text-[#0ea5e9] text-2xl font-extrabold">{s.v}</p>
-                  <p className="text-slate-500 text-xs mt-0.5">{s.l}</p>
+                  <p className="text-white text-3xl font-extrabold tracking-tight">{s.v}</p>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">{s.l}</p>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <p className="relative text-slate-600 text-xs">© 2026 Kampus+. Tüm hakları saklıdır.</p>
+        <div className="relative border-t border-white/5 pt-8">
+          <p className="text-slate-600 text-xs font-bold uppercase tracking-widest">© 2026 KAMPUS+</p>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════
           Login Form Pane
       ═══════════════════════════════════════════════ */}
       <div
-        className={`auth-form-pane flex flex-col items-center justify-center px-6 py-12 bg-white absolute top-0 bottom-0 overflow-y-auto ${isRegister ? 'hidden-pane' : 'visible-pane'}`}
+        className={`auth-form-pane no-scrollbar flex flex-col items-center justify-center px-6 py-8 bg-white absolute top-0 bottom-0 overflow-y-auto ${isRegister ? 'hidden-pane' : 'visible-pane'}`}
         style={{
           left: 0,
           width: '100%',
@@ -156,7 +182,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Hesabın yok mu?{' '}
-            <button onClick={() => setMode('register')} className="text-[#0ea5e9] font-semibold hover:underline">
+            <button onClick={() => handleToggleMode('register')} className="text-[#0ea5e9] font-semibold hover:underline">
               Kayıt ol
             </button>
           </p>
@@ -167,7 +193,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
           Register Form Pane
       ═══════════════════════════════════════════════ */}
       <div
-        className={`auth-form-pane flex flex-col items-center justify-start px-6 py-12 bg-white absolute top-0 bottom-0 overflow-y-auto ${isRegister ? 'visible-pane' : 'hidden-pane'}`}
+        className={`auth-form-pane no-scrollbar flex flex-col items-center justify-start px-6 py-8 bg-white absolute top-0 bottom-0 overflow-y-auto ${isRegister ? 'visible-pane' : 'hidden-pane'}`}
         style={{
           left: 0,
           width: isRegister ? '58%' : '100%',
@@ -193,7 +219,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
 
           <p className="mt-4 text-center text-sm text-slate-500">
             Zaten hesabın var mı?{' '}
-            <button onClick={() => setMode('login')} className="text-[#0ea5e9] font-semibold hover:underline">
+            <button onClick={() => handleToggleMode('login')} className="text-[#0ea5e9] font-semibold hover:underline">
               Giriş yap
             </button>
           </p>
