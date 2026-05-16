@@ -317,10 +317,13 @@ async def get_topics(
         elif scope == "public":
             query = query.where(ForumTopic.university_id.is_(None))
         else:
+            # "Tüm Gönderiler": Herkese açık (university_id=NULL) olan tüm gönderiler
+            # + kendi üniversitesine özel gönderiler görünür.
+            # Diğer üniversitelerin "Sadece Üniversitem" paylaşımları gizlenir.
             query = query.where(
                 or_(
-                    ForumTopic.university_id == current_user.university_id,
                     ForumTopic.university_id.is_(None),
+                    ForumTopic.university_id == current_user.university_id,
                 )
             )
 

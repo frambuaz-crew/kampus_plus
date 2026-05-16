@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, field_validator, Field
-from sqlalchemy import desc, asc, or_, select
+from sqlalchemy import desc, asc, or_, and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
