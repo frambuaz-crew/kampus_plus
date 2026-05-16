@@ -31,9 +31,15 @@ import { Link } from 'react-router-dom';
 
 interface ChatInterfaceProps {
   reloadKey?: number;
+  initialConversationId?: string | null;
+  onConversationCreated?: (id: string) => void;
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) => {
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
+  reloadKey = 0, 
+  initialConversationId = null,
+  onConversationCreated
+}) => {
   const DOCUMENTS_BASE_URL = `${API_BASE_URL}/ai/documents`;
 
   const normalizeSourceFile = (sourceFile: string): string => {
@@ -98,7 +104,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
       setError(null);
       const [remainingRes, conversationRes] = await Promise.all([
         apiClient.get<RemainingMessagesResponse>('/ai/remaining-messages'),
-        apiClient.get<ConversationResponse>('/ai/conversation'),
+        initialConversationId 
+          ? apiClient.get<ConversationResponse>('/ai/conversation', { params: { conversation_id: initialConversationId } })
+          : Promise.resolve({ data: { messages: [], conversation_id: null } })
       ]);
 
       setRemainingMessages(remainingRes.data.remaining ?? 50);
@@ -150,7 +158,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
     try {
       const response = await apiClient.post<SendMessageResponse>(
         `/ai/chat`,
-        { message: messageContent }
+        { 
+          message: messageContent,
+          conversation_id: conversationId 
+        }
       );
 
       // Replace temp message with real messages from API
@@ -183,6 +194,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ reloadKey = 0 }) =
           }
           return Math.max(0, prev - 1);
         });
+      }
+      if (!conversationId && response.data.conversation_id) {
+        onConversationCreated?.(response.data.conversation_id);
       }
       setConversationId(response.data.conversation_id);
     } catch (err) {

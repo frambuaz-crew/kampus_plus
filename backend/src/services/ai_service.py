@@ -1401,7 +1401,9 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 if varname in _LANGCHAIN_VARS:
                     return match.group(0)   # Dokunma — LangChain placeholder'ı
                 return "{{" + varname + "}}"  # Literal — escape et
-            return _re.sub(r"\{(\w+)\}", replacer, text)
+
+            # Sadece tekli süslü parantezleri yakala (zaten escape edilmiş {{id}} gibi yapıları bozma)
+            return _re.sub(r"(?<!\{)\{(\w+)\}(?!\})", replacer, text)
 
         safe_prompt = _escape_literal_braces(system_prompt)
 

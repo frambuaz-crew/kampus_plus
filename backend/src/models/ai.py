@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -49,6 +49,8 @@ class AIConversation(Base):
         nullable=False,
     )
     
+    title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    
     user = relationship("User", foreign_keys=[user_id], overlaps="ai_conversations")
     messages = relationship("AIMessage", back_populates="conversation", cascade="all, delete-orphan")
 
@@ -73,6 +75,7 @@ class AIMessage(Base):
     
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    references: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),

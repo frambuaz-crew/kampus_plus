@@ -50,6 +50,15 @@ class AIMessageResponse(BaseModel):
 
 class SendMessageRequest(BaseModel):
 	message: str = Field(..., min_length=1, max_length=500)
+	conversation_id: Optional[str] = None
+
+
+class ConversationSummaryResponse(BaseModel):
+	id: str
+	title: Optional[str]
+	created_at: datetime
+	updated_at: datetime
+	last_message_preview: Optional[str] = None
 
 
 class SendMessageResponse(BaseModel):
@@ -244,15 +253,22 @@ async def get_remaining_messages(
 
 @router.get("/conversation", response_model=ConversationResponse)
 async def get_conversation(
+	conversation_id: Optional[str] = None,
 	current_user: User = Depends(get_current_user),
 	session: AsyncSession = Depends(get_db),
 ) -> ConversationResponse:
-	convo_stmt = (
-		select(AIConversation)
-		.where(AIConversation.user_id == current_user.id)
-		.order_by(AIConversation.updated_at.desc())
-		.limit(1)
-	)
+	if conversation_id:
+		convo_stmt = (
+			select(AIConversation)
+			.where(AIConversation.id == conversation_id, AIConversation.user_id == current_user.id)
+		)
+	else:
+		convo_stmt = (
+			select(AIConversation)
+			.where(AIConversation.user_id == current_user.id)
+			.order_by(AIConversation.updated_at.desc())
+			.limit(1)
+		)
 	convo_result = await session.execute(convo_stmt)
 	conversation = convo_result.scalar_one_or_none()
 
@@ -269,10 +285,12 @@ async def get_conversation(
 	messages_stmt = (
 		select(AIMessage)
 		.where(AIMessage.conversation_id == conversation.id)
-		.order_by(AIMessage.created_at.asc())
+		.order_by(AIMessage.created_at.desc())
+		.limit(50)
 	)
 	messages_result = await session.execute(messages_stmt)
-	records = messages_result.scalars().all()
+	records = list(messages_result.scalars().all())
+	records.reverse()
 
 	messages = [
 		AIMessageResponse(
@@ -280,7 +298,7 @@ async def get_conversation(
 			session_id=record.conversation_id,
 			role=record.role,
 			content=record.content,
-			references=None,
+			references=record.references,
 			created_at=record.created_at,
 		)
 		for record in records
@@ -293,22 +311,69 @@ async def get_conversation(
 	)
 
 
+@router.get("/conversations", response_model=List[ConversationSummaryResponse])
+async def list_conversations(
+	current_user: User = Depends(get_current_user),
+	session: AsyncSession = Depends(get_db),
+) -> List[ConversationSummaryResponse]:
+	# Son 5 sohbeti getir
+	stmt = (
+		select(AIConversation)
+		.where(AIConversation.user_id == current_user.id)
+		.order_by(AIConversation.updated_at.desc())
+		.limit(5)
+	)
+	result = await session.execute(stmt)
+	conversations = result.scalars().all()
+
+	summaries = []
+	for convo in conversations:
+		# Son mesajı önizleme için al
+		msg_stmt = (
+			select(AIMessage.content)
+			.where(AIMessage.conversation_id == convo.id)
+			.order_by(AIMessage.created_at.desc())
+			.limit(1)
+		)
+		msg_result = await session.execute(msg_stmt)
+		last_msg = msg_result.scalar_one_or_none()
+		
+		summaries.append(
+			ConversationSummaryResponse(
+				id=convo.id,
+				title=convo.title or "Yeni Sohbet",
+				created_at=convo.created_at,
+				updated_at=convo.updated_at,
+				last_message_preview=last_msg[:100] + "..." if last_msg and len(last_msg) > 100 else last_msg
+			)
+		)
+	return summaries
+
+
 @router.delete("/conversation", response_model=ConversationDeleteResponse)
 async def delete_conversation(
+	conversation_id: Optional[str] = None,
 	current_user: User = Depends(get_current_user),
 	session: AsyncSession = Depends(get_db),
 	ai_service: AIService = Depends(get_ai_service_dependency),
 ) -> ConversationDeleteResponse:
-	conversations_stmt = select(AIConversation).where(AIConversation.user_id == current_user.id)
-	conversations_result = await session.execute(conversations_stmt)
-	conversations = conversations_result.scalars().all()
+	if conversation_id:
+		stmt = select(AIConversation).where(
+			AIConversation.id == conversation_id,
+			AIConversation.user_id == current_user.id
+		)
+	else:
+		# ID verilmezse en sonuncuyu sil
+		stmt = select(AIConversation).where(AIConversation.user_id == current_user.id).order_by(AIConversation.updated_at.desc()).limit(1)
+		
+	result = await session.execute(stmt)
+	conversation = result.scalar_one_or_none()
 
-	if conversations:
-		for conversation in conversations:
-			await session.delete(conversation)
+	if conversation:
+		await session.delete(conversation)
 		await session.commit()
 
-	ai_service.reset_conversation(user_id=current_user.id)
+	ai_service.reset_conversation(user_id=current_user.id, session_id=conversation_id)
 
 	return ConversationDeleteResponse(cleared=True)
 
@@ -358,23 +423,29 @@ async def send_chat_message(
 			},
 		)
 
-	convo_stmt = (
-		select(AIConversation)
-		.where(AIConversation.user_id == current_user.id)
-		.order_by(AIConversation.updated_at.desc())
-		.limit(1)
-	)
-	convo_result = await session.execute(convo_stmt)
-	conversation = convo_result.scalar_one_or_none()
-
+	# Sohbet seçimi veya yeni sohbet oluşturma
+	conversation = None
+	if request.conversation_id:
+		convo_stmt = (
+			select(AIConversation)
+			.where(AIConversation.id == request.conversation_id, AIConversation.user_id == current_user.id)
+		)
+		convo_result = await session.execute(convo_stmt)
+		conversation = convo_result.scalar_one_or_none()
+	
 	if not conversation:
+		# Yeni sohbet oluştur
 		conversation = AIConversation(
 			user_id=current_user.id,
+			title=message_text[:50] + "..." if len(message_text) > 50 else message_text,
 			created_at=_utc_naive(),
 			updated_at=_utc_naive(),
 		)
 		session.add(conversation)
 		await session.flush()
+	elif not conversation.title:
+		# Başlık yoksa ilk mesajdan oluştur
+		conversation.title = message_text[:50] + "..." if len(message_text) > 50 else message_text
 
 	history_stmt = (
 		select(AIMessage)
@@ -409,6 +480,7 @@ async def send_chat_message(
 		conversation_id=conversation.id,
 		role="assistant",
 		content=assistant_text,
+		references=references,
 		created_at=_utc_naive(),
 	)
 	session.add(assistant_message)
