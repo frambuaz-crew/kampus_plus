@@ -183,40 +183,19 @@ const FormField: React.FC<{ label: string; required?: boolean; hint?: string; co
 
 // ─── Listing Card ──────────────────────────────────────────────────────────────────
 
-const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void; onApply: (e: React.MouseEvent) => void }> = ({ listing, onClick, onApply }) => {
-  const [isFavorite, setIsFavorite] = useState(false);
+const ListingCard: React.FC<{ 
+  listing: CareerListing; 
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
+  onClick: () => void; 
+  onApply: (e: React.MouseEvent) => void 
+}> = ({ listing, isFavorite, onToggleFavorite, onClick, onApply }) => {
 
-  useEffect(() => {
-    const checkFavoriteStatus = async () => {
-      try {
-        const response = await apiClient.get("/users/favorites/all");
-        if (response.data && response.data.favorites) {
-          const isFav = response.data.favorites.some(
-            (fav: FavoriteRecord) => fav.target_id === listing.id
-          );
-          setIsFavorite(isFav);
-        }
-      } catch (error) {
-        console.error("Error checking favorites", error);
-      }
-    };
-    checkFavoriteStatus();
-  }, [listing.id]);
 
   const toggleFavorite = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     e.preventDefault();
-    try {
-      const payload = { target_type: "career_listing", target_id: listing.id };
-      const response = await apiClient.post("/users/favorites/toggle", payload);
-      if (response.data && response.data.success) {
-        setIsFavorite(response.data.action === "added");
-      }
-    } catch (error: unknown) {
-      if (isUnauthorizedError(error)) {
-        alert("Favorilere eklemek için giriş yapmalısınız.");
-      }
-    }
+    onToggleFavorite(listing.id);
   };
 
   const cfg = TYPE_CONFIG[listing.listing_type];
@@ -347,10 +326,12 @@ const ListingCard: React.FC<{ listing: CareerListing; onClick: () => void; onApp
 
 const ListingDetailView: React.FC<{
   listing: CareerListing;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
   onBack: () => void;
   currentUserId: string | null;
   onDelete: (id: string) => void;
-}> = ({ listing, onBack, currentUserId, onDelete }) => {
+}> = ({ listing, isFavorite, onToggleFavorite, onBack, currentUserId, onDelete }) => {
   const navigate = useNavigate();
   const cfg = TYPE_CONFIG[listing.listing_type];
   const TypeIcon = cfg.Icon;
@@ -358,42 +339,11 @@ const ListingDetailView: React.FC<{
   const [reportReason, setReportReason] = useState('');
   const [showReportBox, setShowReportBox] = useState(false);
   const [reportSent, setReportSent] = useState(false);
-  const [showApplyDialog, setShowApplyDialog] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
-
-  useEffect(() => {
-    const checkFavoriteStatus = async () => {
-      try {
-        const response = await apiClient.get("/users/favorites/all");
-        if (response.data && response.data.favorites) {
-          const isFav = response.data.favorites.some(
-            (fav: FavoriteRecord) => fav.target_id === listing.id
-          );
-          setIsFavorite(isFav);
-        }
-      } catch (error) {
-        console.error("Error checking favorites", error);
-      }
-    };
-    checkFavoriteStatus();
-  }, [listing.id]);
-
   const toggleFavorite = async () => {
-    try {
-      const payload = {
-        target_type: "career_listing",
-        target_id: listing.id
-      };
-      const response = await apiClient.post("/users/favorites/toggle", payload);
-      if (response.data && response.data.success) {
-        setIsFavorite(response.data.action === "added");
-      }
-    } catch (error: unknown) {
-      if (isUnauthorizedError(error)) {
-        alert("Favorilere eklemek için giriş yapmalısınız.");
-      }
-    }
+    onToggleFavorite(listing.id);
   };
+
+  const [showApplyDialog, setShowApplyDialog] = useState(false);
 
   const isJobOrInternship = listing.listing_type === 'job' || listing.listing_type === 'internship';
 
@@ -1021,6 +971,7 @@ export const CareerPage: React.FC = () => {
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [applyListing, setApplyListing] = useState<CareerListing | null>(null);
   const [listings, setListings] = useState<CareerListing[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [selectedListing, setSelectedListing] = useState<CareerListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1055,14 +1006,68 @@ export const CareerPage: React.FC = () => {
     } finally { setLoading(false); }
   }, [sortOrder]);
 
-  useEffect(() => { if (view === 'list' && !isNewOpen) loadListings(); }, [view, isNewOpen, loadListings]);
+  const loadFavorites = useCallback(async () => {
+    try {
+      const response = await apiClient.get("/users/favorites/all");
+      if (response.data && response.data.favorites) {
+        const ids = new Set(response.data.favorites.map((f: FavoriteRecord) => f.target_id));
+        setFavoriteIds(ids);
+      }
+    } catch (error) {
+      console.error("Error loading favorites", error);
+    }
+  }, []);
+
+  const handleToggleFavorite = async (id: string) => {
+    try {
+      const payload = { target_type: "career_listing", target_id: id };
+      const response = await apiClient.post("/users/favorites/toggle", payload);
+      if (response.data && response.data.success) {
+        setFavoriteIds(prev => {
+          const next = new Set(prev);
+          if (response.data.action === "added") next.add(id);
+          else next.delete(id);
+          return next;
+        });
+      }
+    } catch (error: unknown) {
+      if (isUnauthorizedError(error)) {
+        alert("Giriş yapmalısınız.");
+      }
+    }
+  };
 
   useEffect(() => {
-    if (id && view === 'list' && listings.length > 0) {
-      const found = listings.find(l => l.id === id);
-      if (found) { setSelectedListing(found); setView('detail'); }
+    loadFavorites();
+  }, [loadFavorites]);
+
+  useEffect(() => {
+    if (view === 'list' && !isNewOpen) {
+      loadListings();
+    } else if (id && listings.length === 0 && !isNewOpen) {
+      // If we land on a detail page directly, we still need listings to find the item
+      loadListings();
     }
-  }, [id, listings, view]);
+  }, [view, isNewOpen, loadListings, id, listings.length]);
+
+  useEffect(() => {
+    if (!id) {
+      // If ID is gone, we must be in list view
+      if (view === 'detail') {
+        setView('list');
+        setSelectedListing(null);
+      }
+      return;
+    }
+
+    if (id && listings.length > 0) {
+      const found = listings.find(l => l.id === id);
+      if (found && (!selectedListing || selectedListing.id !== id)) {
+        setSelectedListing(found);
+        setView('detail');
+      }
+    }
+  }, [id, listings, view, selectedListing]);
 
   const handleListingClick = async (listing: CareerListing) => {
     try {
@@ -1074,6 +1079,7 @@ export const CareerPage: React.FC = () => {
       setSelectedListing(listing);
     }
     setView('detail');
+    navigate(`/dashboard/career/${listing.id}`);
   };
   const handleDelete = async (id: string) => {
     try { await apiClient.delete(`/career/listings/${id}`); setView('list'); await loadListings(); }
@@ -1152,6 +1158,8 @@ export const CareerPage: React.FC = () => {
             <div className="max-w-4xl mx-auto">
               <ListingDetailView
                 listing={selectedListing}
+                isFavorite={favoriteIds.has(selectedListing.id)}
+                onToggleFavorite={handleToggleFavorite}
                 onBack={() => {
                   const state = (location.state as BackState | null) || null;
                   if (state?.from) {
@@ -1265,6 +1273,8 @@ export const CareerPage: React.FC = () => {
                     <ListingCard
                       key={listing.id}
                       listing={listing}
+                      isFavorite={favoriteIds.has(listing.id)}
+                      onToggleFavorite={handleToggleFavorite}
                       onClick={() => handleListingClick(listing)}
                       onApply={(e) => { e.stopPropagation(); setApplyListing(listing); }}
                     />

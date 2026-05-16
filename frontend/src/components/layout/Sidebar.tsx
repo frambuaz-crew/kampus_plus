@@ -41,7 +41,6 @@ const navigation = [
 ];
 
 const bottomNav = [
-  { name: 'Ayarlar', icon: Settings, path: '/dashboard/settings' },
   { name: 'Admin Paneli', icon: Shield, path: '/admin', adminOnly: true },
 ];
 
@@ -68,60 +67,45 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onCollapsed
       <TooltipProvider delayDuration={0}>
         <aside
           className={cn(
-            'bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-200 hidden md:flex shrink-0',
-            collapsed ? 'w-16' : 'w-60'
+            'bg-white/80 backdrop-blur-xl border-r border-slate-100 flex flex-col transition-all duration-300 hidden md:flex shrink-0 relative z-20 shadow-sm shadow-slate-200/50',
+            collapsed ? 'w-20' : 'w-64'
           )}
         >
-          {/* Logo area (only when not collapsed) */}
-          {!collapsed && (
-            <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+          {/* Logo area */}
+          <div className="h-20 flex items-center justify-between px-6 mb-2">
+            {!collapsed ? (
               <div
-                className="flex items-center gap-2 cursor-pointer"
+                className="flex items-center gap-3 cursor-pointer group"
                 onClick={() => navigate('/dashboard')}
               >
-                <div className="w-6 h-6 rounded-md bg-[#0ea5e9] flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">K+</span>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-200 group-hover:scale-105 transition-transform">
+                  <span className="text-white font-black text-sm">K+</span>
                 </div>
-                <span className="font-bold text-base text-[#0ea5e9]">KAMPUS+</span>
+                <div className="flex flex-col">
+                  <span className="font-black text-lg text-slate-900 tracking-tight leading-none">KAMPUS<span className="text-sky-500">+</span></span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Öğrenci Paneli</span>
+                </div>
               </div>
-              {onCollapsedChange && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() => onCollapsedChange(true)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Collapsed expand button */}
-          {collapsed && onCollapsedChange && (
-            <div className="h-16 flex items-center justify-center border-b border-sidebar-border">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onCollapsedChange(false)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+            ) : (
+              <div className="w-full flex justify-center">
+                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-200 cursor-pointer" onClick={() => navigate('/dashboard')}>
+                  <span className="text-white font-black text-sm">K+</span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-3">
-            {navigation.map((section) => (
-              <div key={section.section} className="mb-4">
+          <nav className="flex-1 overflow-hidden py-4">
+            {navigation.map((section, idx) => (
+              <div key={section.section} className={cn("mb-8", idx === 0 && "mt-2")}>
                 {!collapsed && (
-                  <p className="px-4 mb-1.5 text-[11px] font-semibold text-sidebar-foreground/50 tracking-wider uppercase">
+                  <p className="px-7 mb-3 text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase">
                     {section.section}
                   </p>
                 )}
-                {collapsed && <div className="h-px bg-sidebar-border mx-3 mb-2" />}
-                <div className="space-y-0.5 px-2">
+                {collapsed && <div className="h-px bg-slate-100 mx-4 mb-4" />}
+                <div className="space-y-1.5 px-4">
                   {section.items.map((item) => (
                     <NavItem key={item.path} item={item} collapsed={collapsed} />
                   ))}
@@ -130,20 +114,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onCollapsed
             ))}
           </nav>
 
-          {/* Bottom navigation */}
-          <div className="border-t border-sidebar-border p-2 space-y-0.5">
+          {/* Bottom Actions */}
+          <div className="p-4 mt-auto border-t border-slate-50 space-y-1.5">
             {bottomNav.map((item) =>
               item.adminOnly && !isAdmin ? null : (
                 <NavItem key={item.path} item={item} collapsed={collapsed} />
               )
+            )}
+            
+            {!collapsed && (
+              <button 
+                onClick={() => onCollapsedChange?.(!collapsed)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-all font-bold text-xs mt-4"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Menüyü Daralt
+              </button>
+            )}
+            {collapsed && (
+               <button 
+                onClick={() => onCollapsedChange?.(!collapsed)}
+                className="w-full flex items-center justify-center py-2.5 text-slate-400 hover:text-sky-600 transition-all"
+               >
+                 <ChevronRight className="h-4 w-4" />
+               </button>
             )}
           </div>
         </aside>
       </TooltipProvider>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 safe-area-pb">
-        <div className="flex items-center justify-around h-16 px-2">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 z-50 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-around h-16 px-4">
           {mobileNav.map((item) => (
             <NavLink
               key={item.path}
@@ -151,19 +153,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onCollapsed
               end={item.path === '/dashboard'}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center justify-center gap-1 px-2 py-1.5 rounded-lg transition-colors flex-1',
+                  'flex flex-col items-center justify-center gap-1.5 px-2 py-1 rounded-xl transition-all flex-1',
                   isActive
-                    ? 'text-[#0ea5e9]'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'text-sky-600 scale-110'
+                    : 'text-slate-400'
                 )
               }
             >
-              {({ isActive }) => (
-                <>
-                  <item.icon className={cn('h-5 w-5', isActive ? 'text-[#0ea5e9]' : '')} />
-                  <span className="text-[10px] font-medium">{item.name}</span>
-                </>
-              )}
+              <item.icon className="h-5 w-5" />
+              <span className="text-[10px] font-bold tracking-tight">{item.name}</span>
             </NavLink>
           ))}
         </div>
@@ -179,40 +177,30 @@ function NavItem({
   item: { name: string; icon: React.ElementType; path: string };
   collapsed: boolean;
 }) {
-  const content = (
+  return (
     <NavLink
       to={item.path}
       end={item.path === '/dashboard'}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 text-sm',
-          'text-slate-600 hover:bg-sky-50 hover:text-[#0ea5e9]',
-          collapsed && 'justify-center px-2',
-          isActive && 'bg-sky-50 text-[#0ea5e9] font-semibold border-l-2 border-[#0ea5e9] ml-[-2px] pl-[14px]'
+          'flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 text-sm group relative',
+          'text-slate-500 hover:text-sky-600 hover:bg-sky-50/50',
+          collapsed && 'justify-center px-0 h-12 w-12 mx-auto',
+          isActive && [
+            'bg-sky-50 text-sky-600 font-bold shadow-sm shadow-sky-100',
+            'after:absolute after:left-0 after:top-1/2 after:-translate-y-1/2 after:h-6 after:w-1 after:bg-sky-600 after:rounded-r-full'
+          ]
         )
       }
     >
-      {({ isActive }) => (
-        <>
-          <item.icon
-            className={cn('h-4 w-4 shrink-0', isActive ? 'text-[#0ea5e9]' : 'text-slate-500')}
-          />
-          {!collapsed && <span>{item.name}</span>}
-        </>
+      <item.icon className={cn('h-5 w-5 shrink-0 transition-transform group-hover:scale-110')} />
+      {!collapsed && <span className="tracking-tight">{item.name}</span>}
+      
+      {collapsed && (
+        <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50">
+          {item.name}
+        </div>
       )}
     </NavLink>
   );
-
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{content}</TooltipTrigger>
-        <TooltipContent side="right">
-          <p>{item.name}</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return content;
 }

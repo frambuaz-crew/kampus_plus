@@ -181,7 +181,8 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-center max-w-7xl mx-auto">
       {/* Sol Panel: Form */}
       <div className="flex-1 w-full max-w-3xl">
-        <Card className="overflow-hidden border-slate-200 shadow-xl ring-1 ring-slate-900/5 bg-white">
+        <form onSubmit={handleSubmit}>
+          <Card className="overflow-hidden border-slate-200 shadow-xl ring-1 ring-slate-900/5 bg-white">
           <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500" />
           
           <CardHeader className="border-b border-slate-50 bg-white px-6 py-6">
@@ -291,7 +292,7 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
                   </div>
                 )}
 
-                <form id="forum-new-thread-form" onSubmit={handleSubmit} className="space-y-8">
+                <div className="space-y-8">
                   {/* Tür Seçimi */}
                   <div className="space-y-4">
                     <Label className="text-sm font-bold text-slate-800 uppercase tracking-widest">Gönderi Türü</Label>
@@ -470,7 +471,7 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
                       />
                     </div>
                   </div>
-                </form>
+                </div>
               </div>
             )}
           </CardContent>
@@ -486,7 +487,6 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
             </Button>
             <Button
               type="submit"
-              form="forum-new-thread-form"
               disabled={!canSubmit || busy}
               className="w-full bg-indigo-600 text-white font-bold h-12 px-10 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 disabled:opacity-50 transition-all sm:w-auto"
             >
@@ -500,7 +500,8 @@ export const NewThreadForm: React.FC<NewThreadFormProps> = ({
               )}
             </Button>
           </CardFooter>
-        </Card>
+          </Card>
+        </form>
       </div>
 
       {/* Sağ Panel: Rehber ve Bilgi */}

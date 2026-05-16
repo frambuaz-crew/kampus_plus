@@ -26,6 +26,7 @@ from src.models.friendship import Friendship
 from src.models.marketplace import MarketplaceListing
 from src.models.messages import Conversation
 from src.models.user import User
+from src.models.course_notes import CourseNoteEntry
 from src.schemas.dashboard import DashboardResponse, EventItem, FeedItem, SemesterInfo
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -82,7 +83,6 @@ async def get_student_dashboard(
             settings.DAILY_MESSAGE_LIMIT - current_user.daily_message_count, 0
         )
 
-    # ── Friend count (accepted friendships) ───────────────────────────────────
     friend_count = int(
         await session.scalar(
             select(func.count(Friendship.id)).where(
@@ -91,6 +91,15 @@ async def get_student_dashboard(
                     Friendship.addressee_id == user_id,
                 ),
                 Friendship.status == "accepted",
+            )
+        ) or 0
+    )
+
+    # ── Course notes count (entries created by current user) ──────────────────
+    course_notes_count = int(
+        await session.scalar(
+            select(func.count(CourseNoteEntry.id)).where(
+                CourseNoteEntry.user_id == user_id
             )
         ) or 0
     )
@@ -234,6 +243,7 @@ async def get_student_dashboard(
         active_listing_count=active_listing_count,
         ai_messages_remaining=ai_messages_remaining,
         friend_count=friend_count,
+        course_notes_count=course_notes_count,
         recent_feed=recent_feed,
         upcoming_events=upcoming_events,
         semester_info=semester_info,

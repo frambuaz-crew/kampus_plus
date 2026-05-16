@@ -38,6 +38,7 @@ export interface DashboardResponse {
   active_listing_count: number;
   ai_messages_remaining: number;
   friend_count: number;
+  course_notes_count: number;
   recent_feed: FeedItem[];
   upcoming_events: EventItem[];
   semester_info: SemesterInfo | null;

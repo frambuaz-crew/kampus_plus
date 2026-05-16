@@ -19,9 +19,12 @@ import {
   Tag,
   Sparkles,
 } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { getImageUrl } from '../utils/imageUrl';
 import { getStudentDashboard } from '../api/dashboard';
 import type { DashboardResponse, FeedItem, EventItem, SemesterInfo } from '../api/dashboard';
+import { Badge } from '../components/ui/badge';
+import { AvatarImage } from '../components/ui/avatar';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -87,15 +90,6 @@ function computeSemesterProgress(info: SemesterInfo): { percent: number; daysLef
 
 // ─── Stat card type ───────────────────────────────────────────────────────────
 
-interface Stat {
-  label: string;
-  value: number | string;
-  sub: string;
-  icon: React.ReactNode;
-  color: string;
-  route: string;
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const NewDashboard: React.FC = () => {
@@ -126,33 +120,8 @@ export const NewDashboard: React.FC = () => {
   const unread = dashboard?.unread_message_count ?? 0;
   const activeListings = dashboard?.active_listing_count ?? 0;
   const aiRemaining = dashboard?.ai_messages_remaining ?? 0;
+  const courseNotesCount = dashboard?.course_notes_count ?? 0;
 
-  const statCards: Stat[] = [
-    {
-      label: 'Mesajlar',
-      value: unread,
-      sub: unread > 0 ? `${unread} okunmamış mesaj` : 'Okunmamış mesaj yok',
-      icon: <MessageCircle className="w-5 h-5" />,
-      color: 'bg-sky-50 text-[#0ea5e9]',
-      route: '/dashboard/messages',
-    },
-    {
-      label: 'İlanlarım',
-      value: activeListings,
-      sub: 'Aktif ilan',
-      icon: <Tag className="w-5 h-5" />,
-      color: 'bg-amber-50 text-amber-500',
-      route: '/dashboard/marketplace',
-    },
-    {
-      label: 'AI Sohbetler',
-      value: aiRemaining,
-      sub: `Bugün ${aiRemaining} mesaj hakkın kaldı`,
-      icon: <Sparkles className="w-5 h-5" />,
-      color: 'bg-emerald-50 text-emerald-500',
-      route: '/dashboard/ai-assistant',
-    },
-  ];
 
   const feed = dashboard?.recent_feed ?? [];
   const semesterInfo = dashboard?.semester_info ?? null;
@@ -160,199 +129,209 @@ export const NewDashboard: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
-
-        {/* ─── Welcome Header ─── */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">
-            Hoş geldin, {firstName}! 👋
+      <div className="container mx-auto px-6 py-10 max-w-7xl relative z-10">
+        <header className="mb-10 animate-fade-in">
+          <div className="flex items-center gap-3 mb-3">
+             <div className="h-px w-8 bg-sky-500/50" />
+             <span className="text-[10px] font-black text-sky-600 uppercase tracking-[0.3em]">Hızlı Bakış</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-2">
+            Hoş geldin, <span className="text-gradient">{firstName}</span>! 👋
           </h1>
-          <p className="text-sm text-slate-500">İşte bugünkü kampüs özetin</p>
-        </div>
+        </header>
 
-        {/* ─── Stats Cards ─── */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {statCards.map((s) => (
-            <Card
-              key={s.label}
-              className="p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        {/* ─── Quick Stats (Grid of 3) ─── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {[
+            {
+              label: 'Pazar İlanlarım',
+              value: activeListings,
+              sub: 'Aktif yayında olan ilan',
+              icon: <Tag className="w-5 h-5" />,
+              color: 'bg-amber-50 text-amber-600',
+              route: '/dashboard/marketplace'
+            },
+            {
+              label: 'AI Kredisi',
+              value: aiRemaining,
+              sub: 'Kalan mesaj hakkın',
+              icon: <Sparkles className="w-5 h-5" />,
+              color: 'bg-purple-50 text-purple-600',
+              route: '/dashboard/ai-assistant'
+            },
+            {
+              label: 'Ders Notlarım',
+              value: courseNotesCount,
+              sub: 'Toplam paylaşılan not',
+              icon: <BookOpen className="w-5 h-5" />,
+              color: 'bg-sky-50 text-sky-600',
+              route: '/dashboard/course-notes'
+            }
+          ].map((s, idx) => (
+            <Card 
+              key={idx} 
               onClick={() => navigate(s.route)}
+              className="group p-7 rounded-[2.5rem] border-none bg-white shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-sky-200/30 transition-all duration-500 cursor-pointer overflow-hidden relative"
             >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-slate-600">{s.label}</span>
-                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${s.color}`}>
-                  {s.icon}
+              <div className="flex items-center justify-between mb-5 relative z-10">
+                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", s.color)}>
+                  {React.cloneElement(s.icon as React.ReactElement, { className: "w-6 h-6" })}
                 </div>
+                <ArrowRight className="w-5 h-5 text-slate-300 transition-transform group-hover:translate-x-1" />
               </div>
-              <p className="text-3xl font-bold text-slate-900 mb-1">{s.value}</p>
-              <p className="text-xs text-slate-400 leading-tight">{s.sub}</p>
+              <div className="relative z-10">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{s.label}</p>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-1 truncate">{s.value}</h3>
+                <p className="text-xs font-bold text-slate-400 italic">{s.sub}</p>
+              </div>
+              <div className={cn("absolute -bottom-4 -right-4 w-20 h-20 rounded-full blur-3xl opacity-20", s.color.split(' ')[1].replace('text-', 'bg-'))} />
             </Card>
           ))}
         </div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* ─── Son Gönderiler Feed ─── */}
-          <div className="lg:col-span-8 space-y-4">
-            <h2 className="text-base font-semibold text-slate-700">Son Gönderiler</h2>
-
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up delay-200">
+          <div className="lg:col-span-8 space-y-6">
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Kampüs <span className="text-sky-600">Akışı</span></h2>
             {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border border-border bg-card p-5 animate-pulse">
-                    <div className="flex gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-muted shrink-0" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 bg-muted rounded w-1/3" />
-                        <div className="h-4 bg-muted rounded w-3/4" />
-                      </div>
-                    </div>
-                    <div className="h-3 bg-muted rounded w-full mb-1" />
-                    <div className="h-3 bg-muted rounded w-2/3" />
-                  </div>
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-48 bg-slate-100 rounded-[2.5rem] animate-pulse" />
                 ))}
               </div>
             ) : feed.length === 0 ? (
-              <Card className="p-10 text-center">
-                <p className="text-muted-foreground text-sm">Henüz gönderi yok.</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Forum, Pazar veya Kariyer'e ilk katkıyı sen yap!
-                </p>
+              <Card className="p-16 text-center rounded-[3rem] border-dashed border-2 border-slate-200 bg-transparent shadow-none">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Buralar Biraz Sessiz...</h3>
+                <Button className="mt-8 bg-slate-900 text-white rounded-2xl px-8 h-12 font-bold hover:bg-slate-800 transition-all">Bir Şeyler Paylaş</Button>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {feed.map((item) => {
-                  if (item.type === 'forum') {
-                    return <ForumFeedCard key={`forum-${item.id}`} item={item} navigate={navigate} />;
-                  }
-                  if (item.type === 'marketplace') {
-                    return <MarketplaceFeedCard key={`market-${item.id}`} item={item} navigate={navigate} />;
-                  }
-                  if (item.type === 'career') {
-                    return <CareerFeedCard key={`career-${item.id}`} item={item} navigate={navigate} />;
-                  }
-                  return null;
-                })}
+              <div className="space-y-4">
+                {feed.map((item) => (
+                  <React.Fragment key={item.id}>
+                    {item.type === 'forum' && <ForumFeedCard item={item} navigate={navigate} />}
+                    {item.type === 'marketplace' && <MarketplaceFeedCard item={item} navigate={navigate} />}
+                    {item.type === 'career' && <CareerFeedCard item={item} navigate={navigate} />}
+                  </React.Fragment>
+                ))}
               </div>
             )}
           </div>
 
-          {/* ─── Widgets ─── */}
-          <div className="lg:col-span-4 space-y-4">
+          {/* ─── Right Widgets ─── */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Upcoming Events */}
+            <Card className="p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border-none bg-white">
+              <div className="flex items-center justify-between mb-8">
+                <h4 className="font-black text-slate-900">Yaklaşanlar</h4>
+                <Button variant="ghost" className="text-sky-600 font-black text-[10px] tracking-widest uppercase hover:bg-sky-50" onClick={() => navigate('/dashboard/academic-calendar')}>
+                  TÜMÜ <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </div>
+              <div className="space-y-6">
+                {upcomingEvents.length > 0 ? (
+                  upcomingEvents.slice(0, 3).map((event) => {
+                    const { day, month } = formatEventDate(event.start_date);
+                    return (
+                      <div key={event.id} className="group flex items-center gap-5 cursor-pointer" onClick={() => navigate('/dashboard/academic-calendar')}>
+                        <div className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-slate-50 group-hover:bg-sky-500 transition-colors">
+                          <span className="text-lg font-black text-slate-900 group-hover:text-white leading-none">{day}</span>
+                          <span className="text-[10px] font-black text-slate-400 group-hover:text-sky-100 uppercase mt-1">{month}</span>
+                        </div>
+                        <div className="flex-1">
+                          <h5 className="text-sm font-black text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">{event.title}</h5>
+                          <Badge className="mt-2 bg-sky-50 text-sky-600 border-none px-3 py-0.5 font-bold text-[9px] uppercase tracking-tighter">
+                            {eventTypeLabels[event.event_type || 'other'] || 'Etkinlik'}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-slate-400 font-medium italic text-center py-4">Yakın zamanda etkinlik yok.</p>
+                )}
+              </div>
+            </Card>
+
             {/* Semester Progress */}
             {semesterInfo && (() => {
               const { percent, daysLeft } = computeSemesterProgress(semesterInfo);
               return (
-                <Card className="p-5">
-                  <h4 className="font-semibold text-slate-800 mb-3">{semesterInfo.title}</h4>
-                  <div className="space-y-2 text-sm text-slate-500 mb-4">
-                    <div className="flex justify-between">
-                      <span>Başlangıç</span>
-                      <span className="font-medium text-slate-700">
-                        {formatDisplayDate(semesterInfo.start_date)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Bitiş</span>
-                      <span className="font-medium text-slate-700">
-                        {formatDisplayDate(semesterInfo.end_date)}
-                      </span>
-                    </div>
+                <Card className="p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border-none bg-white group">
+                  <div className="flex items-center justify-between mb-6">
+                     <h4 className="font-black text-slate-900">{semesterInfo.title}</h4>
+                     <Badge className="bg-sky-50 text-sky-600 border-none px-3 py-1 font-bold text-[10px]">AKTİF DÖNEM</Badge>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
+                  <div className="relative h-4 bg-slate-50 rounded-full mb-3 overflow-hidden shadow-inner">
                     <div
-                      className="h-2 rounded-full bg-[#0ea5e9]"
+                      className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-1000 shadow-lg"
                       style={{ width: `${percent}%` }}
                     />
                   </div>
-                  <p className="text-xs text-slate-500">
-                    {daysLeft > 0 ? `${daysLeft} gün kaldı` : 'Dönem tamamlandı'}
-                  </p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      İLERLEME: %{percent}
+                    </p>
+                    <p className="text-xs font-black text-sky-600">
+                      {daysLeft > 0 ? `${daysLeft} gün kaldı` : 'Dönem tamamlandı'}
+                    </p>
+                  </div>
                 </Card>
               );
             })()}
 
-            {/* Upcoming Events */}
-            <Card className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-slate-800">Yaklaşan Etkinlikler</h4>
-                <button
-                  className="text-xs text-[#0ea5e9] hover:underline"
-                  onClick={() => navigate('/dashboard/academic-calendar')}
-                >
-                  Takvimi Gör →
-                </button>
-              </div>
-              {upcomingEvents.length === 0 ? (
-                <p className="text-xs text-slate-400">Yaklaşan etkinlik bulunamadı.</p>
-              ) : (
-                <div className="space-y-4">
-                  {upcomingEvents.map((event) => {
-                    const { day, month } = formatEventDate(event.start_date);
-                    const typeLabel = event.event_type
-                      ? (eventTypeLabels[event.event_type] ?? event.event_type)
-                      : 'Etkinlik';
-                    return (
-                      <div key={event.id} className="flex gap-3 items-center">
-                        <div className="flex-shrink-0 w-11 h-11 bg-sky-50 rounded-lg flex flex-col items-center justify-center border border-sky-100">
-                          <span className="text-sm font-bold text-[#0ea5e9] leading-none">{day}</span>
-                          <span className="text-[10px] text-[#0ea5e9] leading-none mt-0.5">{month}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{event.title}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-100">
-                              {typeLabel}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+            {/* AI Assistant Card */}
+            <Card className="p-1 rounded-[2.5rem] bg-gradient-to-br from-sky-500 via-indigo-500 to-purple-600 shadow-xl shadow-indigo-200/40 border-none group overflow-hidden">
+              <div className="bg-white rounded-[2.3rem] p-7 h-full">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center shadow-lg shadow-sky-100">
+                    <Bot className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 leading-none">AI Asistan</h4>
+                    <span className="text-[10px] font-bold text-sky-500 uppercase tracking-widest mt-1 inline-block">7/24 Kampüs Rehberi</span>
+                  </div>
                 </div>
-              )}
-            </Card>
-
-            {/* AI Quick Ask */}
-            <Card className="p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-[#0ea5e9] flex items-center justify-center shrink-0">
-                  <Bot className="h-4 w-4 text-white" />
+                <p className="text-xs text-slate-500 font-medium mb-5 leading-relaxed italic">
+                  "Kampüs hakkında ne öğrenmek istersin?"
+                </p>
+                <div className="relative mb-3">
+                  <Input
+                    placeholder="Merak ettiğini sor..."
+                    className="h-14 pl-5 pr-12 bg-slate-50 border-transparent rounded-2xl focus:bg-white focus:border-sky-500 transition-all font-medium text-sm"
+                    onFocus={() => navigate('/dashboard/ai-assistant')}
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-sky-500 rounded-lg flex items-center justify-center shadow-md">
+                    <ArrowRight className="h-3 w-3 text-white" />
+                  </div>
                 </div>
-                <h4 className="font-semibold text-slate-800">AI Asistanına Sor</h4>
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Çevrimiçi</span>
+                </div>
               </div>
-              <Input
-                placeholder="Hızlı soru sor..."
-                className="mb-2 bg-white text-sm"
-                onFocus={() => navigate('/dashboard/ai-assistant')}
-              />
-              <Button
-                size="sm"
-                className="w-full bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
-                onClick={() => navigate('/dashboard/ai-assistant')}
-              >
-                Sor
-              </Button>
             </Card>
 
             {/* Course Notes CTA */}
-            <Card className="p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <BookOpen className="h-4 w-4 text-[#0ea5e9] shrink-0" />
-                <h4 className="font-semibold text-slate-800">Ders Notları</h4>
+            <Card className="p-8 rounded-[2.5rem] bg-slate-900 text-white border-none shadow-2xl shadow-slate-900/20 group relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                    <BookOpen className="h-5 w-5 text-sky-400" />
+                  </div>
+                  <h4 className="font-black">Ders Notları</h4>
+                </div>
+                <p className="text-xs text-slate-400 font-medium mb-6 leading-relaxed">
+                  Kampüsteki en iyi ders notlarını keşfet veya kendi notlarını paylaşarak topluluğa katkı sağla.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full h-12 bg-white/5 border-white/10 text-white rounded-2xl font-bold hover:bg-white hover:text-slate-900 transition-all group"
+                  onClick={() => navigate('/dashboard/course-notes')}
+                >
+                  Notları Keşfet
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
               </div>
-              <p className="text-xs text-slate-500 mb-4">
-                Diğer öğrencilerin paylaştığı ders notlarına göz at.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => navigate('/dashboard/course-notes')}
-              >
-                Notları Keşfet
-                <ArrowRight className="ml-2 h-3 w-3" />
-              </Button>
+              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-sky-500/10 rounded-full blur-3xl" />
             </Card>
           </div>
         </div>
@@ -369,43 +348,43 @@ function ForumFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: strin
 
   return (
     <Card
-      className="p-5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group"
+      className="p-6 bg-white hover:shadow-2xl hover:shadow-sky-100/50 transition-all duration-300 rounded-[2rem] border-none group cursor-pointer"
       onClick={() => navigate(`/dashboard/forum/${item.id}`)}
     >
-      <div className="flex items-start gap-3 mb-3">
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarFallback className="text-xs">{initial}</AvatarFallback>
+      <div className="flex items-start gap-4 mb-4">
+        <Avatar className="h-12 w-12 shrink-0 rounded-2xl shadow-sm ring-4 ring-slate-50 transition-transform group-hover:scale-105">
+          <AvatarFallback className="text-sm font-black bg-sky-100 text-sky-600 rounded-2xl">{initial}</AvatarFallback>
         </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500">
-            <span className="font-medium text-slate-800 text-sm">{item.author_name}</span>
-            <span>· {timeAgo(item.created_at)}</span>
+        <div className="flex-1 min-w-0 pt-1">
+          <div className="flex items-center gap-3 mb-1">
+            <span className="font-black text-slate-900 text-sm tracking-tight">{item.author_name}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{timeAgo(item.created_at)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+             <Badge className="bg-sky-50 text-sky-600 border-none font-black text-[10px] px-2 py-0.5 rounded-lg">FORUM</Badge>
           </div>
         </div>
-        <span className="text-xs shrink-0 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">Forum</span>
+        <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-sky-50 transition-colors">
+          <MessageCircle className="w-5 h-5 text-slate-300 group-hover:text-sky-500" />
+        </div>
       </div>
 
-      <h4 className="font-semibold text-sm mb-1.5 line-clamp-2">{item.title}</h4>
+      <h4 className="font-black text-lg mb-4 line-clamp-2 text-slate-800 group-hover:text-sky-600 transition-colors leading-snug">{item.title}</h4>
 
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="text-xs px-2 py-0.5 rounded-full border border-slate-200 text-slate-600 bg-slate-50">
-              {tag}
+      <div className="flex items-center justify-between pt-5 border-t border-slate-50">
+        <div className="flex flex-wrap gap-2">
+          {tags.slice(0, 2).map((tag) => (
+            <span key={tag} className="text-[10px] font-black px-3 py-1 rounded-lg bg-slate-50 text-slate-500 border border-slate-100 uppercase tracking-tighter">
+              #{tag}
             </span>
           ))}
+          {tags.length > 2 && <span className="text-[10px] font-bold text-slate-300 mt-1">+{tags.length - 2}</span>}
         </div>
-      )}
-
-      <div className="flex items-center gap-4 text-xs text-slate-400 pt-3 border-t border-slate-100">
-        <span className="flex items-center gap-1">
-          <ThumbsUp className="h-3.5 w-3.5" />
-          Forum konusu
-        </span>
-        <span className="flex items-center gap-1 ml-auto">
-          <Eye className="h-3.5 w-3.5" />
-          Görüntüle
-        </span>
+        <div className="flex items-center gap-3 text-slate-300">
+           <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tighter group-hover:text-sky-500 transition-colors">
+            Konuyu Aç <ArrowRight className="h-3 w-3" />
+          </span>
+        </div>
       </div>
     </Card>
   );
@@ -416,32 +395,42 @@ function MarketplaceFeedCard({ item, navigate }: { item: FeedItem; navigate: (p:
 
   return (
     <Card
-      className="p-4 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group"
+      className="p-5 bg-white hover:shadow-2xl hover:shadow-amber-100/50 transition-all duration-300 rounded-[2rem] border-none group cursor-pointer overflow-hidden"
       onClick={() => navigate(`/dashboard/marketplace/${item.id}`)}
     >
-      <div className="flex gap-4">
-        <div className="w-20 h-20 rounded-lg bg-slate-100 overflow-hidden shrink-0">
+      <div className="flex gap-6">
+        <div className="w-28 h-28 rounded-[1.5rem] bg-slate-50 overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500">
           {imageUrl ? (
             <img src={imageUrl} alt={item.title} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <ShoppingBag className="h-7 w-7 text-slate-300" />
+              <ShoppingBag className="h-10 w-10 text-slate-200" />
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            {item.price && (
-              <span className="text-lg font-bold text-slate-800">
-                ₺{parseFloat(item.price).toLocaleString('tr-TR')}
-              </span>
-            )}
-            <span className="text-[10px] shrink-0 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">Pazar</span>
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+          <div>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              {item.price && (
+                <div className="px-3 py-1 bg-amber-50 rounded-xl border border-amber-100 shadow-sm">
+                  <span className="text-xl font-black text-amber-600">
+                    ₺{parseFloat(item.price).toLocaleString('tr-TR')}
+                  </span>
+                </div>
+              )}
+              <Badge className="bg-slate-50 text-slate-400 border-none font-black text-[10px] px-2 py-1 rounded-lg">PAZAR</Badge>
+            </div>
+            <h4 className="font-black text-base text-slate-800 mb-2 line-clamp-1 group-hover:text-amber-600 transition-colors">{item.title}</h4>
           </div>
-          <h4 className="font-semibold text-sm mb-1 line-clamp-1">{item.title}</h4>
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <span>{item.author_name}</span>
-            <span className="ml-auto">{timeAgo(item.created_at)}</span>
+          
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <div className="flex items-center gap-2">
+               <Avatar className="h-6 w-6 rounded-lg">
+                 <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-500 rounded-lg">{item.author_name[0]}</AvatarFallback>
+               </Avatar>
+               <span className="font-bold text-slate-500 truncate max-w-[100px]">{item.author_name}</span>
+            </div>
+            <span className="font-black uppercase tracking-tighter">{timeAgo(item.created_at)}</span>
           </div>
         </div>
       </div>
@@ -454,51 +443,58 @@ function CareerFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: stri
 
   return (
     <Card
-      className="p-5 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 cursor-pointer group"
+      className="p-7 bg-white hover:shadow-2xl hover:shadow-indigo-100/50 transition-all duration-300 rounded-[2rem] border-none group cursor-pointer relative overflow-hidden"
       onClick={() => navigate(`/dashboard/career/${item.id}`)}
     >
-      <div className="flex items-start justify-between mb-2">
-        <span
-          className={`text-xs px-2 py-0.5 rounded-md font-medium ${careerTypeColors[listingType] || 'bg-slate-100 text-slate-700'}`}
-        >
-          {careerTypeLabels[listingType] || listingType || 'Kariyer'}
-        </span>
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {timeAgo(item.created_at)}
-          </span>
-          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">Kariyer</span>
+      {/* Decorative tag */}
+      <div className={cn("absolute top-0 right-0 px-6 py-2 rounded-bl-[1.5rem] font-black text-[10px] tracking-widest text-white shadow-lg", 
+        listingType === 'job' ? "bg-blue-500" : 
+        listingType === 'internship' ? "bg-green-500" : 
+        listingType === 'startup' ? "bg-indigo-500" : "bg-amber-500"
+      )}>
+        {careerTypeLabels[listingType]?.toUpperCase() || 'KARİYER'}
+      </div>
+
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors">
+          <Briefcase className="w-5 h-5" />
+        </div>
+        <div className="flex flex-col">
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{timeAgo(item.created_at)}</p>
+           <h4 className="font-black text-lg text-slate-900 group-hover:text-indigo-600 transition-colors">{item.title}</h4>
         </div>
       </div>
 
-      <h4 className="font-semibold text-sm mb-2 text-slate-800">{item.title}</h4>
-
-      <div className="flex flex-wrap gap-1.5 text-xs text-slate-500">
+      <div className="flex flex-wrap gap-3 mb-6">
         {item.company_name && (
-          <span className="font-medium text-slate-700">{item.company_name}</span>
+          <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 group-hover:bg-white group-hover:border-indigo-100 transition-all">
+            <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-sm shadow-indigo-200" />
+            <span className="font-black text-xs text-slate-700">{item.company_name}</span>
+          </div>
         )}
         {item.sector && (
-          <span className="px-2 py-0.5 rounded-full border border-slate-200 text-slate-600 bg-slate-50">
+          <span className="px-3 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-tighter border border-slate-50">
             {item.sector}
           </span>
         )}
         {item.location && (
-          <span className="flex items-center gap-0.5">
-            <MapPin className="h-3 w-3" />{item.location}
+          <span className="flex items-center gap-1.5 text-xs font-black text-slate-400 uppercase tracking-tighter ml-auto">
+            <MapPin className="h-3.5 w-3.5 text-red-400" />{item.location}
           </span>
-        )}
-        {item.salary_range && (
-          <span className="text-green-600 font-medium">{item.salary_range}</span>
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-2">
-        <span>{item.author_name}</span>
-        <span className="flex items-center gap-1 ml-auto">
-          <MessageSquare className="h-3 w-3" />
-          Başvur
-        </span>
+      <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+        <div className="flex items-center gap-2">
+           <Avatar className="h-6 w-6 rounded-lg">
+             <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-500 rounded-lg">{item.author_name[0]}</AvatarFallback>
+           </Avatar>
+           <span className="text-xs font-bold text-slate-400 italic">Yayınlayan: {item.author_name}</span>
+        </div>
+        <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg active:scale-95">
+          <MessageSquare className="h-3.5 w-3.5" />
+          ŞİMDİ BAŞVUR
+        </button>
       </div>
     </Card>
   );

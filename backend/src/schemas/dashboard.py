@@ -42,6 +42,7 @@ class DashboardResponse(BaseModel):
     active_listing_count: int
     ai_messages_remaining: int
     friend_count: int
+    course_notes_count: int
     recent_feed: List[FeedItem]
     upcoming_events: List[EventItem]
     semester_info: Optional[SemesterInfo] = None
