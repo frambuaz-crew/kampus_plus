@@ -1122,9 +1122,10 @@ async def seed_content() -> None:
                 forum_items = forum_list if role_key == "student" else (forum_list[idx:idx+1] if idx < len(forum_list) else [])
                 
                 for title, content in forum_items:
+                    # Duplicate kontrolü: title + author_id (university_id artık NULL)
                     exists = (await session.execute(
                         select(ForumTopic).where(
-                            and_(ForumTopic.title == title, ForumTopic.university_id == uni.id)
+                            and_(ForumTopic.title == title, ForumTopic.author_id == user.id)
                         )
                     )).scalars().first()
                     if not exists:
@@ -1133,7 +1134,7 @@ async def seed_content() -> None:
                             title=title,
                             content=content,
                             author_id=user.id,
-                            university_id=uni.id,
+                            university_id=None,  # Herkese açık — "Tüm Gönderiler"de tüm üniversitelerden görünür
                             category_id=forum_cat_map.get("Kampüs Yaşamı"),
                             topic_type="text",
                             tags=[short, role_key],
@@ -1205,6 +1206,7 @@ async def seed_content() -> None:
                             id=_uid(),
                             type=ca["type"],
                             posted_by=user.id,
+                            university_id=None,  # Herkese açık — tüm üniversitelerden görünür
                             title=ca["title"],
                             description=ca["description"],
                             company_name=ca.get("company_name"),
