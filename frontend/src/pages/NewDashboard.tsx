@@ -26,6 +26,7 @@ import { getStudentDashboard } from '../api/dashboard';
 import type { DashboardResponse, FeedItem, EventItem, SemesterInfo } from '../api/dashboard';
 import { Badge } from '../components/ui/badge';
 import { AvatarImage } from '../components/ui/avatar';
+import { formatRelativeTimeTr } from '../utils/dateUtils';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -54,14 +55,7 @@ const eventTypeLabels: Record<string, string> = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function timeAgo(dateStr: string): string {
-  const utcDateStr = dateStr.endsWith('Z') ? dateStr : `${dateStr}Z`;
-  const diff = Math.floor((Date.now() - new Date(utcDateStr).getTime()) / 1000);
-  if (diff < 60) return 'Az önce';
-  if (diff < 3600) return `${Math.floor(diff / 60)} dak önce`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`;
-  return `${Math.floor(diff / 86400)} gün önce`;
-}
+// Use centralized relative time formatting helper (formatRelativeTimeTr)
 
 function formatEventDate(dateStr: string): { day: string; month: string } {
   const [, m, d] = dateStr.split('-');
@@ -365,9 +359,9 @@ function ForumFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: strin
           <AvatarFallback className="text-sm font-black bg-sky-100 text-sky-600 rounded-2xl">{initial}</AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0 pt-1">
-          <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-3 mb-1">
             <span className="font-black text-slate-900 text-sm tracking-tight">{item.author_name}</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{timeAgo(item.created_at)}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatRelativeTimeTr(item.created_at)}</span>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-sky-50 text-sky-600 border-none font-black text-[10px] px-2 py-0.5 rounded-lg">FORUM</Badge>
@@ -439,7 +433,7 @@ function MarketplaceFeedCard({ item, navigate }: { item: FeedItem; navigate: (p:
               </Avatar>
               <span className="font-bold text-slate-500 truncate max-w-[100px]">{item.author_name}</span>
             </div>
-            <span className="font-black uppercase tracking-tighter">{timeAgo(item.created_at)}</span>
+            <span className="font-black uppercase tracking-tighter">{formatRelativeTimeTr(item.created_at)}</span>
           </div>
         </div>
       </div>
@@ -469,7 +463,7 @@ function CareerFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: stri
           <Briefcase className="w-5 h-5" />
         </div>
         <div className="flex flex-col">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{timeAgo(item.created_at)}</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{formatRelativeTimeTr(item.created_at)}</p>
           <h4 className="font-black text-lg text-slate-900 group-hover:text-indigo-600 transition-colors">{item.title}</h4>
         </div>
       </div>

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Search, Plus, ShoppingBag, Heart, ArrowLeft } from 'lucide-react';
 import { getImageUrl } from '../utils/imageUrl';
+import { parseUtcDate, formatRelativeTimeTr } from '../utils/dateUtils';
 
 interface BackState {
   from?: string;
@@ -33,15 +34,7 @@ function getFirstImageUrl(imageUrls: string[] | string | null | undefined): stri
   return getImageUrl(imageUrls);
 }
 
-function timeAgo(dateStr: string | undefined): string {
-  if (!dateStr) return '';
-  const utcDateStr = dateStr.endsWith('Z') ? dateStr : `${dateStr}Z`;
-  const diff = Math.floor((Date.now() - new Date(utcDateStr).getTime()) / 1000);
-  if (diff < 60) return 'Az önce';
-  if (diff < 3600) return `${Math.floor(diff / 60)} dak önce`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`;
-  return `${Math.floor(diff / 86400)} gün önce`;
-}
+// Use centralized formatRelativeTimeTr helper
 
 const CONDITION_LABELS: Record<string, string> = {
   new: 'Sıfır',
@@ -462,7 +455,7 @@ export const MarketplacePage: React.FC = () => {
                         {/* Footer */}
                         <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
                           <span className="text-[11px] text-slate-400">
-                            {timeAgo(listing.created_at)}
+                            {formatRelativeTimeTr(listing.created_at)}
                           </span>
                           <button
                             className={`p-1 rounded-md transition-colors ${

@@ -28,6 +28,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, LoaderCircle, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatRelativeTimeTr } from '../../utils/dateUtils';
 
 interface ChatInterfaceProps {
   reloadKey?: number;
@@ -236,19 +237,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  const formatTimestamp = (timestamp: string): string => {
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return '';
-
-    return new Intl.DateTimeFormat('tr-TR', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-      .format(date)
-      .replace(',', '');
-  };
+  const formatTimestamp = (timestamp: string): string => formatRelativeTimeTr(timestamp);
 
   const renderMessage = (message: ChatMessage) => {
     if (!message || !message.role) return null;

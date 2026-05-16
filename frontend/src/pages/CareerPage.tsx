@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../api/config';
 import { getImageUrl } from '../utils/imageUrl';
+import { parseUtcDate, formatRelativeTimeTr } from '../utils/dateUtils';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -149,16 +150,7 @@ const DURATION_LABELS: Record<string, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────────────────
 
-function timeAgo(dateStr: string): string {
-  const utcDateStr = dateStr.endsWith('Z') ? dateStr : `${dateStr}Z`;
-  const diff = Math.floor((Date.now() - new Date(utcDateStr).getTime()) / 1000);
-  if (diff < 60) return 'Az önce';
-  if (diff < 3600) return `${Math.floor(diff / 60)} dakika önce`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)} gün önce`;
-  if (diff < 2592000) return `${Math.floor(diff / 604800)} hafta önce`;
-  return `${Math.floor(diff / 2592000)} ay önce`;
-}
+// Use centralized helper for relative time formatting
 
 function getCurrentUser() {
   try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; }
@@ -279,7 +271,7 @@ const ListingCard: React.FC<{
                 {listing.creator?.username || creatorName} · {listing.creator?.university || 'Kampüs'}
               </span>
             </Link>
-            <div className="flex items-center gap-3 text-xs text-slate-400">
+              <div className="flex items-center gap-3 text-xs text-slate-400">
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3" />
                 {listing.application_count ?? 0} başvuru
@@ -292,7 +284,7 @@ const ListingCard: React.FC<{
               <span className="text-slate-200">|</span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {timeAgo(listing.created_at)}
+                {formatRelativeTimeTr(listing.created_at)}
               </span>
             </div>
           </div>
@@ -427,7 +419,7 @@ const ListingDetailView: React.FC<{
                 {listing.salary_range && <span className="text-xs font-medium bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full">{listing.salary_range}</span>}
                 {listing.duration && <span className="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full">{DURATION_LABELS[listing.duration] || listing.duration}</span>}
                 <span className="text-xs font-medium text-slate-400 px-3 py-1.5 rounded-full bg-slate-50 inline-flex items-center gap-1">
-                  <Clock className="w-3 h-3" />{timeAgo(listing.created_at)}
+                  <Clock className="w-3 h-3" />{formatRelativeTimeTr(listing.created_at)}
                 </span>
               </div>
             </div>

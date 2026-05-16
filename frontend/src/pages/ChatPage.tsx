@@ -4,6 +4,7 @@ import { ChatInterface } from '../components/chat/ChatInterface';
 import { MainLayout } from '../components/layout/MainLayout';
 import { Button } from '../components/ui/button';
 import { Bot, Plus, RefreshCw, MessageSquare, Clock, Trash2 } from 'lucide-react';
+import { formatRelativeTimeTr } from '../utils/dateUtils';
 import {
   Dialog,
   DialogContent,
@@ -107,10 +108,7 @@ export const ChatPage: React.FC = () => {
     loadHistory(); 
   };
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-  };
+  const formatDate = (iso: string) => formatRelativeTimeTr(iso);
 
   const groupConversations = () => {
     const today = new Date();
