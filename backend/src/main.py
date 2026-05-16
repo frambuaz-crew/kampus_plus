@@ -167,11 +167,8 @@ async def serve_upload(file_path: str):
         )
     return FileResponse(path=str(full_path))
 
-# 2. Marketplace ve Diğer Statik İçerikler İçin /static Dizini
-# Marketplace rotasında "static/uploads/marketplace" kullandığın için burayı mount ediyoruz
-static_path = Path("static")
-static_path.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# 2. Marketplace, Avatarlar ve Diğer Tüm İçerikler /uploads endpoint'i üzerinden dinamik servis edilir.
+# Eskiden kullanılan /static dizini iptal edilerek tüm upload işlemleri backend/uploads/ altına taşınmıştır.
 
 # 3. AI kaynak dokumanlari icin /api/v1/ai/documents dizini
 # Docker konteynerinde dokumanlar /app/data/raw_docs altinda tutulur.

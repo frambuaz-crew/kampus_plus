@@ -115,7 +115,7 @@ async def upload_profile_picture(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)
 ):
-    upload_dir = "static/uploads/avatars"
+    upload_dir = "uploads/avatars"
     os.makedirs(upload_dir, exist_ok=True)
 
     file_extension = os.path.splitext(file.filename)[1]
@@ -126,7 +126,7 @@ async def upload_profile_picture(
     with open(file_path, "wb") as buffer:
         buffer.write(content)
 
-    image_url = f"/static/uploads/avatars/{unique_filename}"
+    image_url = f"/uploads/avatars/{unique_filename}"
     current_user.profile_picture_url = image_url
 
     session.add(current_user)

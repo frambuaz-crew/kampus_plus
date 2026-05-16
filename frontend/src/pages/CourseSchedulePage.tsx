@@ -66,7 +66,7 @@ const DAYS_TR: Record<string, string> = {
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const DAY_OPTIONS = DAY_ORDER.map((v) => ({ value: v, label: DAYS_TR[v] }));
 
-const HOURS = Array.from({ length: 13 }, (_, i) => i + 8); // 08:00–20:00
+const HOURS = Array.from({ length: 16 }, (_, i) => i + 8); // 08:00–23:00
 
 const DEFAULT_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b',
@@ -87,11 +87,11 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
-function minutesToTopPercent(minutes: number, startHour = 8, totalHours = 13): number {
+function minutesToTopPercent(minutes: number, startHour = 8, totalHours = HOURS.length): number {
   return ((minutes - startHour * 60) / (totalHours * 60)) * 100;
 }
 
-function minutesToHeightPercent(start: string, end: string, totalHours = 13): number {
+function minutesToHeightPercent(start: string, end: string, totalHours = HOURS.length): number {
   const duration = timeToMinutes(end) - timeToMinutes(start);
   return (duration / (totalHours * 60)) * 100;
 }

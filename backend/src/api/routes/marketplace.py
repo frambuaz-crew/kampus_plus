@@ -230,7 +230,7 @@ async def create_listing(
 
     saved_image_urls = []
     if files:
-        upload_dir = "static/uploads/marketplace"
+        upload_dir = "uploads/marketplace"
         os.makedirs(upload_dir, exist_ok=True)
         for file in files:
             ext = os.path.splitext(file.filename)[1] if file.filename else ""
@@ -239,7 +239,7 @@ async def create_listing(
             content = await file.read()
             with open(file_path, "wb") as buffer:
                 buffer.write(content)
-            saved_image_urls.append(f"/static/uploads/marketplace/{unique_filename}")
+            saved_image_urls.append(f"/uploads/marketplace/{unique_filename}")
 
     new_listing = MarketplaceListing(
         id=str(uuid.uuid4()),

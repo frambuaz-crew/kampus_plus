@@ -1,18 +1,17 @@
 """Idempotent initial data seeding.
 
 Guarantees per run:
-- 1 super admin  (admin@abc.com)
-- 2 university admins per university
-- 2 students per university
-- 1 forum topic + 1 marketplace listing + 1 career listing per non-super-admin user
-- 1 course schedule per student  (based on their department + class year)
-- 4 academic calendar events per university
-
-Department selection is deterministic: preferred dept names are looked up by name
-within the university, falling back to alphabetical order only if not found.
+- 1 super admin  (admin@ogr.gidatarim.edu.tr)
+- 1 university admin per university
+- 1 student per university
+- Forum topics + marketplace listings + career listings for these users
+- Deterministic department selection based on preferred names
 """
 
 import asyncio
+import json
+import os
+import shutil
 import sys
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -33,33 +32,31 @@ from src.models.forum import ForumCategory, ForumTopic
 from src.models.marketplace import MarketplaceCategory, MarketplaceListing
 from src.models.university import University
 from src.models.user import User, UserRole
+from src.models.course_notes import CourseNoteTopic, CourseNoteEntry
 
 
 # ─────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────
 
-ACADEMIC_YEAR = "2025-2026"
-SEMESTER = "bahar"
-
 # Universities to seed — must already exist (created by seed_konya_normalized.py)
 UNIVERSITIES = [
-    {"name": "Konya Gıda ve Tarım Üniversitesi", "short": "kgtu"},
-    {"name": "Selçuk Üniversitesi", "short": "selcuk"},
+    {"name": "Konya Gıda ve Tarım Üniversitesi", "short": "kgtu", "domain": "gidatarim.edu.tr", "ogr_domain": "ogr.gidatarim.edu.tr"},
+    {"name": "Konya Teknik Üniversitesi", "short": "ktun", "domain": "ktun.edu.tr", "ogr_domain": "ogr.ktun.edu.tr"},
+    {"name": "KTO Karatay Üniversitesi", "short": "karatay", "domain": "karatay.edu.tr", "ogr_domain": "ogr.karatay.edu.tr"},
+    {"name": "Necmettin Erbakan Üniversitesi", "short": "erbakan", "domain": "erbakan.edu.tr", "ogr_domain": "ogr.erbakan.edu.tr"},
+    {"name": "Selçuk Üniversitesi", "short": "selcuk", "domain": "selcuk.edu.tr", "ogr_domain": "ogr.selcuk.edu.tr"},
 ]
 
 # Preferred department names for each university.
 # admin1/student1 → index 0, admin2/student2 → index 1.
 # These are looked up by exact name; falls back to first alphabetical dept if not found.
 PREFERRED_DEPTS: dict[str, list[str]] = {
-    "kgtu": [
-        "Bilgisayar Mühendisliği",
-        "Yazılım Mühendisliği",
-    ],
-    "selcuk": [
-        "Bilgisayar Mühendisliği",      # in Teknoloji Fakültesi
-        "Elektrik-Elektronik Mühendisliği",  # in Teknoloji Fakültesi
-    ],
+    "kgtu": ["Bilgisayar Mühendisliği"],
+    "ktun": ["Bilgisayar Mühendisliği"],
+    "karatay": ["Bilgisayar Mühendisliği"],
+    "erbakan": ["Bilgisayar Mühendisliği"],
+    "selcuk": ["Bilgisayar Mühendisliği"],
 }
 
 MARKETPLACE_CATEGORIES = [
@@ -81,6 +78,413 @@ FORUM_CATEGORIES = [
     {"name": "İtiraf", "icon": "Ghost", "description": "Kampüsteki ilginç olaylar ve anonim paylaşımlar.", "order_index": 6},
     {"name": "Yurt & Barınma", "icon": "Building2", "description": "Ev/oda arkadaşı arayanlar ve barınma tecrübeleri.", "order_index": 7},
     {"name": "Diğer", "icon": "Package", "description": "Diğer tüm konular ve paylaşımlar.", "order_index": 8},
+]
+
+_COURSE_NOTES = [
+    {"code": "BIL101", "title": "Bilgisayar Mühendisliğine Giriş"},
+    {"code": "MAT101", "title": "Matematik I (Calculus)"},
+    {"code": "FZK101", "title": "Fizik I (Mekanik)"},
+    {"code": "BIL201", "title": "Veri Yapıları ve Algoritmalar"},
+    {"code": "BIL301", "title": "İşletim Sistemleri"},
+]
+
+ACADEMIC_YEAR = "2025-2026"
+
+def _calendar_events(university_id: str, creator_id: str | None, university_name: str = "") -> list[dict]:
+    # Ortak tatiller ve temel olaylar
+    base_events = [
+        {
+            "title": "Bahar Dönemi Derslerin Başlangıcı",
+            "event_type": "other",
+            "start_date": date(2026, 2, 16),
+            "end_date": None,
+            "description": "2025-2026 akademik yılı bahar dönemi dersleri bu tarihte başlamaktadır.",
+            "university_id": university_id,
+            "created_by": creator_id,
+        },
+    ]
+
+    if "Gıda ve Tarım" in university_name:
+        return base_events + [
+            {
+                "title": "Kayıt Dondurma/İzin Başvurularının Son Günü",
+                "event_type": "registration",
+                "start_date": date(2026, 4, 17),
+                "end_date": None,
+                "description": "Bahar yarıyılı için kayıt dondurma veya izin başvurularının son günüdür.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Ulusal Egemenlik ve Çocuk Bayramı Tatili",
+                "event_type": "holiday",
+                "start_date": date(2026, 4, 23),
+                "end_date": None,
+                "description": "Resmi tatil nedeniyle üniversitemiz kapalı olacaktır.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Emek ve Dayanışma Günü Tatili",
+                "event_type": "holiday",
+                "start_date": date(2026, 5, 1),
+                "end_date": None,
+                "description": "Resmi tatil nedeniyle üniversitemiz kapalı olacaktır.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Atatürk'ü Anma, Gençlik ve Spor Bayramı Tatili",
+                "event_type": "holiday",
+                "start_date": date(2026, 5, 19),
+                "end_date": None,
+                "description": "Resmi tatil nedeniyle üniversitemiz kapalı olacaktır.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Bahar Şenliği",
+                "event_type": "other",
+                "start_date": date(2026, 5, 21),
+                "end_date": None,
+                "description": "Geleneksel KGTÜ Bahar Şenlikleri kapsamında çeşitli etkinlikler düzenlenecektir.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Dönem İçi Değerlendirmelerin Sisteme Girilmesi İçin Son Gün",
+                "event_type": "other",
+                "start_date": date(2026, 5, 22),
+                "end_date": None,
+                "description": "Ara sınav, ödev ve projelerin OBS sistemine girişi için son tarihtir.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Kurban Bayramı Tatili",
+                "event_type": "holiday",
+                "start_date": date(2026, 5, 26),
+                "end_date": date(2026, 5, 30),
+                "description": "Dini bayram tatili nedeniyle tüm akademik faaliyetlere ara verilecektir.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Yarıyıl Sonu Sınavları (Final)",
+                "event_type": "exam",
+                "start_date": date(2026, 6, 3),
+                "end_date": date(2026, 6, 14),
+                "description": "2025-2026 Bahar yarıyılı dönem sonu (final) sınavları gerçekleştirilecektir.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Bütünleme Sınavları",
+                "event_type": "exam",
+                "start_date": date(2026, 6, 22),
+                "end_date": date(2026, 6, 27),
+                "description": "Yarıyıl sonu sınavlarından başarısız olan veya notunu yükseltmek isteyen öğrenciler için bütünleme sınavları.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Mezuniyet Töreni",
+                "event_type": "other",
+                "start_date": date(2026, 7, 3),
+                "end_date": None,
+                "description": "2025-2026 mezunlarımızın kep atma töreni ve kutlamaları.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Demokrasi Bayramı Tatili",
+                "event_type": "holiday",
+                "start_date": date(2026, 7, 15),
+                "end_date": None,
+                "description": "Resmi tatil.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Zafer Bayramı Tatili",
+                "event_type": "holiday",
+                "start_date": date(2026, 8, 30),
+                "end_date": None,
+                "description": "Resmi tatil.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+        ]
+
+    if "Konya Teknik" in university_name:
+        return base_events + [
+            {
+                "title": "KTÜN Mühendislik ve Teknoloji Festivali",
+                "event_type": "other",
+                "start_date": date(2026, 5, 5),
+                "end_date": date(2026, 5, 7),
+                "description": "Öğrenci projelerinin sergilendiği ve sektör liderlerinin katıldığı teknoloji festivali.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Bahar Dönemi Vize Sınavları",
+                "event_type": "exam",
+                "start_date": date(2026, 4, 6),
+                "end_date": date(2026, 4, 17),
+                "description": "Vize sınav tarihleri bölümlere göre değişiklik gösterebilir.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Teknik Tasarım Sergisi",
+                "event_type": "other",
+                "start_date": date(2026, 6, 10),
+                "end_date": None,
+                "description": "Mühendislik ve Mimarlık fakültesi öğrencilerinin bitirme projeleri sergisi.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+        ]
+
+    if "Karatay" in university_name:
+        return base_events + [
+            {
+                "title": "Girişimcilik ve İnovasyon Zirvesi",
+                "event_type": "other",
+                "start_date": date(2026, 5, 12),
+                "end_date": None,
+                "description": "KTO iş birliği ile düzenlenen girişimcilik ekosistemi buluşması.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Hukuk Fakültesi Kurgusal Duruşma Yarışması",
+                "event_type": "other",
+                "start_date": date(2026, 5, 20),
+                "end_date": None,
+                "description": "Öğrencilerin pratik yeteneklerini sergilediği kurgusal duruşma finali.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "KTO Karatay Mezuniyet Balosu",
+                "event_type": "other",
+                "start_date": date(2026, 7, 5),
+                "end_date": None,
+                "description": "Mezun öğrencilerimiz için düzenlenen veda gecesi.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+        ]
+
+    if "Necmettin Erbakan" in university_name:
+        return base_events + [
+            {
+                "title": "NEÜ Bilim ve Sanat Şenliği",
+                "event_type": "other",
+                "start_date": date(2026, 5, 14),
+                "end_date": date(2026, 5, 16),
+                "description": "Kampüs genelinde düzenlenen konserler ve bilimsel atölyeler.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Akademik Yazım ve Yayın Eğitimi",
+                "event_type": "other",
+                "start_date": date(2026, 4, 28),
+                "end_date": None,
+                "description": "Lisansüstü ve son sınıf öğrencileri için akademik makale yazım teknikleri.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "NEÜ Sosyal Sorumluluk Günü",
+                "event_type": "other",
+                "start_date": date(2026, 5, 8),
+                "end_date": None,
+                "description": "Üniversite topluluklarının Konya genelinde yürüteceği yardım faaliyetleri.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+        ]
+
+    if "Selçuk" in university_name:
+        return base_events + [
+            {
+                "title": "Uluslararası Selçuklu Kültür Sempozyumu",
+                "event_type": "other",
+                "start_date": date(2026, 5, 20),
+                "end_date": date(2026, 5, 22),
+                "description": "Farklı ülkelerden akademisyenlerin katılımıyla Selçuklu tarihi oturumları.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Selçuk Üniversitesi Spor Olimpiyatları",
+                "event_type": "other",
+                "start_date": date(2026, 5, 11),
+                "end_date": date(2026, 5, 22),
+                "description": "Fakülteler arası futbol, basketbol ve voleybol turnuvaları.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+            {
+                "title": "Geleneksel Bahar Kahvaltısı",
+                "event_type": "other",
+                "start_date": date(2026, 5, 24),
+                "end_date": None,
+                "description": "Tüm öğrencilerin ve personelin katılımına açık kampüs kahvaltısı.",
+                "university_id": university_id,
+                "created_by": creator_id,
+            },
+        ]
+
+    # Diğer üniversiteler (eğer varsa) için varsayılan boş liste veya çok temel bir şey
+    return base_events
+
+
+_KGTU_CENG_SCHEDULE = [
+    {
+        "name": "Practical Data Science",
+        "code": "COMP 4202",
+        "instructor": "Dr. Öğr. Üyesi Ayşe Gül Özkan",
+        "room": "UZEM",
+        "color": "#6366f1",
+        "slots": [{"day": "monday", "start_time": "09:30", "end_time": "12:30"}]
+    },
+    {
+        "name": "Automata Theory and Formal Languages",
+        "code": "COMP 4002",
+        "instructor": "Dr. Öğr. Üyesi Ayşe Gül Özkan",
+        "room": "UZEM",
+        "color": "#8b5cf6",
+        "slots": [{"day": "tuesday", "start_time": "09:30", "end_time": "12:30"}]
+    },
+    {
+        "name": "Microservice Based Software Design and Development",
+        "code": "COMP 4244",
+        "instructor": "Dr. Öğr. Üyesi Sinan Keskin",
+        "room": "MB-307",
+        "color": "#ec4899",
+        "slots": [{"day": "tuesday", "start_time": "13:30", "end_time": "16:30"}]
+    },
+    {
+        "name": "Multimedia",
+        "code": "COMP 4232",
+        "instructor": "Prof. Dr. Reza Hassanpour",
+        "room": "MB-215",
+        "color": "#f59e0b",
+        "slots": [{"day": "wednesday", "start_time": "10:30", "end_time": "13:30"}]
+    },
+    {
+        "name": "Next Generation Network Systems and Architecture",
+        "code": "COMP 4252",
+        "instructor": "Prof. Dr. Kasım Öztoprak",
+        "room": "MB-216",
+        "color": "#10b981",
+        "slots": [{"day": "wednesday", "start_time": "14:30", "end_time": "17:30"}]
+    },
+    {
+        "name": "Computer Systems Security",
+        "code": "COMP 4208",
+        "instructor": "Dr. Öğr. Üyesi Yusuf Kürşat Tuncel",
+        "room": "UZEM",
+        "color": "#3b82f6",
+        "slots": [{"day": "wednesday", "start_time": "20:00", "end_time": "22:00"}]
+    },
+    {
+        "name": "Cloud Computing",
+        "code": "COMP 4206",
+        "instructor": "Prof. Dr. Kasım Öztoprak",
+        "room": "MB-216",
+        "color": "#ef4444",
+        "slots": [{"day": "thursday", "start_time": "10:00", "end_time": "13:00"}]
+    },
+    {
+        "name": "Computer Architecture",
+        "code": "COMP 4224",
+        "instructor": "Prof. Dr. Kasım Öztoprak",
+        "room": "MB-216",
+        "color": "#14b8a6",
+        "slots": [{"day": "thursday", "start_time": "14:00", "end_time": "17:00"}]
+    },
+    {
+        "name": "Graduation Project II",
+        "code": "COMP 4902",
+        "instructor": "-",
+        "room": "Laboratuvar",
+        "color": "#64748b",
+        "slots": [{"day": "friday", "start_time": "09:30", "end_time": "12:30"}]
+    }
+]
+
+
+_KGTU_CENG_S3_SCHEDULE = [
+    {
+        "name": "Operating System",
+        "code": "COMP 3004",
+        "instructor": "Prof. Dr. Reza Hassanpour",
+        "room": "MB-306",
+        "color": "#6366f1",
+        "slots": [{"day": "monday", "start_time": "14:00", "end_time": "17:00"}]
+    },
+    {
+        "name": "Secure Software Development",
+        "code": "COMP 3006",
+        "instructor": "Dr. Öğr. Üyesi Yusuf Kürşat Tuncel",
+        "room": "UZEM",
+        "color": "#8b5cf6",
+        "slots": [{"day": "tuesday", "start_time": "20:00", "end_time": "22:00"}]
+    },
+    {
+        "name": "Data Mining",
+        "code": "COMP 3236",
+        "instructor": "Dr. Öğr. Üyesi Metin Burak Altınoklu",
+        "room": "MB-202",
+        "color": "#ec4899",
+        "slots": [{"day": "wednesday", "start_time": "10:00", "end_time": "13:00"}]
+    },
+    {
+        "name": "Social Elective",
+        "code": "SOC101",
+        "instructor": "-",
+        "room": "Amfi",
+        "color": "#f59e0b",
+        "slots": [{"day": "wednesday", "start_time": "15:00", "end_time": "17:00"}]
+    },
+    {
+        "name": "Software Test Engineering",
+        "code": "COMP 3209",
+        "instructor": "Doç. Dr. Şenol Zafer Erdoğan",
+        "room": "MB-201",
+        "color": "#10b981",
+        "slots": [{"day": "thursday", "start_time": "10:00", "end_time": "13:00"}]
+    },
+    {
+        "name": "XR Technologies: Metaverse, AR and VR",
+        "code": "COMP 3226",
+        "instructor": "Prof. Dr. Meltem Huri Baturay",
+        "room": "MB-306",
+        "color": "#3b82f6",
+        "slots": [{"day": "thursday", "start_time": "14:00", "end_time": "17:00"}]
+    },
+    {
+        "name": "Artificial Intelligence",
+        "code": "COMP 3204",
+        "instructor": "Dr. Öğr. Üyesi Metin Burak Altınoklu",
+        "room": "MB-202",
+        "color": "#ef4444",
+        "slots": [{"day": "friday", "start_time": "10:00", "end_time": "13:00"}]
+    },
+    {
+        "name": "Computer Networks",
+        "code": "COMP 3002",
+        "instructor": "Doç. Dr. Şenol Zafer Erdoğan",
+        "room": "MB101-102",
+        "color": "#14b8a6",
+        "slots": [{"day": "friday", "start_time": "14:00", "end_time": "17:00"}]
+    }
 ]
 
 
@@ -154,11 +558,16 @@ async def _resolve_depts(session, university_id: str, short: str) -> tuple[Depar
 async def _upsert_user(session, email: str, defaults: dict) -> tuple[User, bool]:
     """Return (user, created). Updates critical fields on existing users."""
     user = (await session.execute(
-        select(User).where(User.email == email)
+        select(User).where(
+            (User.email == email) | (User.username == defaults.get("username"))
+        )
     )).scalar_one_or_none()
 
     if user:
         changed = False
+        if user.email != email:
+            user.email = email
+            changed = True
         # Ensure university linkage is correct
         if defaults.get("university_id") and user.university_id != defaults["university_id"]:
             user.university_id = defaults["university_id"]
@@ -244,131 +653,162 @@ async def _ensure_forum_categories(session, university_id: str) -> dict[str, str
 _FORUM: dict[str, dict[str, list[tuple[str, str]]]] = {
     "kgtu": {
         "admin": [
-            (
-                "Kampüs Wi-Fi Altyapısı Yenileme Çalışmaları",
-                "Bilgi işlem birimiz kampüs genelindeki kablosuz ağ altyapısını yenilemektedir. "
-                "Yeni erişim noktaları tüm akademik binalara kurulacak, bant genişliği artırılacaktır. "
-                "Çalışmalar 3 hafta sürecek olup etkilenen binalar ayrıca duyurulacaktır.",
-            ),
-            (
-                "Bahar Dönemi Öğrenci Kulüpleri Faaliyetleri Başvuruları",
-                "Bahar döneminde faaliyet gösterecek öğrenci kulüpleri yıllık faaliyet planlarını "
-                "Öğrenci İşleri Dairesi'ne iletmelidir. Son başvuru tarihi 20 Şubat 2026. "
-                "Başvuru formları öğrenci portalından temin edilebilir.",
-            ),
+            ("Yeni Lab Ekipmanları Hakkında", "Mühendislik laboratuvarlarına yeni GPU'lu iş istasyonları eklendi. Test etmek isteyenler randevu alabilir."),
         ],
         "student": [
-            (
-                "Yemekhane Fiyatları ve Menü Kalitesi Hakkında",
-                "Bu dönem yemekhane fiyatlarında ciddi artış yaşandı; öğle yemeği 45 TL'ye çıktı. "
-                "Menü çeşitliliği de azaldı, et yemeği haftada yalnızca 2 gün sunuluyor. "
-                "Üniversite yönetimine resmi dilekçe vermek isteyenler var mı?",
-            ),
-            (
-                "Vize Haftası Kütüphane Çalışma Saatleri Uzatılsın",
-                "Vize döneminde kütüphanenin 22:00'de kapanması yetersiz. "
-                "Diğer üniversitelerde vize haftasında 24 saat uygulama mevcut. "
-                "Ortak dilekçe hazırlamak istiyorum, destek verir misiniz?",
-            ),
+            ("Veri Yapıları Dersi Kaynak Önerisi", "Veri yapıları vizesi için hangi kaynakları önerirsiniz? Tanenbaum yeterli mi?"),
+            ("Kampüs Yemekhane Menüsü", "Bugün yemekhanede vejetaryen seçenek azdı. Benzer düşünen var mı?"),
+        ],
+    },
+    "ktun": {
+        "admin": [
+            ("Teknofest Başvuruları Başladı", "KTUN bünyesinde Teknofest takımları kuruyoruz. İlgilenenler Bilgi İşlem'e gelsin."),
+        ],
+        "student": [
+            ("Python ile Veri Analizi", "Pandas kütüphanesinde sorun yaşıyorum, yardım edebilecek var mı?"),
+            ("Kütüphane Çalışma Saatleri", "Vizeler başlıyor, kütüphane 24 saat açık olsun."),
+        ],
+    },
+    "karatay": {
+        "admin": [
+            ("Yazılım Semineri", "Haftaya sektörden uzmanlar geliyor. Katılım sertifikalıdır."),
+        ],
+        "student": [
+            ("C++ Pointer Sorunu", "Pointer mantığını bir türlü oturtamadım. Basit bir anlatım var mı?"),
+            ("Kulüp Etkinlikleri", "Yazılım kulübü bu hafta sonu hackathon düzenliyor mu?"),
+        ],
+    },
+    "erbakan": {
+        "admin": [
+            ("Staj Defteri Teslimi", "Yaz stajı yapanlar defterlerini en geç Cuma günü teslim etmelidir."),
+        ],
+        "student": [
+            ("Mobil Uygulama Geliştirme", "Flutter mı yoksa React Native mi başlamalıyım?"),
+            ("Öğrenci Kartları Hakkında", "Yeni kartlar ne zaman dağıtılacak?"),
         ],
     },
     "selcuk": {
         "admin": [
-            (
-                "Selçuk Üniversitesi Yeni Kampüs İçi Servis Güzergahları",
-                "Bahar döneminden itibaren kampüs içi servis güzergahları yeniden düzenlenmiştir. "
-                "Merkezi Kütüphane ile Mühendislik Fakültesi arasına yeni hat eklenmiş, "
-                "yoğun saatlerde seferler 10 dakikaya indirilmiştir.",
-            ),
-            (
-                "Mentor-Öğrenci Programı Bahar Dönemi Kayıtları Açıldı",
-                "Kariyer koordinatörlüğünün yürüttüğü Mentor-Öğrenci programı kayıtları açılmıştır. "
-                "Sektör deneyimli mezunlarımız genç öğrencilere rehberlik yapacaktır. "
-                "Başvurular öğrenci portalı üzerinden alınmaktadır.",
-            ),
+            ("Mezunlar Paneli", "Mezunlarımızla online bir buluşma gerçekleştireceğiz."),
         ],
         "student": [
-            (
-                "Selçuk Üniversitesi Kampüs İçi Ulaşım Sorunları",
-                "Sabah 08:00–09:00 arası belediye otobüsleri çok kalabalık; bazen binemeden ders kaçıyoruz. "
-                "Kampüs içi servis hattının Mühendislik Fakültesi'ne uzatılması gerekiyor. "
-                "Benzer sorunu yaşayanlar var mı?",
-            ),
-            (
-                "Bölüm Değişikliği Süreci Deneyimleriniz",
-                "Bölüm değişikliği başvurusu yapmayı düşünüyorum. Süreci deneyimleyenlerin belge, "
-                "süre ve sonuç hakkında bilgi vermesini istiyorum. Tecrübelerinizi paylaşır mısınız?",
-            ),
+            ("Algoritma Analizi Ödevleri", "Complexity analizinde Big O notation kafamı karıştırıyor."),
+            ("Kampüs İçi Ulaşım", "Ring seferleri daha sık olmalı."),
         ],
-    },
+},
 }
 
 _MARKETPLACE: dict[str, dict[str, list[dict]]] = {
     "kgtu": {
         "admin": [
             {
-                "title": "Ofis Kökenli Epson Projeksiyon Cihazı",
-                "description": "Epson EMP-X5, teknik servis yapıldı, temiz kullanım. Kutusuyla verilir. Kampüste teslim.",
-                "price": Decimal("800.00"),
-                "category": "Elektronik",
-                "condition": "good",
-            },
-            {
-                "title": "Ciltli Mühendislik Dergileri 2020-2023 (15 Adet)",
-                "description": "Araştırma için uygun ciltli mühendislik dergileri. Ücretsiz, kampüste teslim.",
-                "price": Decimal("0.00"),
-                "category": "Kitap & Ders Materyali",
+                "title": "Epson Projeksiyon Cihazı",
+                "description": "Epson EMP-X5, teknik servis yapıldı, temiz kullanım.",
+                "price": Decimal("1200.00"),
+                "category": "Elektronik & Teknoloji",
                 "condition": "good",
             },
         ],
         "student": [
             {
-                "title": "İkinci El Temiz CASIO fx-82MS Hesap Makinesi",
-                "description": "1 yıllık kullanım, hiç arızalanmadı. Orijinal kutu ve kılıfıyla. Kampüste teslim.",
-                "price": Decimal("150.00"),
-                "category": "Elektronik",
+                "title": "İkinci El MacBook Pro M1 16GB",
+                "description": "Kusursuz durumda, kutusu ve faturası mevcut. Sadece 1 yıl kullanıldı.",
+                "price": Decimal("28000.00"),
+                "category": "Elektronik & Teknoloji",
                 "condition": "like_new",
+                "image": "macbook_m1.jpg",
             },
             {
-                "title": "Mühendislik Çizim Seti - T-cetvel, Gönye, Pergel",
-                "description": "Mimarlık 1. sınıf için gerekli tüm araçlar dahil, orijinal çantasıyla. Bir dönem kullanıldı.",
-                "price": Decimal("220.00"),
-                "category": "Kırtasiye & Eğitim",
+                "title": "Bilgisayar Ağları - Tanenbaum Kitabı",
+                "description": "Ders için aldığım, tertemiz duran ağ altyapısı kitabı. Çizik dahi yok.",
+                "price": Decimal("350.00"),
+                "category": "Kitap & Kırtasiye",
+                "condition": "new",
+                "image": "tanenbaum_ag.jpg",
+            },
+        ],
+    },
+    "ktun": {
+        "admin": [],
+        "student": [
+            {
+                "title": "Raspberry Pi 4 Model B (Kutulu)",
+                "description": "4GB RAM versiyonu, kutusuyla birlikte. Hiç kullanılmadı.",
+                "price": Decimal("2500.00"),
+                "category": "Elektronik & Teknoloji",
+                "condition": "new",
+                "image": "raspberry_pi.png",
+            },
+            {
+                "title": "Arduino Mega Başlangıç Seti",
+                "description": "Tüm sensörler ve kablolar dahil tam set.",
+                "price": Decimal("800.00"),
+                "category": "Elektronik & Teknoloji",
+                "condition": "like_new",
+                "image": "arduino_set.jpg",
+            },
+        ],
+    },
+    "karatay": {
+        "admin": [],
+        "student": [
+            {
+                "title": "Logitech MX Master 3S Mouse",
+                "description": "Yazılımcılar için en iyi mouse, kutusunda duruyor.",
+                "price": Decimal("2800.00"),
+                "category": "Elektronik & Teknoloji",
+                "condition": "new",
+                "image": "logitech_mouse.jpg",
+            },
+            {
+                "title": "Introduction to Algorithms (Cormen) Kitabı",
+                "description": "Algoritma dersinin başucu kitabı, tertemiz.",
+                "price": Decimal("600.00"),
+                "category": "Kitap & Kırtasiye",
                 "condition": "good",
+                "image": "cormen_algo.jpg",
+            },
+        ],
+    },
+    "erbakan": {
+        "admin": [],
+        "student": [
+            {
+                "title": "Dell 27 inç 4K Monitör",
+                "description": "UltraSharp serisi, profesyonel renk kalitesi.",
+                "price": Decimal("9000.00"),
+                "category": "Elektronik & Teknoloji",
+                "condition": "like_new",
+                "image": "dell_monitor.jpg",
+            },
+            {
+                "title": "Mekanik Klavye - Keychron K2",
+                "description": "Bluetooth bağlantılı, RGB aydınlatmalı mekanik klavye.",
+                "price": Decimal("3500.00"),
+                "category": "Elektronik & Teknoloji",
+                "condition": "good",
+                "image": "keychron_k2.jpg",
             },
         ],
     },
     "selcuk": {
-        "admin": [
-            {
-                "title": "Bölüm Kütüphanesi İçin Bağış Kitaplar",
-                "description": "Çeşitli mühendislik ve fen bilimleri kitapları, bağış amaçlı. Ücretsiz, kampüste teslim.",
-                "price": Decimal("0.00"),
-                "category": "Kitap & Ders Materyali",
-                "condition": "good",
-            },
-            {
-                "title": "Laptop Standı ve Ergonomik Mouse Seti",
-                "description": "Ofis malzemesi fazlası. Laptop standı + Logitech M185 mouse. Selçuk kampüsünde teslim.",
-                "price": Decimal("250.00"),
-                "category": "Elektronik",
-                "condition": "like_new",
-            },
-        ],
+        "admin": [],
         "student": [
             {
-                "title": "Organik Kimya - Clayden 2. Baskı (İngilizce)",
-                "description": "Selçuk Kimya Mühendisliği müfredatında kullanılan kitap. Birkaç sayfada kalem notu var.",
-                "price": Decimal("180.00"),
-                "category": "Kitap & Ders Materyali",
+                "title": "Ikea Markus Çalışma Koltuğu",
+                "description": "Konforlu çalışma koltuğu, sağlam durumda.",
+                "price": Decimal("4500.00"),
+                "category": "Ev & Yurt Eşyası",
                 "condition": "good",
+                "image": "ikea_markus.jpg",
             },
             {
-                "title": "Redragon K552 Mekanik Klavye (RGB, Kırmızı Switch)",
-                "description": "1 yıllık temiz kullanım. Selçuk kampüsünde teslim.",
-                "price": Decimal("350.00"),
-                "category": "Elektronik",
-                "condition": "good",
+                "title": "Yazılımcılar İçin Özel Ders (Python)",
+                "description": "Sıfırdan ileri seviye Python ve Veri Yapıları dersi verilir.",
+                "price": Decimal("400.00"),
+                "category": "Özel Ders & Hizmet",
+                "condition": "new",
+                "image": "python_ders.jpg",
             },
         ],
     },
@@ -378,66 +818,36 @@ _CAREER: dict[str, dict[str, list[dict]]] = {
     "kgtu": {
         "admin": [
             {
-                "title": "KGTU Bilgi İşlem - Kısmi Zamanlı Öğrenci Asistanı",
-                "description": "IT destek ve ağ altyapı bakımı yapacak öğrenci asistanı aranmaktadır. Haftada 20 saat, aylık 3.500 TL burs.",
+                "title": "KGTU Bilgi İşlem - Öğrenci Asistanı",
+                "description": "IT destek ve ağ bakımı yapacak öğrenci aranıyor. Haftalık 20 saat.",
                 "type": "job",
-                "company_name": "KGTU Bilgi İşlem Dairesi",
+                "company_name": "KGTU Bilgi İşlem",
                 "location": "Konya",
                 "sector": "Bilgi Teknolojileri",
-                "application_type": "dm",
-                "external_url": None,
-            },
-            {
-                "title": "KGTU AR-GE Merkezi - Proje Asistanı",
-                "description": "TÜBİTAK destekli projede görev alacak mühendislik öğrencisi aranıyor. Aylık 4.000 TL, esnek çalışma.",
-                "type": "job",
-                "company_name": "KGTU AR-GE Merkezi",
-                "location": "Konya",
-                "sector": "Akademik & AR-GE",
                 "application_type": "dm",
                 "external_url": None,
             },
         ],
         "student": [
             {
-                "title": "Nurol Teknoloji - Yazılım Geliştirici Stajyeri",
-                "description": "Python veya Java deneyimi tercih edilir. 2 ay ücretli staj, Ankara ofisinde yüz yüze.",
+                "title": "Python Geliştirici Stajyer",
+                "description": "Yazılım ekibimize katılacak, Django/FastAPI bilen stajyer aranıyor.",
                 "type": "internship",
-                "company_name": "Nurol Teknoloji A.Ş.",
-                "location": "Ankara",
-                "sector": "Savunma Sanayi & Yazılım",
-                "application_type": "external",
-                "external_url": None,
-            },
-            {
-                "title": "Konya Şeker Fabrikası - Gıda Mühendisliği Stajyeri",
-                "description": "Gıda işleme süreçlerinde 45 iş günü zorunlu staj. Ulaşım karşılanır.",
-                "type": "internship",
-                "company_name": "Konya Şeker A.Ş.",
+                "company_name": "TechKonya",
                 "location": "Konya",
-                "sector": "Gıda & Tarım",
+                "sector": "Yazılım",
                 "application_type": "dm",
                 "external_url": None,
             },
         ],
     },
-    "selcuk": {
+    "ktun": {
         "admin": [
             {
-                "title": "Selçuk Üniversitesi TTO - Veri Analisti Stajyeri",
-                "description": "AR-GE merkezinde veri analizi stajı. Python (Pandas, NumPy) zorunlu. 45 iş günü tam zamanlı.",
-                "type": "internship",
-                "company_name": "Selçuk Üniversitesi TTO",
-                "location": "Konya",
-                "sector": "Akademik & AR-GE",
-                "application_type": "dm",
-                "external_url": None,
-            },
-            {
-                "title": "Selçuk Üniversitesi - Laboratuvar Öğrenci Asistanı",
-                "description": "Fakülte laboratuvarlarında öğrencilere yardım edecek kısmi zamanlı asistan. Haftada 15 saat, aylık 2.800 TL.",
+                "title": "KTUN Teknoloji Transfer Ofisi - Uzman Yardımcısı",
+                "description": "Üniversite-sanayi iş birliği projelerinde görev alacak ekip arkadaşı.",
                 "type": "job",
-                "company_name": "Selçuk Üniversitesi",
+                "company_name": "KTUN TTO",
                 "location": "Konya",
                 "sector": "Akademik",
                 "application_type": "dm",
@@ -446,22 +856,90 @@ _CAREER: dict[str, dict[str, list[dict]]] = {
         ],
         "student": [
             {
-                "title": "Arçelik - Elektronik Mühendisliği Stajyeri",
-                "description": "Konya fabrikasında elektronik tasarım ve test departmanında 40 iş günü ücretli staj. Öğle yemeği karşılanır.",
+                "title": "Gömülü Sistemler Stajyeri",
+                "description": "STM32 ve Arduino tecrübesi olan stajyerler aranmaktadır.",
                 "type": "internship",
-                "company_name": "Arçelik A.Ş.",
-                "location": "Konya",
-                "sector": "Elektronik & Üretim",
+                "company_name": "Savunma Ar-Ge",
+                "location": "Ankara",
+                "sector": "Savunma Sanayi",
                 "application_type": "dm",
                 "external_url": None,
             },
+        ],
+    },
+    "karatay": {
+        "admin": [
             {
-                "title": "Konya Büyükşehir Belediyesi - BT Stajyeri",
-                "description": "Bilgi işlem biriminde web/mobil uygulama geliştirme stajı. React veya Flutter bilgisi tercih. 45 iş günü.",
-                "type": "internship",
-                "company_name": "Konya Büyükşehir Belediyesi",
+                "title": "Karatay Üniversitesi - Kısmi Zamanlı Kütüphaneci",
+                "description": "Kütüphane düzeninden sorumlu olacak öğrenci aranıyor.",
+                "type": "job",
+                "company_name": "Karatay Üniversitesi",
                 "location": "Konya",
-                "sector": "Kamu & BT",
+                "sector": "Eğitim",
+                "application_type": "dm",
+                "external_url": None,
+            },
+        ],
+        "student": [
+            {
+                "title": "Frontend (React) Geliştirici",
+                "description": "Modern web teknolojilerine hakim, Junior seviye geliştirici.",
+                "type": "job",
+                "company_name": "WebStudio",
+                "location": "İstanbul",
+                "sector": "Yazılım",
+                "application_type": "dm",
+                "external_url": None,
+            },
+        ],
+    },
+    "erbakan": {
+        "admin": [
+            {
+                "title": "Necmettin Erbakan Üni. - Laboratuvar Görevlisi",
+                "description": "Kimya laboratuvarı hazırlık süreçlerinde görev alacak.",
+                "type": "job",
+                "company_name": "NEÜ Fen Fakültesi",
+                "location": "Konya",
+                "sector": "Akademik",
+                "application_type": "dm",
+                "external_url": None,
+            },
+        ],
+        "student": [
+            {
+                "title": "Mobil Uygulama Stajyeri (React Native)",
+                "description": "iOS ve Android platformlarında uygulama geliştirecek.",
+                "type": "internship",
+                "company_name": "AppKonya",
+                "location": "Konya",
+                "sector": "Yazılım",
+                "application_type": "dm",
+                "external_url": None,
+            },
+        ],
+    },
+    "selcuk": {
+        "admin": [
+            {
+                "title": "Selçuk TTO - Proje Koordinatörü",
+                "description": "AB projeleri ve TÜBİTAK süreçlerini yönetecek.",
+                "type": "job",
+                "company_name": "Selçuk Üniversitesi TTO",
+                "location": "Konya",
+                "sector": "Akademik",
+                "application_type": "dm",
+                "external_url": None,
+            },
+        ],
+        "student": [
+            {
+                "title": "Veri Bilimi Stajyeri",
+                "description": "SQL ve Python bilen, veri analizi yapacak stajyer.",
+                "type": "internship",
+                "company_name": "DataAnalytica",
+                "location": "Ankara",
+                "sector": "Veri Analizi",
                 "application_type": "dm",
                 "external_url": None,
             },
@@ -470,173 +948,37 @@ _CAREER: dict[str, dict[str, list[dict]]] = {
 }
 
 
-def _schedule_data(dept_name: str, grade: str) -> dict:
-    """Return a weekly schedule appropriate for the given department name and class year."""
-    is_cs = any(kw in dept_name for kw in ("Bilgisayar", "Yazılım", "Bilişim"))
-    is_ee = any(kw in dept_name for kw in ("Elektrik", "Elektronik"))
-
-    if is_cs and grade == "3":
-        return {
-            "Pazartesi": [
-                {"saat": "09:00-10:50", "ders": "Veri Yapıları ve Algoritmalar",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Mehmet Kaya", "derslik": "B201", "tur": "Teorik"},
-                {"saat": "13:00-14:50", "ders": "Lineer Cebir",
-                 "ogretim_uyesi": "Doç. Dr. Ayşe Demir", "derslik": "A105", "tur": "Teorik"},
-            ],
-            "Salı": [
-                {"saat": "10:00-11:50", "ders": "Nesneye Yönelik Programlama",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Ali Çelik", "derslik": "Lab-1", "tur": "Uygulama"},
-            ],
-            "Çarşamba": [
-                {"saat": "09:00-10:50", "ders": "Veri Yapıları ve Algoritmalar",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Mehmet Kaya", "derslik": "Lab-2", "tur": "Uygulama"},
-                {"saat": "11:00-12:50", "ders": "Olasılık ve İstatistik",
-                 "ogretim_uyesi": "Prof. Dr. Fatma Yıldız", "derslik": "A201", "tur": "Teorik"},
-            ],
-            "Perşembe": [
-                {"saat": "13:00-14:50", "ders": "Nesneye Yönelik Programlama",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Ali Çelik", "derslik": "B105", "tur": "Teorik"},
-            ],
-            "Cuma": [
-                {"saat": "10:00-11:50", "ders": "Lineer Cebir",
-                 "ogretim_uyesi": "Doç. Dr. Ayşe Demir", "derslik": "A105", "tur": "Uygulama"},
-            ],
-        }
-
-    if is_cs and grade == "2":
-        return {
-            "Pazartesi": [
-                {"saat": "09:00-10:50", "ders": "İşletim Sistemleri",
-                 "ogretim_uyesi": "Doç. Dr. Kemal Aydın", "derslik": "D401", "tur": "Teorik"},
-            ],
-            "Çarşamba": [
-                {"saat": "11:00-12:50", "ders": "Veritabanı Yönetim Sistemleri",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Seda Kurt", "derslik": "Lab-3", "tur": "Uygulama"},
-                {"saat": "13:00-14:50", "ders": "Yazılım Mühendisliğine Giriş",
-                 "ogretim_uyesi": "Prof. Dr. İbrahim Yılmaz", "derslik": "D405", "tur": "Teorik"},
-            ],
-            "Perşembe": [
-                {"saat": "09:00-10:50", "ders": "İşletim Sistemleri",
-                 "ogretim_uyesi": "Doç. Dr. Kemal Aydın", "derslik": "Lab-1", "tur": "Uygulama"},
-            ],
-        }
-
-    if is_ee and grade == "3":
-        return {
-            "Pazartesi": [
-                {"saat": "09:00-10:50", "ders": "Sinyal ve Sistemler",
-                 "ogretim_uyesi": "Prof. Dr. Hakan Özkan", "derslik": "E301", "tur": "Teorik"},
-            ],
-            "Salı": [
-                {"saat": "10:00-11:50", "ders": "Elektronik Devreler",
-                 "ogretim_uyesi": "Doç. Dr. Canan Şen", "derslik": "Lab-EE-1", "tur": "Uygulama"},
-                {"saat": "13:00-14:50", "ders": "Elektromanyetik Alan Teorisi",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Burak Koç", "derslik": "E205", "tur": "Teorik"},
-            ],
-            "Perşembe": [
-                {"saat": "09:00-10:50", "ders": "Sinyal ve Sistemler",
-                 "ogretim_uyesi": "Prof. Dr. Hakan Özkan", "derslik": "Lab-EE-2", "tur": "Uygulama"},
-            ],
-            "Cuma": [
-                {"saat": "11:00-12:50", "ders": "Mikrodenetleyiciler",
-                 "ogretim_uyesi": "Doç. Dr. Canan Şen", "derslik": "E301", "tur": "Teorik"},
-            ],
-        }
-
-    if is_ee and grade == "2":
-        return {
-            "Salı": [
-                {"saat": "08:00-09:50", "ders": "Devre Analizi",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Fatma Yıldız", "derslik": "E102", "tur": "Teorik"},
-                {"saat": "10:00-11:50", "ders": "Mühendislik Matematiği II",
-                 "ogretim_uyesi": "Prof. Dr. Ahmet Koç", "derslik": "A201", "tur": "Teorik"},
-            ],
-            "Çarşamba": [
-                {"saat": "13:00-14:50", "ders": "Elektrik Makineleri I",
-                 "ogretim_uyesi": "Doç. Dr. Murat Yılmaz", "derslik": "E205", "tur": "Teorik"},
-            ],
-            "Perşembe": [
-                {"saat": "13:00-14:50", "ders": "Devre Analizi",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Fatma Yıldız", "derslik": "Lab-EE-1", "tur": "Uygulama"},
-            ],
-        }
-
-    # Generic fallback for other departments
-    if grade == "3":
-        return {
-            "Pazartesi": [
-                {"saat": "09:00-10:50", "ders": "Mesleki Uygulama I",
-                 "ogretim_uyesi": "Prof. Dr. Hasan Özdemir", "derslik": "C301", "tur": "Teorik"},
-            ],
-            "Salı": [
-                {"saat": "10:00-11:50", "ders": "Sayısal Analiz",
-                 "ogretim_uyesi": "Doç. Dr. Zeynep Arslan", "derslik": "Lab-1", "tur": "Uygulama"},
-                {"saat": "13:00-14:50", "ders": "İleri Mesleki Konular",
-                 "ogretim_uyesi": "Dr. Öğr. Üyesi Emre Şahin", "derslik": "C205", "tur": "Teorik"},
-            ],
-            "Cuma": [
-                {"saat": "09:00-10:50", "ders": "Kalite Yönetimi",
-                 "ogretim_uyesi": "Prof. Dr. Hasan Özdemir", "derslik": "C301", "tur": "Teorik"},
-            ],
-        }
-
-    # grade == "2" fallback
-    return {
-        "Salı": [
-            {"saat": "08:00-09:50", "ders": "Temel Mühendislik Bilimleri",
-             "ogretim_uyesi": "Dr. Öğr. Üyesi Fatma Yıldız", "derslik": "A102", "tur": "Teorik"},
-            {"saat": "10:00-11:50", "ders": "Matematik II",
-             "ogretim_uyesi": "Prof. Dr. Ahmet Koç", "derslik": "A201", "tur": "Teorik"},
-        ],
-        "Perşembe": [
-            {"saat": "13:00-14:50", "ders": "Mesleki Laboratuvar I",
-             "ogretim_uyesi": "Dr. Öğr. Üyesi Fatma Yıldız", "derslik": "Lab-2", "tur": "Uygulama"},
-        ],
-    }
-
-
-def _calendar_events(uni_name: str, university_id: str, created_by_id: str | None) -> list[dict]:
-    return [
-        {
-            "title": f"{uni_name} - Bahar Dönemi Ders Kayıt Haftası",
-            "event_type": "registration",
-            "start_date": date(2026, 2, 9),
-            "end_date": date(2026, 2, 13),
-            "description": "Bahar dönemi ders ekleme-bırakma ve kayıt yenileme işlemleri OBS üzerinden yapılacaktır.",
-            "university_id": university_id,
-            "created_by": created_by_id,
-        },
-        {
-            "title": f"{uni_name} - Bahar Dönemi Derslerin Başlangıcı",
-            "event_type": "other",
-            "start_date": date(2026, 2, 16),
-            "end_date": None,
-            "description": "2025-2026 akademik yılı bahar dönemi dersleri bu tarihte başlamaktadır.",
-            "university_id": university_id,
-            "created_by": created_by_id,
-        },
-        {
-            "title": f"{uni_name} - Bahar Dönemi Vize Sınavları",
-            "event_type": "exam",
-            "start_date": date(2026, 3, 30),
-            "end_date": date(2026, 4, 3),
-            "description": "2025-2026 bahar dönemi ara sınav (vize) haftası. Tarihler bölüm sekreterlikleri tarafından duyurulacaktır.",
-            "university_id": university_id,
-            "created_by": created_by_id,
-        },
-        {
-            "title": f"{uni_name} - Bahar Dönemi Final Sınavları",
-            "event_type": "exam",
-            "start_date": date(2026, 5, 25),
-            "end_date": date(2026, 6, 5),
-            "description": "2025-2026 bahar dönemi dönem sonu (final) sınavları. Mazeret tarihleri ayrıca ilan edilecektir.",
-            "university_id": university_id,
-            "created_by": created_by_id,
-        },
-    ]
 
 
 # ─────────────────────────────────────────────────────────────
+def _copy_seed_image(image_name: str) -> str | None:
+    """
+    Copies a seed image from backend/data/seed_images/marketplace/ 
+    to backend/uploads/marketplace/ and returns the URL.
+    """
+    if not image_name:
+        return None
+        
+    src_dir = Path(__file__).parent.parent / "data" / "seed_images" / "marketplace"
+    dest_dir = Path(__file__).parent.parent / "uploads" / "marketplace"
+    
+    src_path = src_dir / image_name
+    dest_path = dest_dir / image_name
+    
+    if not src_path.exists():
+        print(f"[WARN] Seed image not found: {src_path}")
+        return None
+        
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        shutil.copy2(src_path, dest_path)
+        return f"/uploads/marketplace/{image_name}"
+    except Exception as e:
+        print(f"[ERROR] Failed to copy seed image {image_name}: {e}")
+        return None
+
+
 # Phase 1 — Users
 # ─────────────────────────────────────────────────────────────
 
@@ -659,29 +1001,29 @@ async def seed_users() -> None:
 
             # Super admin — only once, attached to the first university (KGTU)
             if short == "kgtu":
-                _, created = await _upsert_user(session, "admin@abc.com", {
+                _, created = await _upsert_user(session, f"admin@{uni_info['ogr_domain']}", {
                     "password_hash": hash_password("admin123"),
                     "_raw_password": "admin123",
-                    "first_name": "Super",
-                    "last_name": "Admin",
+                    "first_name": "Admin",
+                    "last_name": "Kullanıcısı",
                     "username": "super_admin",
                     "university": uni.name,
                     "university_id": uni.id,
                     "department_id": dept1.id,
                     "role": UserRole.ADMIN,
+                    "grade": "4. Sınıf",
                     "is_verified": True,
                     "is_active": True,
                     "terms_accepted_at": now,
                 })
-                print(f"[{'OK' if created else '..'}] Super Admin: admin@abc.com")
+                print(f"[{'OK' if created else '..'}] Super Admin: admin@{uni_info['ogr_domain']}")
 
-            # 2 university admins
+            # 1 university admin
             admin_defs = [
-                ("Ahmet", "Yılmaz", f"{short}_admin1", dept1),
-                ("Fatma", "Kaya", f"{short}_admin2", dept2),
+                ("Ahmet", "Yılmaz", f"{short}_admin1", "4. Sınıf", dept1),
             ]
-            for fname, lname, uname, dept in admin_defs:
-                email = f"{uname}@{short}.edu.tr"
+            for fname, lname, uname, grade, dept in admin_defs:
+                email = f"{uname}@{uni_info['ogr_domain']}"
                 _, created = await _upsert_user(session, email, {
                     "password_hash": hash_password("admin123"),
                     "_raw_password": "admin123",
@@ -692,19 +1034,19 @@ async def seed_users() -> None:
                     "university_id": uni.id,
                     "department_id": dept.id,
                     "role": UserRole.UNIVERSITY_ADMIN,
+                    "grade": grade,
                     "is_verified": True,
                     "is_active": True,
                     "terms_accepted_at": now,
                 })
                 print(f"[{'OK' if created else '..'}] Üniversite Admin: {email}  ({dept.name})")
 
-            # 2 students  (grade 3 and grade 2)
+            # 1 student
             student_defs = [
-                ("Mehmet", "Demir", f"{short}_student1", "3", dept1),
-                ("Zeynep", "Arslan", f"{short}_student2", "2", dept2),
+                ("Mehmet", "Demir", f"{short}_student1", "3. Sınıf", dept1),
             ]
             for fname, lname, uname, grade, dept in student_defs:
-                email = f"{uname}@{short}.edu.tr"
+                email = f"{uname}@{uni_info['ogr_domain']}"
                 _, created = await _upsert_user(session, email, {
                     "password_hash": hash_password("student123"),
                     "_raw_password": "student123",
@@ -720,7 +1062,7 @@ async def seed_users() -> None:
                     "is_active": True,
                     "terms_accepted_at": now,
                 })
-                print(f"[{'OK' if created else '..'}] Öğrenci: {email}  ({dept.name}, {grade}. sınıf)")
+                print(f"[{'OK' if created else '..'}] Öğrenci: {email}  ({dept.name}, {grade})")
 
         await session.commit()
     print("\n[DONE] Kullanıcılar seed edildi.\n")
@@ -751,172 +1093,209 @@ async def seed_content() -> None:
             # Build (user, role_key, content_idx, dept, grade_or_None) slots
             user_slots: list[tuple[User, str, int, Department, str | None]] = []
 
-            for i, uname in enumerate([f"{short}_admin1", f"{short}_admin2"]):
+            for i, uname in enumerate([f"{short}_admin1"]):
                 user = (await session.execute(
-                    select(User).where(User.email == f"{uname}@{short}.edu.tr")
+                    select(User).where(User.email == f"{uname}@{uni_info['ogr_domain']}")
                 )).scalar_one_or_none()
-                dept = dept1 if i == 0 else dept2
+                dept = dept1
                 if user:
                     user_slots.append((user, "admin", i, dept, None))
                 else:
-                    print(f"[WARN] Kullanıcı bulunamadı, atlanıyor: {uname}@{short}.edu.tr")
+                    print(f"[WARN] Kullanıcı bulunamadı, atlanıyor: {uname}@{uni_info['ogr_domain']}")
 
             for i, (uname, grade, dept) in enumerate([
-                (f"{short}_student1", "3", dept1),
-                (f"{short}_student2", "2", dept2),
+                (f"{short}_student1", "3. Sınıf", dept1),
             ]):
                 user = (await session.execute(
-                    select(User).where(User.email == f"{uname}@{short}.edu.tr")
+                    select(User).where(User.email == f"{uname}@{uni_info['ogr_domain']}")
                 )).scalar_one_or_none()
                 if user:
                     user_slots.append((user, "student", i, dept, grade))
                 else:
-                    print(f"[WARN] Kullanıcı bulunamadı, atlanıyor: {uname}@{short}.edu.tr")
+                    print(f"[WARN] Kullanıcı bulunamadı, atlanıyor: {uname}@{uni_info['ogr_domain']}")
 
             for user, role_key, idx, dept, grade in user_slots:
                 # ── Forum topic ────────────────────────────────────────
-                title, content = _FORUM[short][role_key][idx]
-                exists = (await session.execute(
-                    select(ForumTopic).where(
-                        and_(ForumTopic.title == title, ForumTopic.university_id == uni.id)
-                    )
-                )).scalars().first()
-                if not exists:
-                    session.add(ForumTopic(
-                        id=_uid(),
-                        title=title,
-                        content=content,
-                        author_id=user.id,
-                        university_id=uni.id,
-                        category_id=forum_cat_map.get("Kampüs Yaşamı"),
-                        topic_type="text",
-                        tags=[short, role_key],
-                        is_pinned=False,
-                        is_deleted=False,
-                        view_count=0,
-                        reply_count=0,
-                        helpful_count=0,
-                        created_at=now,
-                        updated_at=now,
-                    ))
-                    print(f"[OK] ForumTopic: {title[:60]}")
-                else:
-                    print(f"[SKIP] ForumTopic: {title[:60]}")
-
-                # ── Marketplace listing ────────────────────────────────
-                mp = _MARKETPLACE[short][role_key][idx]
-                exists = (await session.execute(
-                    select(MarketplaceListing).where(
-                        and_(
-                            MarketplaceListing.title == mp["title"],
-                            MarketplaceListing.seller_id == user.id,
-                        )
-                    )
-                )).scalars().first()
-                if not exists:
-                    session.add(MarketplaceListing(
-                        id=_uid(),
-                        seller_id=user.id,
-                        title=mp["title"],
-                        description=mp["description"],
-                        price=mp["price"],
-                        category_id=cat_map.get(mp["category"]),
-                        condition=mp["condition"],
-                        status="active",
-                        view_count=0,
-                        message_count=0,
-                        created_at=now,
-                        updated_at=now,
-                    ))
-                    print(f"[OK] MarketplaceListing: {mp['title'][:60]}")
-                else:
-                    print(f"[SKIP] MarketplaceListing: {mp['title'][:60]}")
-
-                # ── Career listing ─────────────────────────────────────
-                ca = _CAREER[short][role_key][idx]
-                exists = (await session.execute(
-                    select(CareerListing).where(
-                        and_(
-                            CareerListing.title == ca["title"],
-                            CareerListing.posted_by == user.id,
-                        )
-                    )
-                )).scalars().first()
-                if not exists:
-                    session.add(CareerListing(
-                        id=_uid(),
-                        type=ca["type"],
-                        posted_by=user.id,
-                        title=ca["title"],
-                        description=ca["description"],
-                        company_name=ca.get("company_name"),
-                        location=ca.get("location"),
-                        sector=ca.get("sector"),
-                        is_remote=False,
-                        application_type=ca["application_type"],
-                        external_url=ca.get("external_url"),
-                        status="active",
-                        view_count=0,
-                        application_count=0,
-                        created_at=now,
-                        updated_at=now,
-                    ))
-                    print(f"[OK] CareerListing: {ca['title'][:60]}")
-                else:
-                    print(f"[SKIP] CareerListing: {ca['title'][:60]}")
-
-                # ── Course schedule (students only) ────────────────────
-                if grade is not None:
+                forum_list = _FORUM.get(short, {}).get(role_key, [])
+                
+                # Students post all items (2), others post by index (1)
+                forum_items = forum_list if role_key == "student" else (forum_list[idx:idx+1] if idx < len(forum_list) else [])
+                
+                for title, content in forum_items:
                     exists = (await session.execute(
-                        select(CourseSchedule).where(
-                            and_(
-                                CourseSchedule.university_id == uni.id,
-                                CourseSchedule.department == dept.name,
-                                CourseSchedule.class_year == grade,
-                                CourseSchedule.semester == SEMESTER,
-                                CourseSchedule.academic_year == ACADEMIC_YEAR,
-                            )
+                        select(ForumTopic).where(
+                            and_(ForumTopic.title == title, ForumTopic.university_id == uni.id)
                         )
                     )).scalars().first()
-                    label = f"{dept.name}  {grade}. Sınıf  ({SEMESTER} {ACADEMIC_YEAR})"
                     if not exists:
-                        session.add(CourseSchedule(
+                        session.add(ForumTopic(
                             id=_uid(),
+                            title=title,
+                            content=content,
+                            author_id=user.id,
                             university_id=uni.id,
-                            department=dept.name,
-                            class_year=grade,
-                            semester=SEMESTER,
-                            academic_year=ACADEMIC_YEAR,
-                            schedule_data=_schedule_data(dept.name, grade),
-                            is_approved=True,
-                            created_by=user.id,
+                            category_id=forum_cat_map.get("Kampüs Yaşamı"),
+                            topic_type="text",
+                            tags=[short, role_key],
+                            is_pinned=False,
+                            is_deleted=False,
+                            view_count=0,
+                            reply_count=0,
+                            helpful_count=0,
                             created_at=now,
                             updated_at=now,
                         ))
-                        print(f"[OK] CourseSchedule: {label}")
+                        print(f"[OK] ForumTopic: {title[:60]}")
                     else:
-                        print(f"[SKIP] CourseSchedule: {label}")
+                        print(f"[SKIP] ForumTopic: {title[:60]}")
 
-            # ── Academic calendar (per university) ─────────────────────
-            first_admin = (await session.execute(
-                select(User).where(User.email == f"{short}_admin1@{short}.edu.tr")
+                # ── Marketplace listing ────────────────────────────────
+                mp_list = _MARKETPLACE.get(short, {}).get(role_key, [])
+                
+                # Students post all items in their list, others post by index
+                items_to_seed = mp_list if role_key == "student" else (mp_list[idx:idx+1] if idx < len(mp_list) else [])
+                
+                for mp in items_to_seed:
+                    # Handle image
+                    image_url = _copy_seed_image(mp.get("image"))
+                    image_urls_json = json.dumps([image_url]) if image_url else None
+                    
+                    exists = (await session.execute(
+                        select(MarketplaceListing).where(
+                            and_(
+                                MarketplaceListing.title == mp["title"],
+                                MarketplaceListing.seller_id == user.id,
+                            )
+                        )
+                    )).scalars().first()
+                    if not exists:
+                        session.add(MarketplaceListing(
+                            id=_uid(),
+                            seller_id=user.id,
+                            title=mp["title"],
+                            description=mp["description"],
+                            price=mp["price"],
+                            category_id=cat_map.get(mp["category"]),
+                            condition=mp["condition"],
+                            image_urls=image_urls_json,
+                            status="active",
+                            view_count=0,
+                            message_count=0,
+                            created_at=now,
+                            updated_at=now,
+                        ))
+                        print(f"[OK] MarketplaceListing: {mp['title'][:60]}")
+                    else:
+                        print(f"[SKIP] MarketplaceListing: {mp['title'][:60]}")
+
+                # ── Career listing ─────────────────────────────────────
+                ca_list = _CAREER.get(short, {}).get(role_key, [])
+                if idx < len(ca_list):
+                    ca = ca_list[idx]
+                    exists = (await session.execute(
+                        select(CareerListing).where(
+                            and_(
+                                CareerListing.title == ca["title"],
+                                CareerListing.posted_by == user.id,
+                            )
+                        )
+                    )).scalars().first()
+                    if not exists:
+                        session.add(CareerListing(
+                            id=_uid(),
+                            type=ca["type"],
+                            posted_by=user.id,
+                            title=ca["title"],
+                            description=ca["description"],
+                            company_name=ca.get("company_name"),
+                            location=ca.get("location"),
+                            sector=ca.get("sector"),
+                            is_remote=False,
+                            application_type=ca["application_type"],
+                            external_url=ca.get("external_url"),
+                            status="active",
+                            view_count=0,
+                            application_count=0,
+                            created_at=now,
+                            updated_at=now,
+                        ))
+                        print(f"[OK] CareerListing: {ca['title'][:60]}")
+                    else:
+                        print(f"[SKIP] CareerListing: {ca['title'][:60]}")
+
+            pass
+
+        await session.commit()
+    print("\n[DONE] İçerik seed edildi.\n")
+
+
+async def seed_course_notes() -> None:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        now = _now()
+        # Find super admin as the creator
+        admin = (await session.execute(
+            select(User).where(User.username == "super_admin")
+        )).scalar_one_or_none()
+        
+        if not admin:
+            print("[WARN] Super admin bulunamadı, ders notları atlanıyor.")
+            return
+
+        for note in _COURSE_NOTES:
+            exists = (await session.execute(
+                select(CourseNoteTopic).where(CourseNoteTopic.course_code == note["code"])
+            )).scalars().first()
+            
+            if not exists:
+                session.add(CourseNoteTopic(
+                    id=_uid(),
+                    course_code=note["code"],
+                    title=note["title"],
+                    university_id=admin.university_id,
+                    created_by=admin.id,
+                    created_at=now,
+                ))
+                print(f"[OK] CourseNoteTopic: {note['code']} - {note['title']}")
+            else:
+                print(f"[SKIP] CourseNoteTopic: {note['code']}")
+        
+        await session.commit()
+    print("\n[DONE] Ders notu havuzları seed edildi.\n")
+
+
+async def seed_academic_calendar() -> None:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        now = _now()
+        # Find super admin as default creator
+        admin = (await session.execute(
+            select(User).where(User.username == "super_admin")
+        )).scalar_one_or_none()
+        
+        for uni_info in UNIVERSITIES:
+            uni = (await session.execute(
+                select(University).where(University.name == uni_info["name"])
             )).scalar_one_or_none()
-            creator_id = first_admin.id if first_admin else None
-
-            for ev in _calendar_events(uni.name, uni.id, creator_id):
+            
+            if not uni: continue
+            
+            print(f"── Akademik Takvim: {uni.name} ──")
+            for ev in _calendar_events(uni.id, admin.id if admin else None, uni.name):
                 exists = (await session.execute(
                     select(AcademicCalendarEvent).where(
                         and_(
-                            AcademicCalendarEvent.title == ev["title"],
-                            AcademicCalendarEvent.academic_year == ACADEMIC_YEAR,
                             AcademicCalendarEvent.university_id == uni.id,
+                            AcademicCalendarEvent.title == ev["title"],
+                            AcademicCalendarEvent.academic_year == ACADEMIC_YEAR
                         )
                     )
                 )).scalars().first()
+                
                 if not exists:
                     session.add(AcademicCalendarEvent(
                         id=_uid(),
-                        university_id=ev["university_id"],
+                        university_id=uni.id,
                         academic_year=ACADEMIC_YEAR,
                         event_type=ev["event_type"],
                         title=ev["title"],
@@ -928,12 +1307,100 @@ async def seed_content() -> None:
                         created_at=now,
                         updated_at=now,
                     ))
-                    print(f"[OK] AcademicCalendarEvent: {ev['title'][:60]}")
+                    print(f"[OK] {ev['title']}")
                 else:
-                    print(f"[SKIP] AcademicCalendarEvent: {ev['title'][:60]}")
-
+                    print(f"[SKIP] {ev['title']}")
+        
         await session.commit()
-    print("\n[DONE] İçerik seed edildi.\n")
+    print("\n[DONE] Akademik takvim seed edildi.\n")
+
+
+async def seed_course_schedules() -> None:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        # Find super admin
+        admin = (await session.execute(
+            select(User).where(User.username == "super_admin")
+        )).scalar_one_or_none()
+        
+        for uni_info in UNIVERSITIES:
+            uni = (await session.execute(
+                select(University).where(University.name == uni_info["name"])
+            )).scalar_one_or_none()
+            if not uni: continue
+            
+            # Find Computer Engineering department
+            dept = (await session.execute(
+                select(Department).join(Faculty).where(
+                    and_(
+                        Faculty.university_id == uni.id,
+                        Department.name.ilike("%Bilgisayar Mühendisliği%")
+                    )
+                )
+            )).scalars().first()
+            
+            if not dept: continue
+            
+            print(f"── Ders Programı: {uni.name} ({dept.name}) ──")
+            
+            for cy in ["3", "4"]:
+                # Veri seçimi
+                raw_data = []
+                if "Gıda ve Tarım" in uni.name:
+                    if cy == "3":
+                        raw_data = _KGTU_CENG_S3_SCHEDULE
+                    else:
+                        raw_data = _KGTU_CENG_SCHEDULE
+                else:
+                    # Diğerleri için basit örnekler
+                    raw_data = [
+                        {
+                            "name": f"Ders {cy}-A",
+                            "code": f"ENG{cy}01",
+                            "instructor": "Hoca",
+                            "room": "Amfi",
+                            "color": "#6366f1",
+                            "slots": [{"day": "monday", "start_time": "10:00", "end_time": "11:50"}]
+                        }
+                    ]
+
+                schedule_data = []
+                for item in raw_data:
+                    item_copy = item.copy()
+                    item_copy["id"] = str(uuid4())
+                    schedule_data.append(item_copy)
+
+                exists = (await session.execute(
+                    select(CourseSchedule).where(
+                        and_(
+                            CourseSchedule.university_id == uni.id,
+                            CourseSchedule.department == dept.name,
+                            CourseSchedule.class_year == cy,
+                            CourseSchedule.semester == "bahar",
+                            CourseSchedule.academic_year == ACADEMIC_YEAR
+                        )
+                    )
+                )).scalar_one_or_none()
+                
+                if not exists:
+                    session.add(CourseSchedule(
+                        id=_uid(),
+                        university_id=uni.id,
+                        department=dept.name,
+                        class_year=cy,
+                        semester="bahar",
+                        academic_year=ACADEMIC_YEAR,
+                        schedule_data={"courses": schedule_data},
+                        is_approved=True,
+                        created_by=admin.id if admin else None
+                    ))
+                    print(f"[OK] {cy}. Sınıf Bahar Programı oluşturuldu.")
+                else:
+                    exists.schedule_data = {"courses": schedule_data}
+                    print(f"[UPDATED] {cy}. Sınıf Bahar Programı güncellendi.")
+        
+        await session.commit()
+    print("\n[DONE] Ders programları seed edildi.\n")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -945,6 +1412,9 @@ async def main() -> None:
     try:
         await seed_users()
         await seed_content()
+        await seed_course_notes()
+        await seed_academic_calendar()
+        await seed_course_schedules()
     except Exception:
         print("[ERROR] Seed işlemi başarısız.")
         raise

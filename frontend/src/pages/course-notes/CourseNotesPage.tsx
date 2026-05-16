@@ -78,7 +78,7 @@ export const CourseNotesPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="min-h-screen bg-mesh relative overflow-hidden">
+      <div className="bg-mesh relative">
         <div className="container mx-auto px-6 py-12 max-w-7xl relative z-10">
           
           {/* Header Section */}
