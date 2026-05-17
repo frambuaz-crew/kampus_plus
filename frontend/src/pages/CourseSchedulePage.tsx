@@ -230,7 +230,11 @@ const WeeklyGrid: React.FC<WeeklyGridProps> = ({ courses, onCourseClick }) => {
 
   return (
     <div className="overflow-x-auto no-scrollbar">
-      <div className="min-w-[800px] p-6">
+      {/* Mobile scroll hint */}
+      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest px-4 pt-3 md:hidden flex items-center gap-1">
+        <span>←→</span> Kaydırarak görüntüle
+      </p>
+      <div className="min-w-[640px] p-4 sm:p-6">
         <div className="grid mb-4" style={{ gridTemplateColumns: `80px repeat(${displayDays.length}, 1fr)` }}>
           <div className="py-3" />
           {displayDays.map((day) => (
@@ -365,11 +369,11 @@ const ListView: React.FC<ListViewProps> = ({ courses, onCourseClick }) => {
               <button
                 key={i}
                 onClick={() => onCourseClick(course)}
-                className="group relative flex items-center gap-6 bg-white/40 hover:bg-white/60 border border-white/60 rounded-[2rem] p-5 transition-all text-left overflow-hidden shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1"
+                className="group relative flex items-center gap-3 sm:gap-6 bg-white/40 hover:bg-white/60 border border-white/60 rounded-[1.5rem] sm:rounded-[2rem] p-3 sm:p-5 transition-all text-left overflow-hidden shadow-sm hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1"
               >
                 <div className="absolute left-0 top-0 bottom-0 w-2" style={{ backgroundColor: color }} />
                 
-                <div className="w-16 h-16 rounded-2xl bg-white flex flex-col items-center justify-center border border-slate-100 flex-shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white flex flex-col items-center justify-center border border-slate-100 flex-shrink-0 group-hover:scale-105 transition-transform">
                   <span className="text-xs font-black text-slate-900">{slot.start_time.split(':')[0]}</span>
                   <div className="w-4 h-0.5 bg-slate-200 my-1" />
                   <span className="text-[10px] font-bold text-slate-400">{slot.end_time.split(':')[0]}</span>
@@ -390,13 +394,13 @@ const ListView: React.FC<ListViewProps> = ({ courses, onCourseClick }) => {
                   )}
                 </div>
 
-                <div className="text-right flex-shrink-0 pr-2">
-                  <div className="flex items-center justify-end gap-2 text-slate-700 mb-1">
-                    <Clock className="w-3.5 h-3.5 text-sky-500" />
-                    <span className="text-sm font-black tracking-tight">{slot.start_time} – {slot.end_time}</span>
+                <div className="text-right flex-shrink-0 pr-1 sm:pr-2">
+                  <div className="flex items-center justify-end gap-1 sm:gap-2 text-slate-700 mb-1">
+                    <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-500" />
+                    <span className="text-xs sm:text-sm font-black tracking-tight">{slot.start_time.slice(0,5)}–{slot.end_time.slice(0,5)}</span>
                   </div>
                   {course.room && (
-                    <div className="flex items-center justify-end gap-1.5 text-slate-400">
+                    <div className="flex items-center justify-end gap-1 sm:gap-1.5 text-slate-400">
                       <MapPin className="w-3 h-3" />
                       <span className="text-[10px] font-bold uppercase tracking-widest">{course.room}</span>
                     </div>
@@ -557,16 +561,16 @@ const PersonalEditModal: React.FC<PersonalEditModalProps> = ({ initialCourses, o
   const inputCls = 'w-full rounded-2xl border border-slate-200 bg-white/50 text-slate-900 px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all placeholder:text-slate-300';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-md flex items-start justify-center p-4 overflow-y-auto no-scrollbar animate-fade-in">
-      <div className="w-full max-w-3xl glass-card rounded-[3rem] border-white/40 overflow-hidden my-8 animate-slide-up shadow-2xl">
+    <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-md flex items-start justify-center p-2 sm:p-4 overflow-y-auto no-scrollbar animate-fade-in">
+      <div className="w-full max-w-3xl glass-card rounded-[2rem] sm:rounded-[3rem] border-white/40 overflow-hidden my-4 sm:my-8 animate-slide-up shadow-2xl">
         {/* Header */}
-        <div className="px-10 py-8 border-b border-white/20 bg-white/30 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-[1.25rem] bg-slate-900 flex items-center justify-center shadow-lg">
-              <Settings2 className="w-6 h-6 text-white" />
+        <div className="px-5 sm:px-10 py-5 sm:py-8 border-b border-white/20 bg-white/30 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[1rem] sm:rounded-[1.25rem] bg-slate-900 flex items-center justify-center shadow-lg">
+              <Settings2 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Programımı Düzenle</h2>
+              <h2 className="text-base sm:text-xl font-black text-slate-900 tracking-tight">Programımı Düzenle</h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Derslerini özelleştir</p>
             </div>
           </div>
@@ -581,7 +585,7 @@ const PersonalEditModal: React.FC<PersonalEditModalProps> = ({ initialCourses, o
         </div>
 
         {/* Courses */}
-        <div className="p-10 space-y-8">
+        <div className="p-4 sm:p-10 space-y-6 sm:space-y-8">
           {courses.length === 0 && (
             <div className="flex flex-col items-center py-20 text-slate-400">
               <Sparkles className="w-12 h-12 mb-4 opacity-20" />
@@ -721,7 +725,7 @@ const PersonalEditModal: React.FC<PersonalEditModalProps> = ({ initialCourses, o
         </div>
 
         {/* Footer */}
-        <div className="px-10 py-6 border-t border-white/20 bg-white/30 flex items-center justify-between gap-6 sticky bottom-0 z-10 backdrop-blur-md">
+        <div className="px-5 sm:px-10 py-4 sm:py-6 border-t border-white/20 bg-white/30 flex items-center justify-between gap-4 sticky bottom-0 z-10 backdrop-blur-md">
           {error && (
             <div className="flex items-center gap-2 text-rose-500 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 animate-fade-in">
               <Info size={14} />
@@ -928,7 +932,7 @@ export const CourseSchedulePage: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <MainLayout>
-      <div className="w-full min-h-full bg-mesh relative overflow-x-hidden pb-20">
+      <div className="w-full min-h-full bg-mesh relative overflow-x-hidden pb-24">
         {/* Background Decorative Blurs */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-sky-500/10 blur-[120px]" />
@@ -944,13 +948,13 @@ export const CourseSchedulePage: React.FC = () => {
                 <div className="w-10 h-1 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600" />
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Akademik Araçlar</span>
               </div>
-              <h1 className="text-4xl font-black text-slate-900 tracking-tight">Ders Programım</h1>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+              <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">Ders Programım</h1>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1 line-clamp-1">
                 {universityName} • {departmentName} {classYear && `• ${classYear}. SINIF`}
               </p>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap animate-fade-in delay-100">
+            <div className="flex items-center gap-2 flex-wrap animate-fade-in delay-100">
               {semesterInfo && (
                 <div className="glass-card px-5 py-3 rounded-2xl flex items-center gap-4 bg-white/40 border-white/40">
                   <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
@@ -967,7 +971,7 @@ export const CourseSchedulePage: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setIsEditModalOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 group"
+                    className="flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 group"
                   >
                     <Settings2 className="w-4 h-4 group-hover:rotate-90 transition-transform" />
                     Düzenle
@@ -975,7 +979,7 @@ export const CourseSchedulePage: React.FC = () => {
                   <button
                     onClick={() => setShowDropdowns((v) => !v)}
                     className={`
-                      flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black transition-all border
+                      flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-black transition-all border
                       ${showDropdowns 
                         ? 'bg-rose-50 border-rose-200 text-rose-600' 
                         : 'bg-white/50 border-white/50 text-slate-600 hover:bg-white'}
@@ -1098,12 +1102,12 @@ export const CourseSchedulePage: React.FC = () => {
           {shouldShowContent ? (
             <div className="space-y-6 animate-slide-up">
               {/* Controls Bar */}
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   {personalSchedule && !showDropdowns && (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-full">
+                    <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-full">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Kişisel Program Aktif</span>
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Kişisel Program</span>
                     </div>
                   )}
                 </div>

@@ -22,6 +22,9 @@ import {
   Plus,
   Send,
   Trash2,
+  ArrowRight,
+  Menu,
+  X,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -130,6 +133,15 @@ export const AIAssistantPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expandedSources, setExpandedSources] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  // Track mobile breakpoint
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -306,16 +318,30 @@ export const AIAssistantPage: React.FC = () => {
 
   return (
     <MainLayout noScroll={true}>
-      <div className="flex-1 flex overflow-hidden bg-white">
+      <div className="flex-1 flex overflow-hidden bg-white relative">
+        {/* ── Mobile Sidebar Backdrop ─────────────────────────────────────── */}
+        {isMobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
         {/* ── Left Sidebar: Chat History ─────────────────────────────────── */}
-        <aside className="w-72 shrink-0 border-r border-slate-100 bg-slate-50/50 flex flex-col">
-          <div className="p-6">
+        <aside
+          className="w-72 shrink-0 border-r border-slate-100 bg-white md:bg-slate-50/50 flex flex-col fixed md:relative inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out"
+          style={{ transform: isMobile ? (isMobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)') : 'translateX(0)' }}
+        >
+          <div className="p-4 sm:p-6 flex items-center justify-between border-b border-slate-100 md:border-none">
             <Button
-              onClick={handleNewChat}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl h-12 font-bold shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2 group"
+              onClick={() => { handleNewChat(); setIsMobileMenuOpen(false); }}
+              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl h-12 font-bold shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2 group"
             >
               <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
               Yeni Sohbet
+            </Button>
+            <Button variant="ghost" size="icon" className="md:hidden ml-2 rounded-xl" onClick={() => setIsMobileMenuOpen(false)}>
+              <X className="h-5 w-5 text-slate-500" />
             </Button>
           </div>
 
@@ -370,15 +396,18 @@ export const AIAssistantPage: React.FC = () => {
         </aside>
 
         {/* ── Main Chat Area ────────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col bg-white relative">
+        <div className="flex-1 flex flex-col bg-white relative min-w-0 w-full">
           {/* Header */}
-          <header className="h-20 border-b border-slate-100 px-8 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-md z-20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-100">
-                <Bot className="h-6 w-6 text-white" />
+          <header className="h-16 sm:h-20 border-b border-slate-100 px-4 sm:px-8 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-md z-20">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Button variant="ghost" size="icon" className="md:hidden mr-1 rounded-xl" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu className="h-5 w-5 text-slate-600" />
+              </Button>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-100 shrink-0">
+                <Bot className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </div>
               <div>
-                <h2 className="font-black text-slate-900 leading-none">AI Asistanı</h2>
+                <h2 className="font-black text-slate-900 leading-none text-sm sm:text-base">AI Asistanı</h2>
                 <div className="flex items-center gap-2 mt-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Çevrimiçi • 7/24 Akademik Destek</span>
@@ -402,24 +431,24 @@ export const AIAssistantPage: React.FC = () => {
           </header>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 custom-scrollbar bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 custom-scrollbar bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px]">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <div className="w-12 h-12 rounded-full border-4 border-sky-500 border-t-transparent animate-spin" />
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Veriler Yükleniyor...</p>
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center max-w-2xl mx-auto">
-                <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-sky-50 to-indigo-50 border border-sky-100 flex items-center justify-center mb-8 shadow-inner animate-bounce-slow">
-                  <Bot className="h-10 w-10 text-sky-500" />
+              <div className="flex flex-col items-center justify-center h-full text-center max-w-2xl mx-auto py-4">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.5rem] sm:rounded-[2rem] bg-gradient-to-br from-sky-50 to-indigo-50 border border-sky-100 flex items-center justify-center mb-6 sm:mb-8 shadow-inner animate-bounce-slow">
+                  <Bot className="h-8 w-8 sm:h-10 sm:w-10 text-sky-500" />
                 </div>
-                <h3 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3 sm:mb-4 tracking-tight">
                   Merhaba Mehmet! 👋
                 </h3>
-                <p className="text-slate-500 font-medium mb-10 leading-relaxed">
+                <p className="text-sm sm:text-base text-slate-500 font-medium mb-8 sm:mb-10 leading-relaxed px-2 sm:px-0">
                   Bugün akademik hayatında sana nasıl yardımcı olabilirim? Ders notları, sınav tarihleri veya forum konuları hakkında merak ettiğin her şeyi sorabilirsin.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 w-full px-2 sm:px-0">
                   {[
                     'Yaklaşan sınavlarım ne zaman?',
                     'Bu haftaki ders programım nedir?',
@@ -442,9 +471,9 @@ export const AIAssistantPage: React.FC = () => {
                 {messages.map((msg) =>
                   msg.role === 'user' ? (
                     <div key={msg.id} className="flex justify-end animate-slide-in-right">
-                      <div className="max-w-[85%]">
-                        <div className="bg-slate-900 text-white rounded-[2rem] rounded-tr-none px-6 py-4 shadow-xl shadow-slate-200">
-                          <p className="text-sm font-medium whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <div className="max-w-[95%] sm:max-w-[85%]">
+                        <div className="bg-slate-900 text-white rounded-2xl sm:rounded-[2rem] rounded-tr-none px-4 sm:px-6 py-3 sm:py-4 shadow-xl shadow-slate-200">
+                          <p className="text-[13px] sm:text-sm font-medium whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                         </div>
                         <div className="flex items-center justify-end gap-2 mt-2 px-2">
                            <span className="text-[10px] font-black text-slate-400 uppercase">{formatTime(msg.created_at)}</span>
@@ -455,13 +484,13 @@ export const AIAssistantPage: React.FC = () => {
                     </div>
                   ) : (
                     <div key={msg.id} className="flex justify-start animate-slide-in-left">
-                      <div className="max-w-[90%] w-full">
-                        <div className="flex gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center shrink-0 shadow-sm mt-1">
-                            <Bot className="h-5 w-5 text-sky-600" />
+                      <div className="max-w-[100%] sm:max-w-[90%] w-full">
+                        <div className="flex gap-2 sm:gap-4">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-sky-100 flex items-center justify-center shrink-0 shadow-sm mt-1 sm:mt-1">
+                            <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-sky-600" />
                           </div>
-                          <div className="flex-1">
-                            <div className="bg-white border border-slate-100 shadow-xl shadow-slate-200/40 rounded-[2rem] rounded-tl-none px-7 py-6">
+                          <div className="flex-1 min-w-0">
+                            <div className="bg-white border border-slate-100 shadow-xl shadow-slate-200/40 rounded-2xl sm:rounded-[2rem] rounded-tl-none px-4 sm:px-7 py-4 sm:py-6 overflow-hidden">
                               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                 {msg.content}
                               </ReactMarkdown>
@@ -540,7 +569,7 @@ export const AIAssistantPage: React.FC = () => {
           )}
 
           {/* Input Area */}
-          <footer className="p-8 bg-white border-t border-slate-100 shrink-0">
+          <footer className="p-4 pb-24 sm:p-8 bg-white border-t border-slate-100 shrink-0 z-10 relative">
             {remaining === 0 ? (
               <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex flex-col items-center text-center">
                 <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center mb-3">
@@ -554,37 +583,37 @@ export const AIAssistantPage: React.FC = () => {
             ) : (
               <div className="max-w-4xl mx-auto">
                 <div className="relative group transition-all">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-400 to-indigo-500 rounded-[2.5rem] opacity-0 group-focus-within:opacity-20 blur-lg transition-all" />
-                  <div className="relative bg-slate-50 rounded-[2.2rem] border border-slate-200 focus-within:border-sky-500 focus-within:bg-white transition-all overflow-hidden shadow-inner focus-within:shadow-2xl focus-within:shadow-sky-100">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-400 to-indigo-500 rounded-3xl sm:rounded-[2.5rem] opacity-0 group-focus-within:opacity-20 blur-lg transition-all" />
+                  <div className="relative bg-slate-50 rounded-2xl sm:rounded-[2.2rem] border border-slate-200 focus-within:border-sky-500 focus-within:bg-white transition-all overflow-hidden shadow-inner focus-within:shadow-2xl focus-within:shadow-sky-100">
                     <Textarea
                       ref={textareaRef}
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Derslerin, sınavların veya kampüs hayatı hakkında merak ettiğini sor..."
-                      className="min-h-[80px] max-h-48 resize-none border-none bg-transparent focus-visible:ring-0 px-8 py-6 text-base font-medium placeholder:text-slate-400"
+                      placeholder="Kampüs hakkında sor..."
+                      className="min-h-[60px] sm:min-h-[80px] max-h-48 resize-none border-none bg-transparent focus-visible:ring-0 px-4 sm:px-8 py-4 sm:py-6 text-sm sm:text-base font-medium placeholder:text-slate-400"
                       disabled={sending}
                     />
-                    <div className="flex items-center justify-between px-6 pb-4">
-                      <div className="flex items-center gap-4">
-                         <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl text-slate-400 hover:text-sky-500 hover:bg-sky-50 transition-all">
-                            <Paperclip className="h-5 w-5" />
+                    <div className="flex items-center justify-between px-3 sm:px-6 pb-3 sm:pb-4">
+                      <div className="flex items-center gap-2 sm:gap-4">
+                         <Button variant="ghost" size="icon" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl text-slate-400 hover:text-sky-500 hover:bg-sky-50 transition-all">
+                            <Paperclip className="h-4 w-4 sm:h-5 sm:w-5" />
                          </Button>
                          <p className="hidden sm:block text-[10px] font-black text-slate-300 uppercase tracking-widest">
                            ENTER İLE GÖNDER • SHIFT+ENTER İLE YENİ SATIR
                          </p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className={`text-[10px] font-black tracking-widest transition-colors ${input.length > 450 ? 'text-red-500' : 'text-slate-300'}`}>
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <span className={`hidden sm:inline text-[10px] font-black tracking-widest transition-colors ${input.length > 450 ? 'text-red-500' : 'text-slate-300'}`}>
                           {input.length} / 500 KARAKTER
                         </span>
                         <Button
                           onClick={handleSend}
                           disabled={!canSend}
-                          className="h-12 px-8 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold shadow-lg shadow-sky-200 disabled:bg-slate-200 disabled:shadow-none transition-all active:scale-95"
+                          className="h-10 sm:h-12 px-5 sm:px-8 bg-sky-500 hover:bg-sky-600 text-white rounded-xl sm:rounded-2xl font-bold shadow-lg shadow-sky-200 disabled:bg-slate-200 disabled:shadow-none transition-all active:scale-95"
                         >
-                          GÖNDER
-                          <Send className="ml-2 h-4 w-4" />
+                          <span className="hidden sm:inline">GÖNDER</span>
+                          <Send className="sm:ml-2 h-4 w-4" />
                         </Button>
                       </div>
                     </div>

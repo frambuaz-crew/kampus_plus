@@ -44,19 +44,49 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
                       border-radius 1.1s cubic-bezier(0.76, 0, 0.24, 1);
         }
         .auth-form-pane {
-          transition: opacity 0.45s ease,
-                      width 1.1s cubic-bezier(0.76, 0, 0.24, 1);
+          transition: opacity 0.45s ease;
         }
         .auth-form-pane.hidden-pane {
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.2s ease;
+          z-index: 0;
         }
         .auth-form-pane.visible-pane {
           opacity: 1;
           pointer-events: auto;
-          transition: opacity 0.5s ease 0.55s,
-                      width 1.1s cubic-bezier(0.76, 0, 0.24, 1);
+          transition: opacity 0.5s ease 0.1s;
+          z-index: 10;
+        }
+        @media (min-width: 1024px) {
+          .auth-form-pane {
+            transition: opacity 0.45s ease,
+                        width 1.1s cubic-bezier(0.76, 0, 0.24, 1),
+                        padding 1.1s cubic-bezier(0.76, 0, 0.24, 1);
+          }
+          .auth-form-pane.visible-pane {
+            transition: opacity 0.5s ease 0.55s,
+                        width 1.1s cubic-bezier(0.76, 0, 0.24, 1),
+                        padding 1.1s cubic-bezier(0.76, 0, 0.24, 1);
+          }
+          .login-pane {
+            width: 100%;
+          }
+          .login-pane.is-login {
+            padding-left: calc(42% + 4%);
+          }
+          .login-pane.is-register {
+            padding-left: 6%;
+          }
+          .register-pane {
+            left: 0;
+          }
+          .register-pane.is-register {
+            width: 58%;
+          }
+          .register-pane.is-login {
+            width: 100%;
+          }
         }
         /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar {
@@ -149,12 +179,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
           Login Form Pane
       ═══════════════════════════════════════════════ */}
       <div
-        className={`auth-form-pane no-scrollbar flex flex-col items-center justify-center px-6 py-8 bg-white absolute top-0 bottom-0 overflow-y-auto ${isRegister ? 'hidden-pane' : 'visible-pane'}`}
-        style={{
-          left: 0,
-          width: '100%',
-          paddingLeft: isRegister ? '6%' : 'calc(42% + 4%)',
-        }}
+        className={`auth-form-pane login-pane no-scrollbar flex flex-col items-center justify-center px-6 py-8 bg-white absolute top-0 bottom-0 left-0 right-0 lg:right-auto overflow-y-auto ${isRegister ? 'hidden-pane is-register' : 'visible-pane is-login'}`}
       >
         {/* Mobile logo */}
         <div className="lg:hidden mb-8 w-full max-w-sm">
@@ -193,11 +218,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
           Register Form Pane
       ═══════════════════════════════════════════════ */}
       <div
-        className={`auth-form-pane no-scrollbar flex flex-col items-center justify-start px-6 py-8 bg-white absolute top-0 bottom-0 overflow-y-auto ${isRegister ? 'visible-pane' : 'hidden-pane'}`}
-        style={{
-          left: 0,
-          width: isRegister ? '58%' : '100%',
-        }}
+        className={`auth-form-pane register-pane no-scrollbar flex flex-col items-center justify-start px-6 py-8 bg-white absolute top-0 bottom-0 left-0 right-0 lg:right-auto overflow-y-auto ${isRegister ? 'visible-pane is-register' : 'hidden-pane is-login'}`}
       >
         {/* Mobile logo */}
         <div className="lg:hidden mb-8 w-full max-w-sm">

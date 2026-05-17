@@ -204,111 +204,94 @@ const ListingCard: React.FC<{
       onClick={onClick}
       className="hover:shadow-md transition-all duration-200 cursor-pointer group border border-slate-200"
     >
-      <div className="flex gap-4 p-5">
-        {/* Left: Type icon */}
-        <div className={`w-12 h-12 rounded-xl ${cfg.bgLight} flex items-center justify-center shrink-0 mt-0.5`}>
-          <TypeIcon className={`w-5 h-5 ${cfg.textColor}`} />
-        </div>
-
-        {/* Middle: Content */}
-        <div className="flex-1 min-w-0">
-          {/* Title + Badge */}
-          <div className="flex items-start gap-2 mb-1 flex-wrap">
-            <h3 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#0ea5e9] transition-colors">
-              {listing.title}
-            </h3>
-            <Badge className={`${cfg.bgLight} ${cfg.textColor} border-0 text-[11px] font-medium shrink-0`}>
-              {cfg.label}
-            </Badge>
+      <div className="p-4 sm:p-5 flex flex-col gap-3">
+        {/* Top row: icon + title/badge + type */}
+        <div className="flex items-start gap-3">
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${cfg.bgLight} flex items-center justify-center shrink-0 mt-0.5`}>
+            <TypeIcon className={`w-4 h-4 sm:w-5 sm:h-5 ${cfg.textColor}`} />
           </div>
-
-          {/* Company / position */}
-          {subtitle && (
-            <p className="text-xs text-slate-500 mb-1.5 truncate">{subtitle}</p>
-          )}
-
-          {/* Description */}
-          <p className="text-xs text-slate-600 line-clamp-2 mb-2.5 leading-relaxed">
-            {listing.description}
-          </p>
-
-          {/* Meta tags */}
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-              <Building2 className="w-3 h-3" />{listing.sector}
-            </span>
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-              <MapPin className="w-3 h-3" />{listing.location}
-            </span>
-            {listing.salary_range && (
-              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-md">
-                {listing.salary_range}
-              </span>
-            )}
-            {listing.payment_type && (
-              <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                {PAYMENT_LABELS[listing.payment_type] || listing.payment_type}
-              </span>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between">
-            <Link
-              to={`/dashboard/profile/${listing.creator?.username}`}
-              className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Avatar className="h-5 w-5">
-                {listing.creator?.profile_picture_url && (
-                  <AvatarImage src={getImageUrl(listing.creator.profile_picture_url)} />
-                )}
-                <AvatarFallback className="text-[9px] bg-sky-100 text-[#0369a1] font-semibold">
-                  {creatorInitial}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-xs text-slate-500">
-                {listing.creator?.username || creatorName} · {listing.creator?.university || 'Kampüs'}
-              </span>
-            </Link>
-              <div className="flex items-center gap-3 text-xs text-slate-400">
-              <span className="flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {listing.application_count ?? 0} başvuru
-              </span>
-              <span className="text-slate-200">|</span>
-              <span className="flex items-center gap-1">
-                <Eye className="w-3 h-3" />
-                {listing.view_count} görüntülenme
-              </span>
-              <span className="text-slate-200">|</span>
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {formatRelativeTimeTr(listing.created_at)}
-              </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-2 flex-wrap mb-0.5">
+              <h3 className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-[#0ea5e9] transition-colors">
+                {listing.title}
+              </h3>
+              <Badge className={`${cfg.bgLight} ${cfg.textColor} border-0 text-[10px] font-medium shrink-0`}>
+                {cfg.label}
+              </Badge>
             </div>
+            {subtitle && (
+              <p className="text-xs text-slate-500 truncate">{subtitle}</p>
+            )}
           </div>
         </div>
 
-        {/* Right: Actions */}
-        <div
-          className="flex flex-col items-end gap-2 shrink-0 pl-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            size="sm"
-            className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white h-8 px-4 text-xs"
-            onClick={onApply}
+        {/* Description */}
+        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+          {listing.description}
+        </p>
+
+        {/* Meta tags */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+            <Building2 className="w-3 h-3" />{listing.sector}
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+            <MapPin className="w-3 h-3" />{listing.location}
+          </span>
+          {listing.salary_range && (
+            <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-md">
+              {listing.salary_range}
+            </span>
+          )}
+          {listing.payment_type && (
+            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+              {PAYMENT_LABELS[listing.payment_type] || listing.payment_type}
+            </span>
+          )}
+        </div>
+
+        {/* Footer: user info + stats + actions */}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2" onClick={(e) => e.stopPropagation()}>
+          {/* Left: creator */}
+          <Link
+            to={`/dashboard/profile/${listing.creator?.username}`}
+            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity min-w-0 flex-1"
+            onClick={(e) => e.stopPropagation()}
           >
-            Başvur
-          </Button>
-          <button
-            onClick={toggleFavorite}
-            className={`p-1.5 rounded-md transition-colors ${isFavorite ? 'text-[#0ea5e9] bg-sky-50' : 'text-slate-300 hover:text-[#0ea5e9] hover:bg-sky-50'}`}
-            title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
-          >
-            <Bookmark className={`w-4 h-4 ${isFavorite ? 'fill-[#0ea5e9]' : ''}`} />
-          </button>
+            <Avatar className="h-5 w-5 shrink-0">
+              {listing.creator?.profile_picture_url && (
+                <AvatarImage src={getImageUrl(listing.creator.profile_picture_url)} />
+              )}
+              <AvatarFallback className="text-[9px] bg-sky-100 text-[#0369a1] font-semibold">
+                {creatorInitial}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-slate-400 truncate">
+              {listing.creator?.username || creatorName}
+            </span>
+          </Link>
+
+          {/* Right: stats + actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="hidden sm:flex items-center gap-1 text-xs text-slate-400">
+              <Clock className="w-3 h-3" />
+              {formatRelativeTimeTr(listing.created_at)}
+            </span>
+            <button
+              onClick={toggleFavorite}
+              className={`p-1.5 rounded-md transition-colors ${isFavorite ? 'text-[#0ea5e9] bg-sky-50' : 'text-slate-300 hover:text-[#0ea5e9] hover:bg-sky-50'}`}
+              title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${isFavorite ? 'fill-[#0ea5e9]' : ''}`} />
+            </button>
+            <Button
+              size="sm"
+              className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white h-7 px-3 text-xs"
+              onClick={onApply}
+            >
+              Başvur
+            </Button>
+          </div>
         </div>
       </div>
     </Card>
@@ -357,7 +340,7 @@ const ListingDetailView: React.FC<{
         <ArrowLeft className="w-4 h-4" /> Kariyer'e Dön
       </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 
         {/* ── Sol: Ana İçerik ── */}
         <div className="lg:col-span-2 space-y-5">
@@ -365,7 +348,7 @@ const ListingDetailView: React.FC<{
           {/* Başlık Kartı */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <div className={`h-1.5 w-full bg-gradient-to-r ${cfg.gradient}`} />
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               <div className="flex items-start justify-between mb-5">
                 <span className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full ${cfg.badgeBg} ${cfg.textColor}`}>
                   <TypeIcon className="w-3.5 h-3.5" />
@@ -1163,14 +1146,14 @@ export const CareerPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="w-full px-6 xl:px-10 py-8">
+      <div className="w-full px-3 sm:px-6 xl:px-10 py-4 sm:py-8 pb-24 sm:pb-8">
         <div className="max-w-[1920px] mx-auto">
 
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Kariyer</h1>
-              <p className="text-sm text-slate-500 mt-0.5">İş, staj ve proje fırsatları</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Kariyer</h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">İş, staj ve proje fırsatları</p>
             </div>
             {view === 'list' && (
               <Button
@@ -1229,22 +1212,22 @@ export const CareerPage: React.FC = () => {
           {/* List */}
           {view === 'list' && (
             <>
-              {/* Category tabs — full width, above search */}
-              <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1 mb-4">
+              {/* Category tabs — scrollable on mobile */}
+              <div className="flex items-center border border-slate-200 rounded-xl bg-slate-50 p-1 mb-4 overflow-x-auto gap-1 no-scrollbar">
                 {categories.map(({ type, label, count }) => {
                   const isActive = activeCategory === type;
                   return (
                     <button
                       key={type}
                       onClick={() => setActiveCategory(type)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                      className={`flex-shrink-0 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
                         isActive
                           ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
                           : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       {label}
-                      <span className={`text-[11px] font-semibold ${isActive ? 'text-[#0ea5e9]' : 'text-slate-400'}`}>
+                      <span className={`text-[10px] sm:text-[11px] font-semibold ${isActive ? 'text-[#0ea5e9]' : 'text-slate-400'}`}>
                         {count}
                       </span>
                     </button>

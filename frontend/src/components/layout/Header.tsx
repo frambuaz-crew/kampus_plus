@@ -260,15 +260,15 @@ export const Header: React.FC = () => {
   const isAdmin = (['admin', 'university_admin'] as const).includes(user?.role as 'admin' | 'university_admin');
 
   return (
-    <header className="h-20 bg-white/60 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 flex items-center px-8 gap-4">
+    <header className="h-16 sm:h-20 bg-white/60 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 flex items-center px-4 sm:px-8 gap-3 sm:gap-4">
       {/* Left Spacer to push search to center */}
-      <div className="flex-1 hidden lg:block" />
+      <div className="flex-1 hidden lg:block order-1" />
 
       {/* Center: Search Bar + öneriler */}
-      <div className="flex-[2] flex items-center max-w-3xl relative">
-        <div ref={searchWrapRef} className="w-full relative hidden md:block group">
+      <div className="flex-1 lg:flex-[2] flex items-center w-full max-w-3xl relative order-2 min-w-0">
+        <div ref={searchWrapRef} className="w-full relative group">
           <form onSubmit={handleSearch}>
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-slate-50 group-focus-within:bg-sky-50 transition-colors">
+            <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-1 sm:p-1.5 rounded-lg sm:bg-slate-50 group-focus-within:bg-sky-50 transition-colors">
               <Search className="h-4 w-4 text-slate-400 group-focus-within:text-sky-600 transition-colors" />
             </div>
             <Input
@@ -280,8 +280,8 @@ export const Header: React.FC = () => {
                 if (t.length >= 1) void loadSuggest(t);
                 if (t.length >= 1) setSuggestOpen(true);
               }}
-              placeholder="Ders, pazar ilanı veya kariyer fırsatı ara..."
-              className="pl-14 pr-16 h-12 bg-slate-50 border-transparent focus:bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-2xl outline-none transition-all text-sm font-medium"
+              placeholder="Kampüste ara..."
+              className="pl-9 sm:pl-14 pr-4 sm:pr-16 h-10 sm:h-12 bg-slate-50 border-transparent focus:bg-white focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl sm:rounded-2xl outline-none transition-all text-xs sm:text-sm font-medium w-full"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && searchQuery.trim().length < 2) {
                   e.preventDefault();
@@ -291,7 +291,7 @@ export const Header: React.FC = () => {
               }}
               autoComplete="off"
             />
-            <kbd className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-6 select-none items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 font-mono text-[10px] font-bold text-slate-400 shadow-sm">
+            <kbd className="hidden sm:inline-flex absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none h-6 select-none items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 font-mono text-[10px] font-bold text-slate-400 shadow-sm">
               ⌘K
             </kbd>
           </form>
@@ -346,11 +346,11 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Right Spacer to ensure search stays centered */}
-      <div className="flex-1 hidden lg:block" />
+      <div className="flex-1 hidden lg:block order-3" />
 
       {/* Right: Icons */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 order-4 ml-auto lg:ml-0">
+        <div className="flex items-center bg-slate-50 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border border-slate-100">
           {/* Notifications */}
           <Popover>
             <PopoverTrigger asChild>
@@ -480,13 +480,15 @@ export const Header: React.FC = () => {
             </PopoverContent>
           </Popover>
         </div>
+      </div>
 
-        <div className="w-px h-8 bg-slate-100 mx-2 hidden sm:block" />
+      <div className="w-px h-8 bg-slate-100 mx-2 hidden lg:block order-5" />
 
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-3 px-2 h-12 hover:bg-slate-50 rounded-2xl transition-all">
+      {/* User Menu */}
+      <div className="order-first lg:order-6 shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-3 px-1 sm:px-2 h-10 sm:h-12 hover:bg-slate-50 rounded-xl sm:rounded-2xl transition-all">
               <div className="relative">
                 <Avatar className="h-10 w-10 rounded-xl ring-2 ring-white shadow-sm">
                   {user?.profile_picture_url && (

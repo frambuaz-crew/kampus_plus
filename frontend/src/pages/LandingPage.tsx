@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bot, MessageSquare, ShoppingBag, Briefcase, CalendarDays, Users,
   ArrowRight, ChevronDown, Star, Zap, Shield, CheckCircle2, 
-  Sparkles, Globe, Rocket
+  Sparkles, Globe, Rocket, Menu, X
 } from 'lucide-react';
 
 const NAV_LINKS = [
@@ -81,6 +81,7 @@ const TESTIMONIALS = [
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -115,25 +116,62 @@ export const LandingPage: React.FC = () => {
             ))}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <button
               onClick={() => navigate('/login')}
-              className="hidden sm:block text-sm font-bold text-slate-700 hover:text-sky-600 transition-colors"
+              className="hidden md:block text-sm font-bold text-slate-700 hover:text-sky-600 transition-colors"
             >
               Giriş Yap
             </button>
             <button
               onClick={() => navigate('/register')}
-              className="btn-premium bg-slate-900 text-white text-sm font-bold px-6 py-2.5 rounded-full hover:bg-slate-800 shadow-lg shadow-slate-200"
+              className="hidden md:block btn-premium bg-slate-900 text-white text-sm font-bold px-6 py-2.5 rounded-full hover:bg-slate-800 shadow-lg shadow-slate-200"
             >
               Kayıt Ol
+            </button>
+            <button
+              className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors ml-1"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
       </header>
 
+      {/* Mobile Menu Dropdown */}
+      <div className={`md:hidden fixed inset-x-0 top-[72px] bg-white/95 backdrop-blur-md shadow-lg border-t border-slate-100 transition-all duration-300 origin-top z-40 ${
+        isMobileMenuOpen ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0 pointer-events-none'
+      }`}>
+        <div className="flex flex-col px-6 py-8 gap-6">
+          {NAV_LINKS.map((l) => (
+            <a
+              key={l.label}
+              href={l.href}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-lg font-bold text-slate-700 hover:text-sky-600 transition-colors"
+            >
+              {l.label}
+            </a>
+          ))}
+          <div className="h-px bg-slate-100 my-2" />
+          <button
+            onClick={() => { setIsMobileMenuOpen(false); navigate('/login'); }}
+            className="w-full text-center text-lg font-bold text-slate-700 hover:text-sky-600 transition-colors py-3"
+          >
+            Giriş Yap
+          </button>
+          <button
+            onClick={() => { setIsMobileMenuOpen(false); navigate('/register'); }}
+            className="w-full text-center bg-sky-600 text-white text-lg font-bold px-6 py-3.5 rounded-xl shadow-lg shadow-sky-200"
+          >
+            Hemen Kayıt Ol
+          </button>
+        </div>
+      </div>
+
       {/* ─── Hero Section ─── */}
-      <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6 bg-mesh overflow-hidden">
+      <section className="relative pt-24 pb-16 sm:pt-32 sm:pb-20 lg:pt-48 lg:pb-32 px-6 bg-mesh overflow-hidden">
         {/* Animated Blobs */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-sky-200/50 rounded-full blur-3xl animate-pulse-slow -z-10" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-200/40 rounded-full blur-3xl animate-pulse-slow delay-500 -z-10" />
@@ -145,12 +183,12 @@ export const LandingPage: React.FC = () => {
               Türkiye'nin En Modern Öğrenci Platformu
             </div>
 
-            <h1 className="text-5xl lg:text-7xl font-extrabold text-slate-900 leading-[1.1] mb-8">
-              Üniversite Hayatını <br />
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold text-slate-900 leading-[1.1] mb-6 sm:mb-8">
+              Üniversite Hayatını <br className="hidden sm:block" />
               <span className="text-gradient">Akıllandır.</span>
             </h1>
 
-            <p className="text-lg lg:text-xl text-slate-600 leading-relaxed mb-10 max-w-lg">
+            <p className="text-base sm:text-lg lg:text-xl text-slate-600 leading-relaxed mb-8 sm:mb-10 max-w-lg">
               KAMPUS+ ile akademik başarını artır, güvenle alışveriş yap ve 
               hayalindeki kariyer fırsatlarını yakala. Hepsi tek bir yerde.
             </p>
@@ -180,26 +218,26 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Floating Badges */}
-            <div className="absolute -top-6 -right-6 glass-card p-4 rounded-2xl animate-float shadow-xl border border-white/50">
+            <div className="absolute -top-4 -right-2 sm:-top-6 sm:-right-6 glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl animate-float shadow-xl border border-white/50 z-10 max-w-[150px] sm:max-w-none">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Güvenli Pazar</p>
-                  <p className="text-sm font-extrabold text-slate-900">Doğrulanmış Öğrenciler</p>
+                  <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Güvenli Pazar</p>
+                  <p className="text-xs sm:text-sm font-extrabold text-slate-900">Doğrulanmış Öğrenciler</p>
                 </div>
               </div>
             </div>
 
-            <div className="absolute -bottom-10 -left-10 glass-card p-4 rounded-2xl animate-float delay-500 shadow-xl border border-white/50">
+            <div className="absolute -bottom-6 -left-2 sm:-bottom-10 sm:-left-10 glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl animate-float delay-500 shadow-xl border border-white/50 z-10 max-w-[150px] sm:max-w-none">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
                   <Star className="w-6 h-6 fill-amber-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Yüksek Puan</p>
-                  <p className="text-sm font-extrabold text-slate-900">4.9/5 Kullanıcı Memnuniyeti</p>
+                  <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Yüksek Puan</p>
+                  <p className="text-xs sm:text-sm font-extrabold text-slate-900">4.9/5 Kullanıcı Memnuniyeti</p>
                 </div>
               </div>
             </div>
@@ -208,13 +246,13 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ─── Features Section ─── */}
-      <section id="features" className="py-24 lg:py-32 px-6">
+      <section id="features" className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20 animate-slide-up">
-            <h2 className="text-4xl lg:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 mb-4 sm:mb-6 tracking-tight">
               İhtiyacın Olan <span className="text-sky-600">Her Şey</span> Burada
             </h2>
-            <p className="text-slate-500 text-lg max-w-2xl mx-auto font-medium">
+            <p className="text-slate-500 text-base sm:text-lg max-w-2xl mx-auto font-medium">
               Sadece bir uygulama değil, tüm üniversite hayatını organize edebileceğin bir ekosistem.
             </p>
           </div>
@@ -243,11 +281,11 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ─── Social Proof / Testimonials ─── */}
-      <section id="testimonials" className="py-24 bg-slate-50 relative overflow-hidden">
+      <section id="testimonials" className="py-16 sm:py-24 bg-slate-50 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
             <div className="lg:col-span-4">
-              <h2 className="text-4xl font-extrabold text-slate-900 mb-6">
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4 sm:mb-6">
                 Öğrenciler <br /> 
                 <span className="text-sky-600">Bize Güveniyor</span>
               </h2>
@@ -285,7 +323,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* ─── FAQ Section ─── */}
-      <section id="faq" className="py-24 lg:py-32 px-6 bg-white">
+      <section id="faq" className="py-16 sm:py-24 lg:py-32 px-6 bg-white">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16 animate-slide-up">
             <h2 className="text-3xl lg:text-4xl font-extrabold text-slate-900 mb-4">Sıkça Sorulan Sorular</h2>
@@ -310,16 +348,16 @@ export const LandingPage: React.FC = () => {
 
       {/* ─── CTA Section ─── */}
       <section className="py-24 px-6">
-        <div className="max-w-6xl mx-auto relative bg-slate-900 rounded-[3rem] overflow-hidden p-12 lg:p-24 text-center">
+        <div className="max-w-6xl mx-auto relative bg-slate-900 rounded-3xl sm:rounded-[3rem] overflow-hidden p-8 sm:p-12 lg:p-24 text-center">
           {/* Decorative shapes */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/20 rounded-full blur-3xl -z-0" />
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -z-0" />
           
           <div className="relative z-10">
-            <h2 className="text-4xl lg:text-6xl font-extrabold text-white mb-8 tracking-tight">
-              Kampüs Hayatını <br /> Bugün Değiştir.
+            <h2 className="text-3xl sm:text-4xl lg:text-6xl font-extrabold text-white mb-6 sm:mb-8 tracking-tight">
+              Kampüs Hayatını <br className="hidden sm:block" /> Bugün Değiştir.
             </h2>
-            <p className="text-sky-100/60 text-lg lg:text-xl mb-12 max-w-2xl mx-auto font-medium">
+            <p className="text-sky-100/60 text-base sm:text-lg lg:text-xl mb-10 sm:mb-12 max-w-2xl mx-auto font-medium">
               Sadece birkaç dakika içinde üye ol ve üniversitenin dijital dünyasına adım at. Üstelik tamamen ücretsiz.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">

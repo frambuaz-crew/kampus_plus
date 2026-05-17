@@ -152,19 +152,19 @@ export const NewDashboard: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-6 py-10 max-w-7xl relative z-10">
-        <header className="mb-10 animate-fade-in">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-px w-8 bg-sky-500/50" />
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-10 max-w-7xl relative z-10">
+        <header className="mb-8 sm:mb-10 animate-fade-in">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+            <div className="h-px w-6 sm:w-8 bg-sky-500/50" />
             <span className="text-[10px] font-black text-sky-600 uppercase tracking-[0.3em]">Hızlı Bakış</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight mb-2">
             Hoş geldin, <span className="text-gradient">{firstName}</span>! 👋
           </h1>
         </header>
 
         {/* ─── Quick Stats (Grid of 3) ─── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
           {[
             {
               label: 'Pazar İlanlarım',
@@ -194,26 +194,26 @@ export const NewDashboard: React.FC = () => {
             <Card
               key={idx}
               onClick={() => navigate(s.route)}
-              className="group p-7 rounded-[2.5rem] border-none bg-white shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-sky-200/30 transition-all duration-500 cursor-pointer overflow-hidden relative"
+              className="group p-5 sm:p-7 rounded-[2rem] sm:rounded-[2.5rem] border-none bg-white shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-sky-200/30 transition-all duration-500 cursor-pointer overflow-hidden relative"
             >
-              <div className="flex items-center justify-between mb-5 relative z-10">
-                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", s.color)}>
-                  {React.cloneElement(s.icon as React.ReactElement, { className: "w-6 h-6" })}
+              <div className="flex items-center justify-between mb-4 sm:mb-5 relative z-10">
+                <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110", s.color)}>
+                  {React.cloneElement(s.icon as React.ReactElement, { className: "w-5 h-5 sm:w-6 sm:h-6" })}
                 </div>
                 <ArrowRight className="w-5 h-5 text-slate-300 transition-transform group-hover:translate-x-1" />
               </div>
               <div className="relative z-10">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{s.label}</p>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-1 truncate">{s.value}</h3>
-                <p className="text-xs font-bold text-slate-400 italic">{s.sub}</p>
+                <p className="text-[10px] sm:text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1 sm:mb-1.5">{s.label}</p>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mb-1 truncate">{s.value}</h3>
+                <p className="text-[10px] sm:text-xs font-bold text-slate-400 italic">{s.sub}</p>
               </div>
-              <div className={cn("absolute -bottom-4 -right-4 w-20 h-20 rounded-full blur-3xl opacity-20", s.color.split(' ')[1].replace('text-', 'bg-'))} />
+              <div className={cn("absolute -bottom-4 -right-4 w-16 h-16 sm:w-20 sm:h-20 rounded-full blur-2xl sm:blur-3xl opacity-20", s.color.split(' ')[1].replace('text-', 'bg-'))} />
             </Card>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-slide-up delay-200">
-          <div className="lg:col-span-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 animate-slide-up delay-200">
+          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
             <h2 className="text-2xl font-black text-slate-900 mb-2">Kampüs <span className="text-sky-600">Akışı</span></h2>
             {loading ? (
               <div className="space-y-4">
@@ -240,24 +240,24 @@ export const NewDashboard: React.FC = () => {
           </div>
 
           {/* ─── Right Widgets ─── */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="lg:col-span-4 space-y-4 sm:space-y-6">
             {/* Upcoming Events */}
-            <Card className="p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border-none bg-white">
-              <div className="flex items-center justify-between mb-8">
+            <Card className="p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] shadow-xl shadow-slate-200/50 border-none bg-white">
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
                 <h4 className="font-black text-slate-900">Yaklaşanlar</h4>
                 <Button variant="ghost" className="text-sky-600 font-black text-[10px] tracking-widest uppercase hover:bg-sky-50" onClick={() => navigate('/dashboard/academic-calendar')}>
                   TÜMÜ <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {upcomingEvents.length > 0 ? (
                   upcomingEvents.slice(0, 3).map((event) => {
                     const { day, month } = formatEventDate(event.start_date);
                     return (
-                      <div key={event.id} className="group flex items-center gap-5 cursor-pointer" onClick={() => navigate('/dashboard/academic-calendar')}>
-                        <div className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-slate-50 group-hover:bg-sky-500 transition-colors">
-                          <span className="text-lg font-black text-slate-900 group-hover:text-white leading-none">{day}</span>
-                          <span className="text-[10px] font-black text-slate-400 group-hover:text-sky-100 uppercase mt-1">{month}</span>
+                      <div key={event.id} className="group flex items-center gap-4 sm:gap-5 cursor-pointer" onClick={() => navigate('/dashboard/academic-calendar')}>
+                        <div className="flex flex-col items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-slate-50 group-hover:bg-sky-500 transition-colors">
+                          <span className="text-base sm:text-lg font-black text-slate-900 group-hover:text-white leading-none">{day}</span>
+                          <span className="text-[9px] sm:text-[10px] font-black text-slate-400 group-hover:text-sky-100 uppercase mt-0.5 sm:mt-1">{month}</span>
                         </div>
                         <div className="flex-1">
                           <h5 className="text-sm font-black text-slate-900 group-hover:text-sky-600 transition-colors line-clamp-1">{event.title}</h5>
@@ -278,7 +278,7 @@ export const NewDashboard: React.FC = () => {
             {semesterInfo && (() => {
               const { percent, daysLeft } = computeSemesterProgress(semesterInfo);
               return (
-                <Card className="p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border-none bg-white group">
+                <Card className="p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] shadow-xl shadow-slate-200/50 border-none bg-white group">
                   <div className="flex items-center justify-between mb-6">
                     <h4 className="font-black text-slate-900">{semesterInfo.title}</h4>
                     <Badge className="bg-sky-50 text-sky-600 border-none px-3 py-1 font-bold text-[10px]">AKTİF DÖNEM</Badge>
@@ -302,8 +302,8 @@ export const NewDashboard: React.FC = () => {
             })()}
 
             {/* AI Assistant Card */}
-            <Card className="p-1 rounded-[2.5rem] bg-gradient-to-br from-sky-500 via-indigo-500 to-purple-600 shadow-xl shadow-indigo-200/40 border-none group overflow-hidden">
-              <div className="bg-white rounded-[2.3rem] p-7 h-full">
+            <Card className="p-1 rounded-[2rem] sm:rounded-[2.5rem] bg-gradient-to-br from-sky-500 via-indigo-500 to-purple-600 shadow-xl shadow-indigo-200/40 border-none group overflow-hidden">
+              <div className="bg-white rounded-[1.8rem] sm:rounded-[2.3rem] p-5 sm:p-7 h-full">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center shadow-lg shadow-sky-100">
                     <Bot className="w-6 h-6 text-white" />
@@ -334,7 +334,7 @@ export const NewDashboard: React.FC = () => {
             </Card>
 
             {/* Course Notes CTA */}
-            <Card className="p-8 rounded-[2.5rem] bg-slate-900 text-white border-none shadow-2xl shadow-slate-900/20 group relative overflow-hidden">
+            <Card className="p-6 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] bg-slate-900 text-white border-none shadow-2xl shadow-slate-900/20 group relative overflow-hidden">
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
@@ -371,12 +371,12 @@ function ForumFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: strin
 
   return (
     <Card
-      className="p-6 bg-white hover:shadow-2xl hover:shadow-sky-100/50 transition-all duration-300 rounded-[2rem] border-none group cursor-pointer"
+      className="p-5 sm:p-6 bg-white hover:shadow-2xl hover:shadow-sky-100/50 transition-all duration-300 rounded-[1.5rem] sm:rounded-[2rem] border-none group cursor-pointer"
       onClick={() => navigate(`/dashboard/forum/${item.id}`)}
     >
-      <div className="flex items-start gap-4 mb-4">
-        <Avatar className="h-12 w-12 shrink-0 rounded-2xl shadow-sm ring-4 ring-slate-50 transition-transform group-hover:scale-105">
-          <AvatarFallback className="text-sm font-black bg-sky-100 text-sky-600 rounded-2xl">{initial}</AvatarFallback>
+      <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
+        <Avatar className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 rounded-xl sm:rounded-2xl shadow-sm ring-4 ring-slate-50 transition-transform group-hover:scale-105">
+          <AvatarFallback className="text-sm font-black bg-sky-100 text-sky-600 rounded-xl sm:rounded-2xl">{initial}</AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0 pt-1">
             <div className="flex items-center gap-3 mb-1">
@@ -392,9 +392,9 @@ function ForumFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: strin
         </div>
       </div>
 
-      <h4 className="font-black text-lg mb-4 line-clamp-2 text-slate-800 group-hover:text-sky-600 transition-colors leading-snug">{item.title}</h4>
+      <h4 className="font-black text-base sm:text-lg mb-3 sm:mb-4 line-clamp-2 text-slate-800 group-hover:text-sky-600 transition-colors leading-snug">{item.title}</h4>
 
-      <div className="flex items-center justify-between pt-5 border-t border-slate-50">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 pt-4 sm:pt-5 border-t border-slate-50">
         <div className="flex flex-wrap gap-2">
           {tags.slice(0, 2).map((tag) => (
             <span key={tag} className="text-[10px] font-black px-3 py-1 rounded-lg bg-slate-50 text-slate-500 border border-slate-100 uppercase tracking-tighter">
@@ -418,11 +418,11 @@ function MarketplaceFeedCard({ item, navigate }: { item: FeedItem; navigate: (p:
 
   return (
     <Card
-      className="p-5 bg-white hover:shadow-2xl hover:shadow-amber-100/50 transition-all duration-300 rounded-[2rem] border-none group cursor-pointer overflow-hidden"
+      className="p-4 sm:p-5 bg-white hover:shadow-2xl hover:shadow-amber-100/50 transition-all duration-300 rounded-[1.5rem] sm:rounded-[2rem] border-none group cursor-pointer overflow-hidden"
       onClick={() => navigate(`/dashboard/marketplace/${item.id}`)}
     >
-      <div className="flex gap-6">
-        <div className="w-28 h-28 rounded-[1.5rem] bg-slate-50 overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+        <div className="w-full sm:w-28 h-40 sm:h-28 rounded-[1.2rem] sm:rounded-[1.5rem] bg-slate-50 overflow-hidden shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-500">
           {imageUrl ? (
             <img src={imageUrl} alt={item.title} className="w-full h-full object-cover" />
           ) : (
@@ -431,7 +431,7 @@ function MarketplaceFeedCard({ item, navigate }: { item: FeedItem; navigate: (p:
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-1 sm:py-1">
           <div>
             <div className="flex items-start justify-between gap-2 mb-2">
               {item.price && (
@@ -466,7 +466,7 @@ function CareerFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: stri
 
   return (
     <Card
-      className="p-7 bg-white hover:shadow-2xl hover:shadow-indigo-100/50 transition-all duration-300 rounded-[2rem] border-none group cursor-pointer relative overflow-hidden"
+      className="p-5 sm:p-7 bg-white hover:shadow-2xl hover:shadow-indigo-100/50 transition-all duration-300 rounded-[1.5rem] sm:rounded-[2rem] border-none group cursor-pointer relative overflow-hidden"
       onClick={() => navigate(`/dashboard/career/${item.id}`)}
     >
       {/* Decorative tag */}
@@ -507,14 +507,14 @@ function CareerFeedCard({ item, navigate }: { item: FeedItem; navigate: (p: stri
         )}
       </div>
 
-      <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-5 sm:pt-6 border-t border-slate-50">
         <div className="flex items-center gap-2">
           <Avatar className="h-6 w-6 rounded-lg">
             <AvatarFallback className="text-[10px] font-black bg-slate-100 text-slate-500 rounded-lg">{item.author_name[0]}</AvatarFallback>
           </Avatar>
           <span className="text-xs font-bold text-slate-400 italic">Yayınlayan: {item.author_name}</span>
         </div>
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg active:scale-95">
+        <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg active:scale-95">
           <MessageSquare className="h-3.5 w-3.5" />
           ŞİMDİ BAŞVUR
         </button>
