@@ -120,6 +120,7 @@ const markdownComponents = {
 export const AIAssistantPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [remaining, setRemaining] = useState<number>(50);
+  const [now, setNow] = useState<number>(Date.now());
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ConversationSummary[]>([]);
   const [activeSession, setActiveSession] = useState<string | null>(null);
@@ -138,6 +139,12 @@ export const AIAssistantPage: React.FC = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // live tick to refresh relative times
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   // ── Load current conversation on mount ───────────────────────────────────
   const loadConversation = useCallback(async () => {
     setLoading(true);
@@ -145,7 +152,21 @@ export const AIAssistantPage: React.FC = () => {
     try {
       const res = await apiClient.get('/ai/conversation');
       const data = res.data;
-      setMessages(data.messages || []);
+      // Normalize seeded messages to seed_reset_at so they appear recent on each login
+      const seedReset = localStorage.getItem('seed_reset_at');
+      let msgs: Message[] = Array.isArray(data.messages) ? data.messages : [];
+      if (seedReset && msgs.length > 0) {
+        msgs = msgs.map((m, idx) => {
+          try {
+            const orig = new Date(m.created_at).getTime();
+            if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+              return { ...m, created_at: new Date(new Date(seedReset).getTime() + idx * 1000).toISOString() };
+            }
+          } catch {}
+          return m;
+        });
+      }
+      setMessages(msgs);
       setRemaining(data.remaining_messages ?? 50);
       if (data.conversation_id) {
         setConversationId(data.conversation_id);
@@ -204,12 +225,23 @@ export const AIAssistantPage: React.FC = () => {
       // Replace temp + add AI response
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== tempId),
-        {
-          id: data.user_message.id,
-          role: 'user',
-          content: data.user_message.content,
-          created_at: data.user_message.created_at,
-        },
+        // Prefer temp timestamp if server time is older than temp by >5s
+        (() => {
+          const userMsg = {
+            id: data.user_message.id,
+            role: 'user' as const,
+            content: data.user_message.content,
+            created_at: data.user_message.created_at,
+          };
+          try {
+            const serverTime = new Date(data.user_message.created_at).getTime();
+            const tempTime = new Date(tempId.replace('temp-', '') ? Number(tempId.replace('temp-', '')) : Date.now()).getTime();
+            if (!Number.isNaN(serverTime) && !Number.isNaN(tempTime) && tempTime - serverTime > 5000) {
+              userMsg.created_at = new Date(tempTime).toISOString();
+            }
+          } catch {}
+          return userMsg;
+        })(),
         {
           id: data.assistant_message.id,
           role: 'assistant',

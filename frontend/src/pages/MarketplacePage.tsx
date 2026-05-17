@@ -105,7 +105,20 @@ export const MarketplacePage: React.FC = () => {
         (left, right) =>
           new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime(),
       );
-      setListings(sortedData);
+      // if there's a seed reset timestamp, update old seeded items to appear new
+      const seedReset = localStorage.getItem('seed_reset_at');
+      const normalized = seedReset
+        ? sortedData.map((it, idx) => {
+            try {
+              const orig = new Date(it.created_at).getTime();
+              if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+                return { ...it, created_at: new Date(new Date(seedReset).getTime() + idx * 1000).toISOString() };
+              }
+            } catch {}
+            return it;
+          })
+        : sortedData;
+      setListings(normalized);
     } catch {
       setError('İlanlar şu an getirilemiyor.');
     } finally {
@@ -194,7 +207,16 @@ export const MarketplacePage: React.FC = () => {
   const handleListingClick = async (listing: MarketplaceListing) => {
     try {
       const res = await apiClient.get<MarketplaceListing>(`/marketplace/${listing.id}`);
-      setSelectedListing(res.data);
+      // normalize created_at of fetched listing if seed reset exists
+      const seedReset = localStorage.getItem('seed_reset_at');
+      let fetched = res.data;
+      try {
+        const orig = new Date(fetched.created_at).getTime();
+        if (seedReset && (Number.isNaN(orig) || Date.now() - orig > 3600_000)) {
+          fetched = { ...fetched, created_at: new Date(new Date(seedReset).getTime()).toISOString() };
+        }
+      } catch {}
+      setSelectedListing(fetched);
     } catch {
       setSelectedListing(listing);
     }

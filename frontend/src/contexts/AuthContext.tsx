@@ -50,6 +50,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(userData);
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
+    // mark seed reset time so frontend can show seeded items as "just posted" on login
+    try { localStorage.setItem('seed_reset_at', new Date().toISOString()); } catch {}
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
 
     return userData;
@@ -64,6 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(userData);
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
+    try { localStorage.setItem('seed_reset_at', new Date().toISOString()); } catch {}
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
 
     return userData;

@@ -169,6 +169,15 @@ def _is_new_utc_day(last_reset: Optional[datetime]) -> bool:
 	return last_reset.date() != today_utc
 
 
+def _ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
+	"""Ensure naive datetimes are treated as UTC (attach tzinfo=UTC)."""
+	if dt is None:
+		return None
+	if dt.tzinfo is None:
+		return dt.replace(tzinfo=timezone.utc)
+	return dt
+
+
 async def _get_user_daily_usage_state(
 	session: AsyncSession,
 	user_id: str,
@@ -299,7 +308,7 @@ async def get_conversation(
 			role=record.role,
 			content=record.content,
 			references=record.references,
-			created_at=record.created_at,
+			created_at=_ensure_utc(record.created_at),
 		)
 		for record in records
 	]
@@ -342,8 +351,8 @@ async def list_conversations(
 			ConversationSummaryResponse(
 				id=convo.id,
 				title=convo.title or "Yeni Sohbet",
-				created_at=convo.created_at,
-				updated_at=convo.updated_at,
+				created_at=_ensure_utc(convo.created_at),
+				updated_at=_ensure_utc(convo.updated_at),
 				last_message_preview=last_msg[:100] + "..." if last_msg and len(last_msg) > 100 else last_msg
 			)
 		)

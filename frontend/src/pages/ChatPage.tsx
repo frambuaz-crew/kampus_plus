@@ -25,6 +25,7 @@ export const ChatPage: React.FC = () => {
   const [chatReloadKey, setChatReloadKey] = useState(0);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [now, setNow] = useState<number>(Date.now());
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -33,7 +34,21 @@ export const ChatPage: React.FC = () => {
     try {
       setLoadingHistory(true);
       const res = await apiClient.get<ConversationSummary[]>('/ai/conversations');
-      setConversations(res.data);
+      // Normalize seeded conversation updated_at timestamps so list shows recent times after login
+      const seedReset = localStorage.getItem('seed_reset_at');
+      let convos: ConversationSummary[] = Array.isArray(res.data) ? res.data : [];
+      if (seedReset && convos.length > 0) {
+        convos = convos.map((c, idx) => {
+          try {
+            const orig = new Date(c.updated_at).getTime();
+            if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+              return { ...c, updated_at: new Date(new Date(seedReset).getTime() + idx * 1000).toISOString() };
+            }
+          } catch {}
+          return c;
+        });
+      }
+      setConversations(convos);
     } catch (err) {
       console.error('Sohbet geçmişi yüklenemedi:', err);
     } finally {
@@ -44,6 +59,12 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  // Tick to refresh relative timestamps in the conversation list
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const handleNewChat = () => {
     setActiveConversationId(null);

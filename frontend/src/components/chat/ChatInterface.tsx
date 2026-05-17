@@ -84,6 +84,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [now, setNow] = useState<number>(Date.now());
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [remainingMessages, setRemainingMessages] = useState<number | null>(null);
@@ -94,6 +95,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     loadInitialChatData();
   }, [reloadKey]);
+
+  // Update `now` periodically so relative timestamps re-render live
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -112,7 +119,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       setRemainingMessages(remainingRes.data.remaining ?? 50);
       setConversationId(conversationRes.data.conversation_id ?? null);
-      setMessages(Array.isArray(conversationRes.data.messages) ? conversationRes.data.messages : []);
+      // Normalize seeded messages' created_at to seed_reset_at when applicable
+      const seedReset = localStorage.getItem('seed_reset_at');
+      let loadedMessages: ChatMessage[] = Array.isArray(conversationRes.data.messages) ? conversationRes.data.messages : [];
+      if (seedReset && loadedMessages.length > 0) {
+        loadedMessages = loadedMessages.map((m, idx) => {
+          try {
+            const orig = new Date(m.created_at).getTime();
+            if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+              return { ...m, created_at: new Date(new Date(seedReset).getTime() + idx * 1000).toISOString() };
+            }
+          } catch {}
+          return m;
+        });
+      }
+      setMessages(loadedMessages);
     } catch (err) {
       console.error('AI sohbet verileri yüklenemedi:', err);
       setError('Sohbet yüklenemedi. Lütfen sayfayı yenileyip tekrar deneyin.');
@@ -168,9 +189,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       // Replace temp message with real messages from API
       setMessages((prev) => {
         const withoutTemp = prev.filter((m) => m.id !== tempUserMessage.id);
+        const serverUser = response.data.user_message;
+        // If server timestamp is older than our temp by >5s, prefer temp timestamp
+        try {
+          const serverTime = new Date(serverUser.created_at).getTime();
+          const tempTime = new Date(tempUserMessage.created_at).getTime();
+          if (!Number.isNaN(serverTime) && !Number.isNaN(tempTime) && tempTime - serverTime > 5000) {
+            serverUser.created_at = tempUserMessage.created_at;
+          }
+        } catch {}
+
         return [
           ...withoutTemp,
-          response.data.user_message,
+          serverUser,
           response.data.assistant_message,
         ];
       });

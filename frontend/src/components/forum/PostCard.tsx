@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { formatRelativeTimeTr } from '../../utils/dateUtils';
 import { Heart, MessageSquare, MoreHorizontal, Calendar, X, Edit3, Trash2, Flag } from 'lucide-react';
 import type { ThreadListItem } from '../../types/forum';
 import { ImageLightbox } from './ImageLightbox';
@@ -61,7 +62,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         ? post.author.first_name[0] + (post.author.last_name?.[0] || '')
         : post.author?.username?.[0] || 'U';
 
-    const timeAgo = formatDistanceToNow(parseUtcDate(post.created_at), { addSuffix: true, locale: tr });
+    const timeAgo = formatRelativeTimeTr(post.created_at);
 
     // Menü dışına tıklayınca kapat
     useEffect(() => {

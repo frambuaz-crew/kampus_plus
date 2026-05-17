@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { formatRelativeTimeTr } from '../../utils/dateUtils';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, MessageCircle, Trash2, MapPin, Tag, Heart } from 'lucide-react';
 import type { MarketplaceCreator, MarketplaceListing } from '../../types/marketplace';
@@ -78,9 +79,7 @@ export const ListingDetailView: React.FC<ListingDetailViewProps> = ({
     : listing.seller_name || 'İlan Sahibi';
   const sellerInitial = sellerName[0]?.toUpperCase() || 'U';
 
-  const timeAgo = listing.created_at
-    ? formatDistanceToNow(new Date(listing.created_at.endsWith('Z') ? listing.created_at : `${listing.created_at}Z`), { addSuffix: true, locale: tr })
-    : '';
+  const timeAgo = listing.created_at ? formatRelativeTimeTr(listing.created_at) : '';
 
   return (
     <div className="max-w-5xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

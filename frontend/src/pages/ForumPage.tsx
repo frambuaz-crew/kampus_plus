@@ -55,7 +55,21 @@ export const ForumPage: React.FC = () => {
         sort: 'newest',
         scope: scopeFilter === 'university' ? 'university' : undefined,
       });
-      setThreads(res.topics || []);
+      // normalize seeded/old topics to appear fresh on login
+      const seedReset = localStorage.getItem('seed_reset_at');
+      const topics = res.topics || [];
+      const normalized = seedReset
+        ? (topics || []).map((t, idx) => {
+            try {
+              const orig = new Date(t.created_at).getTime();
+              if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+                return { ...t, created_at: new Date(new Date(seedReset).getTime() + idx * 1000).toISOString() };
+              }
+            } catch {}
+            return t;
+          })
+        : topics;
+      setThreads(normalized);
     } catch {
       setError('Akış yüklenemedi.');
     } finally {
@@ -86,7 +100,28 @@ export const ForumPage: React.FC = () => {
           setLoading(true);
           setError(null);
           const res = await getForumTopicDetail(id);
-          setCurrentThread({ thread: res.topic, replies: res.replies });
+          // normalize topic + replies created_at based on seed_reset_at
+          const seedReset = localStorage.getItem('seed_reset_at');
+          let topic = res.topic;
+          let replies = res.replies || [];
+          if (seedReset) {
+            try {
+              const orig = new Date(topic.created_at).getTime();
+              if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+                topic = { ...topic, created_at: new Date(new Date(seedReset).getTime()).toISOString() };
+              }
+            } catch {}
+            replies = replies.map((r, idx) => {
+              try {
+                const origR = new Date(r.created_at).getTime();
+                if (Number.isNaN(origR) || Date.now() - origR > 3600_000) {
+                  return { ...r, created_at: new Date(new Date(seedReset).getTime() + (idx + 1) * 1000).toISOString() };
+                }
+              } catch {}
+              return r;
+            });
+          }
+          setCurrentThread({ thread: topic, replies });
           setAutoOpenReply(false);
           setView('thread-detail');
         } catch {
@@ -112,7 +147,20 @@ export const ForumPage: React.FC = () => {
         sort: 'newest',
         scope: scopeFilter === 'university' ? 'university' : undefined,
       });
-      setThreads(res.topics || []);
+      const seedReset = localStorage.getItem('seed_reset_at');
+      const topics = res.topics || [];
+      const normalized = seedReset
+        ? (topics || []).map((t, idx) => {
+            try {
+              const orig = new Date(t.created_at).getTime();
+              if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+                return { ...t, created_at: new Date(new Date(seedReset).getTime() + idx * 1000).toISOString() };
+              }
+            } catch {}
+            return t;
+          })
+        : topics;
+      setThreads(normalized);
       setView('feed');
       if (id) {
         navigate('/dashboard/forum', { replace: true });
@@ -129,7 +177,27 @@ export const ForumPage: React.FC = () => {
       setLoading(true);
       setError(null);
       const res = await getForumTopicDetail(threadId);
-      setCurrentThread({ thread: res.topic, replies: res.replies });
+      const seedReset = localStorage.getItem('seed_reset_at');
+      let topic = res.topic;
+      let replies = res.replies || [];
+      if (seedReset) {
+        try {
+          const orig = new Date(topic.created_at).getTime();
+          if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+            topic = { ...topic, created_at: new Date(new Date(seedReset).getTime()).toISOString() };
+          }
+        } catch {}
+        replies = replies.map((r, idx) => {
+          try {
+            const origR = new Date(r.created_at).getTime();
+            if (Number.isNaN(origR) || Date.now() - origR > 3600_000) {
+              return { ...r, created_at: new Date(new Date(seedReset).getTime() + (idx + 1) * 1000).toISOString() };
+            }
+          } catch {}
+          return r;
+        });
+      }
+      setCurrentThread({ thread: topic, replies });
       setAutoOpenReply(action === 'comment');
       setView('thread-detail');
       if (id !== threadId) {
@@ -166,7 +234,27 @@ export const ForumPage: React.FC = () => {
       setError(null);
       await createForumReply(currentThread.thread.id, { content: data.content, parent_id: data.parent_id });
       const refreshed = await getForumTopicDetail(currentThread.thread.id);
-      setCurrentThread({ thread: refreshed.topic, replies: refreshed.replies });
+      const seedReset = localStorage.getItem('seed_reset_at');
+      let topic = refreshed.topic;
+      let replies = refreshed.replies || [];
+      if (seedReset) {
+        try {
+          const orig = new Date(topic.created_at).getTime();
+          if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+            topic = { ...topic, created_at: new Date(new Date(seedReset).getTime()).toISOString() };
+          }
+        } catch {}
+        replies = replies.map((r, idx) => {
+          try {
+            const origR = new Date(r.created_at).getTime();
+            if (Number.isNaN(origR) || Date.now() - origR > 3600_000) {
+              return { ...r, created_at: new Date(new Date(seedReset).getTime() + (idx + 1) * 1000).toISOString() };
+            }
+          } catch {}
+          return r;
+        });
+      }
+      setCurrentThread({ thread: topic, replies });
     } catch {
       setError('Cevap gönderilemedi.');
     } finally {

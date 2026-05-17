@@ -1029,7 +1029,20 @@ export const CareerPage: React.FC = () => {
         if (batch.length < pageSize) break;
         page++;
       }
-      setListings(all);
+      // normalize seeded/old listings if seed reset timestamp exists
+      const seedReset = localStorage.getItem('seed_reset_at');
+      const normalized = seedReset
+        ? all.map((it, idx) => {
+            try {
+              const orig = new Date(it.created_at).getTime();
+              if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+                return { ...it, created_at: new Date(new Date(seedReset).getTime() + idx * 1000).toISOString() };
+              }
+            } catch {}
+            return it;
+          })
+        : all;
+      setListings(normalized);
     } catch {
       setError('İlanlar yüklenemedi. Lütfen daha sonra tekrar deneyin.');
       setListings([]);
@@ -1038,15 +1051,17 @@ export const CareerPage: React.FC = () => {
 
   const loadFavorites = useCallback(async () => {
     try {
-      const response = await apiClient.get("/users/favorites/all");
+      const response = await apiClient.get('/users/favorites/all');
       if (response.data && response.data.favorites) {
-        const ids = new Set(response.data.favorites.map((f: FavoriteRecord) => f.target_id));
+        const ids = new Set<string>(response.data.favorites.map((f: FavoriteRecord) => f.target_id));
         setFavoriteIds(ids);
       }
-    } catch (error) {
-      console.error("Error loading favorites", error);
+    } catch (err) {
+      // ignore favorites loading errors silently
     }
   }, []);
+
+  
 
   const handleToggleFavorite = async (id: string) => {
     try {

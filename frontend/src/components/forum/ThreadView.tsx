@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { MessageSquare, Trash2, Heart, CornerDownRight, Edit3, Flag, X, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import { formatRelativeTimeTr } from '../../utils/dateUtils';
 import { ReplyForm } from './ReplyForm';
 import { PostCard } from './PostCard';
 import type { ForumReply, ThreadWithReplies } from '../../types/forum';
@@ -49,7 +50,7 @@ const ReplyCard: React.FC<{
     ? reply.author.first_name[0] + (reply.author.last_name?.[0] || '')
     : reply.author?.username?.[0] || 'U';
 
-  const timeAgo = formatDistanceToNow(parseUtcDate(reply.created_at), { addSuffix: true, locale: tr });
+  const timeAgo = formatRelativeTimeTr(reply.created_at);
 
   const handleLike = async () => {
     if (liking) return;

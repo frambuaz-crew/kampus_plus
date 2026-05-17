@@ -120,6 +120,26 @@ export const NewDashboard: React.FC = () => {
 
 
   const feed = dashboard?.recent_feed ?? [];
+  // If a seed reset timestamp exists (set on login), normalize seeded/old items' created_at
+  const seedReset = localStorage.getItem('seed_reset_at');
+  const normalizedFeed = React.useMemo(() => {
+    if (!seedReset) return feed;
+    const resetTime = new Date(seedReset).getTime();
+    // copy and adjust items older than 1 hour to appear as freshly posted at login time
+    return (feed || []).map((it, idx) => {
+      try {
+        const orig = new Date(it.created_at).getTime();
+        if (Number.isNaN(orig) || Date.now() - orig > 3600_000) {
+          // offset by index seconds to keep order stable
+          const adjusted = new Date(resetTime + idx * 1000).toISOString();
+          return { ...it, created_at: adjusted };
+        }
+      } catch {
+        // ignore
+      }
+      return it;
+    });
+  }, [feed, seedReset]);
   const semesterInfo = dashboard?.semester_info ?? null;
 
   // Filter events by user university
@@ -208,7 +228,7 @@ export const NewDashboard: React.FC = () => {
               </Card>
             ) : (
               <div className="space-y-4">
-                {feed.map((item) => (
+                {normalizedFeed.map((item) => (
                   <React.Fragment key={item.id}>
                     {item.type === 'forum' && <ForumFeedCard item={item} navigate={navigate} />}
                     {item.type === 'marketplace' && <MarketplaceFeedCard item={item} navigate={navigate} />}
