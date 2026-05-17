@@ -568,6 +568,13 @@ async def _upsert_user(session, email: str, defaults: dict) -> tuple[User, bool]
         if user.email != email:
             user.email = email
             changed = True
+        # Ensure name is updated if changed in seed script
+        if defaults.get("first_name") and user.first_name != defaults["first_name"]:
+            user.first_name = defaults["first_name"]
+            changed = True
+        if defaults.get("last_name") and user.last_name != defaults["last_name"]:
+            user.last_name = defaults["last_name"]
+            changed = True
         # Ensure university linkage is correct
         if defaults.get("university_id") and user.university_id != defaults["university_id"]:
             user.university_id = defaults["university_id"]
@@ -1018,9 +1025,41 @@ async def seed_users() -> None:
                 })
                 print(f"[{'OK' if created else '..'}] Super Admin: admin@{uni_info['ogr_domain']}")
 
+            # Unique user definitions based on university short name
+            name_map = {
+                "kgtu": {
+                    "admin": ("Buse", "Gürsoy"),
+                    "student": ("Kadir", "Aydın")
+                },
+                "ktun": {
+                    "admin": ("Ahmet", "Yılmaz"),
+                    "student": ("Mehmet", "Demir")
+                },
+                "karatay": {
+                    "admin": ("Kemal", "Kaya"),
+                    "student": ("Gizem", "Çelik")
+                },
+                "erbakan": {
+                    "admin": ("Nihan", "Eren"),
+                    "student": ("Emre", "Yıldız")
+                },
+                "selcuk": {
+                    "admin": ("Selin", "Şahin"),
+                    "student": ("Salih", "Koç")
+                }
+            }
+
+            uni_names = name_map.get(short, {
+                "admin": ("Ahmet", "Yılmaz"),
+                "student": ("Mehmet", "Demir")
+            })
+
+            admin_fname, admin_lname = uni_names["admin"]
+            student_fname, student_lname = uni_names["student"]
+
             # 1 university admin
             admin_defs = [
-                ("Ahmet", "Yılmaz", f"{short}_admin1", "4. Sınıf", dept1),
+                (admin_fname, admin_lname, f"{short}_admin1", "4. Sınıf", dept1),
             ]
             for fname, lname, uname, grade, dept in admin_defs:
                 email = f"{uname}@{uni_info['ogr_domain']}"
@@ -1043,7 +1082,7 @@ async def seed_users() -> None:
 
             # 1 student
             student_defs = [
-                ("Mehmet", "Demir", f"{short}_student1", "3. Sınıf", dept1),
+                (student_fname, student_lname, f"{short}_student1", "3. Sınıf", dept1),
             ]
             for fname, lname, uname, grade, dept in student_defs:
                 email = f"{uname}@{uni_info['ogr_domain']}"

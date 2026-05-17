@@ -137,8 +137,8 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
     # ------------------------------------------------------------------ #
     #  Zaman aşımı sabitleri
     # ------------------------------------------------------------------ #
-    LLM_REQUEST_TIMEOUT = 40   # saniye – tek Gemini isteği için hard limit
-    QUERY_TOTAL_TIMEOUT = 60   # saniye – tüm agent döngüsü için hard limit
+    LLM_REQUEST_TIMEOUT = 10   # saniye – tek Gemini isteği için hard limit (web için güvenli)
+    QUERY_TOTAL_TIMEOUT = 12   # saniye – tüm agent döngüsü için hard limit (web için güvenli)
 
     def __init__(self, vector_service: Optional[VectorStoreService] = None):
         """AI servisini başlat."""
@@ -533,7 +533,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             min_price: Optional[float] = None,
             max_price: Optional[float] = None,
         ) -> str:
-            """Aktif pazar yeri ilanlarını veritabanından getirir."""
+            """Aktif pazar yeri ilanlarını veritabanından getirir (Üniversiteler arası alışveriş destekli)."""
             if db is None:
                 return "Veritabanı bağlantısı mevcut değil."
             if not user_ctx or not user_ctx.university_id:
@@ -547,8 +547,10 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 .join(User, MarketplaceListing.seller_id == User.id)
                 .outerjoin(MarketplaceCategory, MarketplaceListing.category_id == MarketplaceCategory.id)
                 .where(MarketplaceListing.status == "active")
-                .where(User.university_id == user_ctx.university_id)
-                .options(selectinload(MarketplaceListing.category_rel))
+                .options(
+                    selectinload(MarketplaceListing.category_rel),
+                    selectinload(MarketplaceListing.seller),
+                )
             )
 
             kw = (category_keyword or "").strip()
@@ -585,9 +587,10 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
             for lst in listings:
                 category_name = lst.category_rel.name if lst.category_rel else "Kategorisiz"
                 price_str = f"{lst.price:.2f}".rstrip("0").rstrip(".")
+                uni_name = lst.seller.university if lst.seller else "Genel"
                 rows.append(
                     f"- [{lst.title}](/dashboard/marketplace/{lst.id}) "
-                    f"| Kategori: {category_name} | Fiyat: {price_str} TL | Durum: {lst.condition}"
+                    f"| Üniversite: {uni_name} | Kategori: {category_name} | Fiyat: {price_str} TL | Durum: {lst.condition}"
                 )
             return f"Aktif ilanlar ({len(listings)} sonuç):\n" + "\n".join(rows)
 
@@ -761,7 +764,10 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
 
             # ---- JSON ayrıştırma ----------------------------------------- #
             try:
-                raw_data: Dict[str, Any] = json.loads(schedule.schedule_data)
+                if isinstance(schedule.schedule_data, dict):
+                    raw_data = schedule.schedule_data
+                else:
+                    raw_data = json.loads(schedule.schedule_data)
             except (json.JSONDecodeError, TypeError):
                 return "Ders programı verisi okunamadı (bozuk format). Lütfen yöneticiyle iletişime geç."
 
@@ -1095,7 +1101,7 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 select(CareerListing)
                 .join(User, CareerListing.posted_by == User.id)
                 .where(CareerListing.status == "active")
-                .where(User.university_id == user_ctx.university_id)
+                .options(selectinload(CareerListing.posted_by_user))
             )
 
             kw = (keyword or "").strip()
@@ -1142,9 +1148,12 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 type_label = _TYPE_LABELS.get(lst.type, lst.type)
                 remote_tag = " 🌐 Uzaktan" if lst.is_remote else ""
                 location = f" | 📍 {lst.location}" if lst.location else ""
+                uni_tag = ""
+                if lst.posted_by_user and lst.posted_by_user.university:
+                    uni_tag = f" | 🏫 {lst.posted_by_user.university}"
                 rows.append(
                     f"- [{lst.title} — {company}](/dashboard/career/{lst.id}) "
-                    f"| Tür: {type_label}{remote_tag}{location}"
+                    f"| Tür: {type_label}{remote_tag}{location}{uni_tag}"
                 )
             return f"Kariyer ilanları ({len(listings)} sonuç):\n" + "\n".join(rows)
 
@@ -1532,46 +1541,95 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                 handle_parsing_errors=True,
             )
 
-            # ---- 4. Agent çalıştırma (timeout korumalı) -------------- #
-            try:
-                result = await asyncio.wait_for(
-                    executor.ainvoke({"input": question, "chat_history": chat_history}),
-                    timeout=self.QUERY_TOTAL_TIMEOUT,
-                )
-                answer: str = result.get("output", "")
+            # ---- 4. Agent çalıştırma (timeout korumalı & kendi kendini iyileştiren retry) ---- #
+            max_retries = 3
+            retry_count = 0
+            answer = ""
 
-            except asyncio.TimeoutError:
-                logger.error(
-                    "AI agent zaman aşımına uğradı (%ss, model: %s, soru: %s karakter)",
-                    self.QUERY_TOTAL_TIMEOUT, self._active_model, len(question or ""),
-                )
-                raise
-
-            except Exception as model_error:
-                fallback = "gemini-2.5-flash"
-                if self._is_model_not_found_error(model_error) and self._active_model != fallback:
-                    logger.warning(
-                        "Model hatası, yedek modele geçildi (%s → %s): %s",
-                        self._active_model, fallback, repr(model_error),
-                    )
-                    self._active_model = fallback
-                    self.llm = self._create_llm(self._active_model)
-                    # Yeni LLM ile aynı araçlar ve prompt
-                    fb_agent = create_tool_calling_agent(self.llm, tools, prompt)
-                    fb_executor = AgentExecutor(
-                        agent=fb_agent,
-                        tools=tools,
-                        verbose=False,
-                        max_iterations=5,
-                        handle_parsing_errors=True,
-                    )
+            while retry_count < max_retries:
+                try:
                     result = await asyncio.wait_for(
-                        fb_executor.ainvoke({"input": question, "chat_history": chat_history}),
+                        executor.ainvoke({"input": question, "chat_history": chat_history}),
                         timeout=self.QUERY_TOTAL_TIMEOUT,
                     )
                     answer = result.get("output", "")
-                else:
+                    break  # Başarılı, döngüden çık
+
+                except asyncio.TimeoutError:
+                    logger.error(
+                        "AI agent zaman aşımına uğradı (%ss, model: %s, soru: %s karakter)",
+                        self.QUERY_TOTAL_TIMEOUT, self._active_model, len(question or ""),
+                    )
                     raise
+
+                except Exception as model_error:
+                    err_str = str(model_error).lower()
+                    is_rate_limit = (
+                        "quota" in err_str or
+                        "resource_exhausted" in err_str or
+                        "429" in err_str or
+                        "limit" in err_str or
+                        "exhausted" in err_str
+                    )
+
+                    # 1. Kota aşımı hatası durumunda bekleme süresine göre karar ver
+                    if is_rate_limit:
+                        sleep_time = 5.0  # varsayılan bekleme
+                        match = re.search(r"[Pp]lease retry in ([\d\.]+)s", str(model_error))
+                        if match:
+                            sleep_time = float(match.group(1))
+
+                        # Eğer bekleme süresi çok kısaysa (3 saniyeden az) ve deneme hakkımız varsa bekleyip deneyelim
+                        if sleep_time <= 3.0 and retry_count < max_retries - 1:
+                            retry_count += 1
+                            logger.warning(
+                                "AI limitine (429) takıldı. %.2f saniye bekleyip tekrar deneniyor (deneme %d/%d). Hata: %s",
+                                sleep_time, retry_count, max_retries, repr(model_error)
+                            )
+                            await asyncio.sleep(sleep_time + 0.5)
+                            continue
+
+                        # Bekleme süresi 3 saniyeden uzunsa veya deneme hakkımız bittiyse kullanıcıyı bekletmeden hemen dost canlısı hata dönelim!
+                        logger.warning(
+                            "Gemini API kota sınırı aşıldı (ResourceExhausted). Bekleme süresi çok uzun (%.2fs). Hemen dost canlısı hata dönülüyor.",
+                            sleep_time
+                        )
+                        friendly_msg = (
+                            "⚠️ **Google Gemini API Kota Sınırı Aşıldı**\n\n"
+                            "KAMPÜS+ AI Asistanı şu anda çok yoğun bir kullanım altında olduğu için geçici olarak Google Gemini API limitlerine ulaştı.\n\n"
+                            f"Google sistemi korumak amacıyla yaklaşık **{max(int(sleep_time), 15)} saniye** boyunca yeni istek kabul etmeyeceğini bildirdi.\n\n"
+                            "Lütfen daha sonra tekrar deneyin. Anlayışınız ve sabrınız için teşekkür ederiz! 🚀"
+                        )
+                        return {
+                            "answer": friendly_msg,
+                            "sources": [],
+                            "session_id": session_id,
+                            "error": "Gemini ResourceExhausted 429",
+                        }
+
+                    # 2. Model bulunamadı hatası durumunda yedek modele geç
+                    fallback = "gemini-2.5-flash"
+                    if self._is_model_not_found_error(model_error) and self._active_model != fallback:
+                        logger.warning(
+                            "Model hatası, yedek modele geçildi (%s → %s): %s",
+                            self._active_model, fallback, repr(model_error),
+                        )
+                        self._active_model = fallback
+                        self.llm = self._create_llm(self._active_model)
+
+                        # Agent ve executor'ı yeni model ile yeniden kur
+                        agent = create_tool_calling_agent(self.llm, tools, prompt)
+                        executor = AgentExecutor(
+                            agent=agent,
+                            tools=tools,
+                            verbose=False,
+                            max_iterations=5,
+                            handle_parsing_errors=True,
+                        )
+                        # Deneme sayısını artırma, yeni modelle hemen tekrar dene
+                        continue
+                    else:
+                        raise
 
             logger.info(
                 "AI sorgusu tamamlandı (model: %s, cevap: %s karakter)",
@@ -1605,11 +1663,11 @@ Sen KAMPÜS+ AI Asistanısın. Üniversite öğrencilerine kampüs bilgileri ve 
                     "Lütfen yöneticiye GEMINI_MODEL ayarını güncellemesini söyleyin (öneri: gemini-2.5-flash)."
                 )
             elif isinstance(e, asyncio.TimeoutError):
-                msg = "AI asistanı şu anda yanıt vermiyor (zaman aşımı). Lütfen birkaç saniye bekleyip tekrar deneyin."
+                msg = "⏳ **Zaman Aşımı**\n\nAI asistanı şu anda yanıt vermiyor. Lütfen birkaç saniye bekleyip tekrar deneyin."
             elif "quota" in str(e).lower() or "resource_exhausted" in str(e).lower() or "429" in str(e):
-                msg = "AI servisi şu anda yoğun. Lütfen birkaç saniye bekleyip tekrar deneyin."
+                msg = "⚠️ **Hizmet Yoğun**\n\nAI servisi şu anda yoğun kullanımda. Lütfen birkaç saniye bekleyip tekrar deneyin."
             else:
-                msg = "Üzgünüm, sorunu işlerken bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+                msg = "❌ **İşlem Başarısız**\n\nÜzgünüm, sorunu işlerken beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
 
             return {"answer": msg, "sources": [], "session_id": session_id, "error": str(e)}
 
