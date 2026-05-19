@@ -34,6 +34,9 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
   const [universityName, setUniversityName] = useState(
     isLockedUniversityRole ? resolvedUniversityName : defaultUniversity
   );
+  const [universityId, setUniversityId] = useState<string>(
+    isLockedUniversityRole && resolvedUniversityId ? resolvedUniversityId : ''
+  );
   const [academicYear, setAcademicYear] = useState(
     ACADEMIC_YEAR_OPTIONS.includes(defaultAcademicYear as (typeof ACADEMIC_YEAR_OPTIONS)[number])
       ? defaultAcademicYear
@@ -59,7 +62,7 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
     e.preventDefault();
     if (uploading) return;
     if (!file) { setError('Lütfen bir PDF dosyası seç.'); return; }
-    if (!universityName.trim() || !academicYear) {
+    if (!universityId || !academicYear) {
       setError('Lütfen üniversite seçin ve akademik yıl seçin.');
       return;
     }
@@ -69,13 +72,20 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
     try {
       const res = await uploadCalendarPDF({
         file,
-        university: universityName.trim(),
+        university_id: universityId,
         academic_year: academicYear,
       });
       setResult(res);
       setIsSuccess(true);
-    } catch {
-      setError('Yükleme sırasında hata oluştu. Lütfen tekrar deneyin.');
+    } catch (err: unknown) {
+      // API'den gelen hata mesajını göstermeye çalış
+      let msg = 'Yükleme sırasında hata oluştu. Lütfen tekrar deneyin.';
+      if (err && typeof err === 'object') {
+        const axiosErr = err as { response?: { data?: { error?: { message?: string } } } };
+        const apiMsg = axiosErr?.response?.data?.error?.message;
+        if (apiMsg) msg = apiMsg;
+      }
+      setError(msg);
     } finally {
       setUploading(false);
     }
@@ -140,6 +150,7 @@ export const CalendarPDFUploadModal: React.FC<CalendarPDFUploadModalProps> = ({
             initialUniversityId={initialUniversityId}
             lockedUniversity={lockedUniversityName}
             onChange={(sel) => {
+              if (sel.universityId !== undefined) setUniversityId(sel.universityId);
               if (sel.universityName !== undefined) setUniversityName(sel.universityName);
             }}
           />

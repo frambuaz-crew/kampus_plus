@@ -360,10 +360,15 @@ export const AdminUsersPage: React.FC = () => {
   const handleRoleChange = async (role: string) => {
     if (!roleChangeUser) return;
     const user = roleChangeUser;
-    await changeUserRole(user.id, role);
-    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role } : u));
-    if (inspectUser?.id === user.id) setInspectUser(prev => prev ? { ...prev, role } : null);
-    setRoleChangeUser(null);
+    try {
+      await changeUserRole(user.id, role);
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role } : u));
+      if (inspectUser?.id === user.id) setInspectUser(prev => prev ? { ...prev, role } : null);
+      setRoleChangeUser(null);
+    } catch {
+      setError('Rol değiştirme başarısız oldu.');
+      setRoleChangeUser(null);
+    }
   };
 
   // ── Pagination ────────────────────────────────────────────────────────────

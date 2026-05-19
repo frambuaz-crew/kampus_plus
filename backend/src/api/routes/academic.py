@@ -892,10 +892,12 @@ async def admin_create_calendar_event(
 # PDF DERS PROGRAMI YÜKLEME — /academic/schedule/upload
 # ============================================================================
 
-_MAX_PDF_PAGES  = 10       # Güvenlik limiti — daha büyük PDF'leri reddet
-_MAX_PDF_CHARS  = 30_000   # LLM'e gönderilecek maksimum karakter
-_PDF_LLM_MODEL  = settings.gemini_model
-_PDF_LLM_TIMEOUT = 180     # saniye
+_MAX_PDF_PAGES   = 10        # Güvenlik limiti — daha büyük PDF'leri reddet
+_MAX_PDF_CHARS   = 30_000   # LLM'e gönderilecek maksimum karakter
+_PDF_LLM_MODEL   = settings.gemini_model
+_PDF_LLM_TIMEOUT = 180      # saniye
+_PDF_LLM_FALLBACK_MODEL = "gemini-2.0-flash"  # Ana model 503 verince kullanılır
+_PDF_LLM_MAX_RETRIES    = 2   # Her model için maksimum deneme sayısı
 
 
 def _extract_pdf_text(file_bytes: bytes) -> str:
@@ -985,44 +987,73 @@ PDF Metni:
 """
 
 
-async def _parse_schedule_with_llm(pdf_text: str, department: str, class_year: str) -> dict:
-    """google-genai SDK ile PDF metnini ders programı JSON'una dönüştürür.
+async def _call_llm_with_retry(prompt: str, context_label: str) -> str:
+    """Gemini API'yi retry + fallback model ile çağırır.
 
-    Döndürür:
-        {"courses": [{"id": ..., "name": ..., "code": ..., "instructor": ...,
-                      "room": ..., "color": null, "slots": [...]}]}
+    Önce ayarlardaki ana modeli dener (_PDF_LLM_MODEL).
+    503/429/UNAVAILABLE hatalarında _PDF_LLM_MAX_RETRIES kadar bekleyerek tekrar dener.
+    Ana model tamamen başarısız olursa _PDF_LLM_FALLBACK_MODEL ile bir kez daha dener.
+    Tüm denemeler başarısız olursa HTTPException (502) fırlatır.
     """
     import asyncio
     from google import genai
 
-    prompt = _PDF_PARSE_PROMPT.format(
-        text=pdf_text[:_MAX_PDF_CHARS],
-        department=department,
-        class_year=class_year,
+    client = genai.Client(api_key=settings.google_api_key)
+    models_to_try = [_PDF_LLM_MODEL, _PDF_LLM_FALLBACK_MODEL]
+
+    last_exc: Exception | None = None
+    for model_name in models_to_try:
+        for attempt in range(1, _PDF_LLM_MAX_RETRIES + 1):
+            try:
+                response = await asyncio.wait_for(
+                    client.aio.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=genai.types.GenerateContentConfig(temperature=0.0),
+                    ),
+                    timeout=_PDF_LLM_TIMEOUT,
+                )
+                raw = response.text or ""
+                logger.info(
+                    "%s ayrıştırma tamamlandı. model=%s attempt=%d chars=%d",
+                    context_label, model_name, attempt, len(raw),
+                )
+                return raw
+            except Exception as exc:
+                last_exc = exc
+                exc_str = str(exc)
+                # Geçici sunucu hatalarında bekleyip tekrar dene
+                is_retryable = any(code in exc_str for code in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED"))
+                logger.warning(
+                    "%s LLM hatası. model=%s attempt=%d/%d retryable=%s hata=%s",
+                    context_label, model_name, attempt, _PDF_LLM_MAX_RETRIES, is_retryable, exc_str[:200],
+                )
+                if is_retryable and attempt < _PDF_LLM_MAX_RETRIES:
+                    await asyncio.sleep(3 * attempt)  # 3s, 6s ...
+                    continue
+                break  # Kurtarılamaz hata veya son deneme → bir sonraki modele geç
+
+    logger.error(
+        "%s: tüm modeller başarısız. son_hata=%s",
+        context_label, str(last_exc)[:300],
     )
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail={
+            "error": {
+                "code": "LLM_UNAVAILABLE",
+                "message": (
+                    "Yapay zeka servisi şu anda yoğun. "
+                    "Lütfen 1-2 dakika bekleyip tekrar deneyin."
+                ),
+            }
+        },
+    ) from last_exc
 
-    try:
-        client = genai.Client(api_key=settings.google_api_key)
-        response = await asyncio.wait_for(
-            client.aio.models.generate_content(
-                model=_PDF_LLM_MODEL,
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(temperature=0.0),
-            ),
-            timeout=_PDF_LLM_TIMEOUT,
-        )
-        raw = response.text or ""
-        logger.info("PDF ayrıştırma tamamlandı. model=%s chars=%d", _PDF_LLM_MODEL, len(raw))
-    except Exception as exc:
-        logger.error("LLM ayrıştırma hatası. model=%s hata=%s", _PDF_LLM_MODEL, exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"error": {"code": "LLM_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
-        ) from exc
 
-    # Markdown sarmalayıcı varsa temizle
+def _parse_llm_json(raw: str) -> dict:
+    """LLM çıktısından JSON parse eder; markdown sarmalayıcıları temizler."""
     raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
-
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -1031,14 +1062,28 @@ async def _parse_schedule_with_llm(pdf_text: str, department: str, class_year: s
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
         ) from exc
-
     if not isinstance(parsed, dict):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
         )
-
     return parsed
+
+
+async def _parse_schedule_with_llm(pdf_text: str, department: str, class_year: str) -> dict:
+    """google-genai SDK ile PDF metnini ders programı JSON'una dönüştürür.
+
+    Döndürür:
+        {"courses": [{"id": ..., "name": ..., "code": ..., "instructor": ...,
+                      "room": ..., "color": null, "slots": [...]}]}
+    """
+    prompt = _PDF_PARSE_PROMPT.format(
+        text=pdf_text[:_MAX_PDF_CHARS],
+        department=department,
+        class_year=class_year,
+    )
+    raw = await _call_llm_with_retry(prompt, "PDF schedule")
+    return _parse_llm_json(raw)
 
 
 class ScheduleUploadResponse(BaseModel):
@@ -1265,52 +1310,12 @@ async def _parse_calendar_with_llm(pdf_text: str, academic_year: str) -> dict:
     Döndürür:
         {"events": [{"event_name": ..., "start_date": ..., "end_date": ..., "event_type": ...}]}
     """
-    import asyncio
-    from google import genai
-
     prompt = _CALENDAR_PARSE_PROMPT.format(
         text=pdf_text[:_MAX_PDF_CHARS],
         academic_year=academic_year,
     )
-
-    try:
-        client = genai.Client(api_key=settings.google_api_key)
-        response = await asyncio.wait_for(
-            client.aio.models.generate_content(
-                model=settings.gemini_model,
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(temperature=0.0),
-            ),
-            timeout=_PDF_LLM_TIMEOUT,
-        )
-        raw = response.text or ""
-        logger.info("Takvim ayrıştırma tamamlandı. model=%s chars=%d", settings.gemini_model, len(raw))
-    except Exception as exc:
-        logger.error("Takvim LLM hatası. model=%s hata=%s", settings.gemini_model, exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"error": {"code": "LLM_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
-        ) from exc
-
-    # Markdown sarmalayıcı varsa temizle
-    raw = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
-
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        logger.error("Takvim LLM JSON parse hatası. raw_snippet=%s", raw[:300])
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
-        ) from exc
-
-    if not isinstance(parsed, dict):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": {"code": "LLM_PARSE_ERROR", "message": "Yapay zeka ayrıştırma hatası. Lütfen tekrar deneyin."}},
-        )
-
-    return parsed
+    raw = await _call_llm_with_retry(prompt, "PDF calendar")
+    return _parse_llm_json(raw)
 
 
 class CalendarUploadResponse(BaseModel):

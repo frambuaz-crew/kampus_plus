@@ -337,6 +337,7 @@ export const AdminSchedulePage: React.FC = () => {
       setPendingSchedules((p) => p.filter((s) => s.id !== id));
       setApprovedSchedules((p) => p.filter((s) => s.id !== id));
       if (editingSchedule?.id === id) setEditingSchedule(null);
+      await loadData();
     } catch {
       setError('Silme başarısız.');
     } finally {

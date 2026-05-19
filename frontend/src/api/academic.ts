@@ -178,12 +178,12 @@ export interface CalendarUploadResult {
 
 export const uploadCalendarPDF = async (params: {
   file: File;
-  university: string;
+  university_id: string;
   academic_year?: string;
 }): Promise<CalendarUploadResult> => {
   const formData = new FormData();
   formData.append('file', params.file);
-  formData.append('university', params.university);
+  formData.append('university_id', params.university_id);
   if (params.academic_year) {
     formData.append('academic_year', params.academic_year);
   }
