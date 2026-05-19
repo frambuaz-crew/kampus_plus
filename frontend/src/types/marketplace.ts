@@ -53,4 +53,5 @@ export interface MarketplaceListing {
   view_count?: number;
   message_count?: number;
   creator?: MarketplaceCreator | null;
+  created_at?: string;
 }

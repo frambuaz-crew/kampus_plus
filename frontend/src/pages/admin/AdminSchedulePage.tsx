@@ -14,9 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import {
-  approveSchedule,
   deleteSchedule,
-  getPendingSchedules,
   getApprovedSchedules,
   updateSchedule,
   type CourseItem,
@@ -129,13 +127,13 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-3xl bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl my-8">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+      <div className="w-full max-w-3xl bg-white border border-slate-100 rounded-[2rem] shadow-2xl my-8 overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between sticky top-0 bg-gray-900 rounded-t-2xl z-10">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-base font-bold text-gray-100">Ders Programı Düzenle</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h2 className="text-base font-bold text-slate-900">Ders Programı Düzenle</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
               {schedule.university} • {schedule.department} • {schedule.class_year} • {schedule.semester}
             </p>
           </div>
@@ -143,7 +141,7 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="text-gray-400 hover:text-gray-200"
+            className="text-slate-400 hover:text-slate-700 hover:bg-slate-50 p-1.5 rounded-lg transition-colors"
           >
             <X size={18} />
           </button>
@@ -152,20 +150,20 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
         {/* Courses */}
         <div className="px-6 py-5 space-y-6">
           {courses.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-8">Ders bulunamadı.</p>
+            <p className="text-sm text-slate-400 text-center py-8">Ders bulunamadı.</p>
           )}
 
           {courses.map((course, cIdx) => (
-            <div key={course.id} className="bg-gray-800 rounded-xl p-4 space-y-3">
+            <div key={course.id} className="bg-slate-50/50 border border-slate-100 rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
                   Ders {cIdx + 1}
                 </p>
                 <button
                   type="button"
                   onClick={() => removeCourse(cIdx)}
                   title="Dersi Sil"
-                  className="text-gray-600 hover:text-red-400 transition-colors"
+                  className="text-slate-400 hover:text-red-600 transition-colors"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -173,28 +171,28 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Ders Adı *</label>
+                  <label className="block text-xs font-semibold text-slate-450 mb-1">Ders Adı *</label>
                   <input
                     value={course.name}
                     onChange={(e) => updateCourse(cIdx, 'name', e.target.value)}
-                    className="w-full rounded-lg border border-gray-700 bg-gray-900 text-gray-100 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full rounded-lg border border-slate-200 bg-white text-slate-800 px-3 py-1.5 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Öğretmen</label>
+                  <label className="block text-xs font-semibold text-slate-450 mb-1">Öğretmen</label>
                   <input
                     value={course.instructor ?? ''}
                     onChange={(e) => updateCourse(cIdx, 'instructor', e.target.value)}
-                    className="w-full rounded-lg border border-gray-700 bg-gray-900 text-gray-100 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full rounded-lg border border-slate-200 bg-white text-slate-800 px-3 py-1.5 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10"
                     placeholder="—"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Derslik</label>
+                  <label className="block text-xs font-semibold text-slate-450 mb-1">Derslik</label>
                   <input
                     value={course.room ?? ''}
                     onChange={(e) => updateCourse(cIdx, 'room', e.target.value)}
-                    className="w-full rounded-lg border border-gray-700 bg-gray-900 text-gray-100 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full rounded-lg border border-slate-200 bg-white text-slate-800 px-3 py-1.5 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10"
                     placeholder="—"
                   />
                 </div>
@@ -202,11 +200,11 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-400">Ders Saatleri</p>
+                  <p className="text-xs font-semibold text-slate-450">Ders Saatleri</p>
                   <button
                     type="button"
                     onClick={() => addSlot(cIdx)}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
+                    className="text-xs text-sky-600 hover:text-sky-500 font-bold transition-colors"
                   >
                     + Saat Ekle
                   </button>
@@ -217,7 +215,7 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
                     <select
                       value={slot.day}
                       onChange={(e) => updateSlot(cIdx, sIdx, 'day', e.target.value)}
-                      className="flex-1 rounded-lg border border-gray-700 bg-gray-900 text-gray-100 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-red-500"
+                      className="flex-1 rounded-lg border border-slate-200 bg-white text-slate-800 px-2 py-1.5 text-xs outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10"
                     >
                       {DAY_OPTIONS.map((d) => (
                         <option key={d.value} value={d.value}>{d.label}</option>
@@ -227,19 +225,19 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
                       type="time"
                       value={slot.start_time}
                       onChange={(e) => updateSlot(cIdx, sIdx, 'start_time', e.target.value)}
-                      className="w-28 rounded-lg border border-gray-700 bg-gray-900 text-gray-100 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-28 rounded-lg border border-slate-200 bg-white text-slate-800 px-2 py-1.5 text-xs outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10"
                     />
-                    <span className="text-gray-500 text-xs">–</span>
+                    <span className="text-slate-400 text-xs">–</span>
                     <input
                       type="time"
                       value={slot.end_time}
                       onChange={(e) => updateSlot(cIdx, sIdx, 'end_time', e.target.value)}
-                      className="w-28 rounded-lg border border-gray-700 bg-gray-900 text-gray-100 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-28 rounded-lg border border-slate-200 bg-white text-slate-800 px-2 py-1.5 text-xs outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10"
                     />
                     <button
                       type="button"
                       onClick={() => removeSlot(cIdx, sIdx)}
-                      className="text-gray-500 hover:text-red-400 transition-colors"
+                      className="text-slate-400 hover:text-red-600 transition-colors"
                     >
                       <X size={14} />
                     </button>
@@ -247,7 +245,7 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
                 ))}
 
                 {course.slots.length === 0 && (
-                  <p className="text-xs text-gray-600 italic">Saat eklenmemiş.</p>
+                  <p className="text-xs text-slate-400 italic">Saat eklenmemiş.</p>
                 )}
               </div>
             </div>
@@ -255,7 +253,7 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
           <button
             type="button"
             onClick={addCourse}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400 text-sm font-semibold transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-slate-200 text-slate-400 hover:border-sky-500 hover:text-sky-600 text-sm font-semibold transition-colors bg-slate-50/30 hover:bg-slate-50"
           >
             <Plus size={15} />
             Yeni Ders Ekle
@@ -263,14 +261,14 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-800 flex items-center justify-between gap-3 sticky bottom-0 bg-gray-900 rounded-b-2xl">
-          {error && <p className="text-xs text-red-400 flex-1">{error}</p>}
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 sticky bottom-0 bg-white">
+          {error && <p className="text-xs text-red-650 flex-1">{error}</p>}
           <div className="flex gap-2 ml-auto">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 text-sm font-semibold"
+              className="px-4 py-2 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 text-sm font-semibold transition-colors"
             >
               Vazgeç
             </button>
@@ -278,7 +276,7 @@ const ScheduleEditModal: React.FC<ScheduleEditModalProps> = ({ schedule, onClose
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 disabled:opacity-60 text-sm font-semibold"
+              className="px-4 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-60 text-sm font-semibold shadow-md shadow-sky-500/10 transition-colors"
             >
               {saving ? 'Kaydediliyor...' : 'Kaydet'}
             </button>
@@ -298,7 +296,6 @@ export const AdminSchedulePage: React.FC = () => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const [pendingSchedules, setPendingSchedules] = useState<CourseSchedule[]>([]);
   const [approvedSchedules, setApprovedSchedules] = useState<CourseSchedule[]>([]);
   const [editingSchedule, setEditingSchedule] = useState<CourseSchedule | null>(null);
 
@@ -307,7 +304,6 @@ export const AdminSchedulePage: React.FC = () => {
     setError(null);
     try {
       const as_ = await getApprovedSchedules();
-      setPendingSchedules([]);
       setApprovedSchedules(as_);
     } catch {
       setError('Veriler getirilemedi.');
@@ -318,23 +314,10 @@ export const AdminSchedulePage: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleApproveSchedule = async (id: string) => {
-    setProcessingId(id);
-    try {
-      await approveSchedule(id);
-      await loadData();
-    } catch {
-      setError('Onaylama başarısız.');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
   const handleDeleteSchedule = async (id: string) => {
     setProcessingId(id);
     try {
       await deleteSchedule(id);
-      setPendingSchedules((p) => p.filter((s) => s.id !== id));
       setApprovedSchedules((p) => p.filter((s) => s.id !== id));
       if (editingSchedule?.id === id) setEditingSchedule(null);
       await loadData();
@@ -348,16 +331,16 @@ export const AdminSchedulePage: React.FC = () => {
   return (
     <div>
       {/* Başlık */}
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <BookOpen size={22} className="text-red-500" />
-            <h1 className="text-2xl font-black text-white tracking-tight">Ders Programı Onay Paneli</h1>
+            <BookOpen size={22} className="text-sky-600" />
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Ders Programı Yönetimi</h1>
           </div>
-          <p className="text-sm text-gray-500">Onay bekleyen ders programlarını inceleyin ve yayınlayın.</p>
+          <p className="text-sm text-slate-400 font-bold uppercase tracking-widest text-[10px]">Ders programlarını inceleyin, ekleyin ve güncelleyin.</p>
           {user?.role === 'university_admin' && (
-            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-55 text-amber-600 border border-amber-200 text-xs font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
               Sadece <span className="font-bold mx-0.5">{user.university}</span> verilerini görüntülüyorsunuz
             </div>
           )}
@@ -365,7 +348,7 @@ export const AdminSchedulePage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold transition-colors shadow-md shadow-sky-500/20"
           >
             <Upload size={14} />
             PDF Yükle
@@ -373,15 +356,11 @@ export const AdminSchedulePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Alt sekmeler kaldırıldı — tek liste gösteriliyor */}
-
       <ScheduleTable
         schedules={approvedSchedules}
-        isPending={false}
         loading={loading}
         error={error}
         processingId={processingId}
-        onApprove={() => {}}
         onDelete={handleDeleteSchedule}
         onEdit={setEditingSchedule}
         onReload={loadData}
@@ -418,11 +397,9 @@ const SCH_ITEMS_PER_PAGE = 10;
 
 interface ScheduleTableProps {
   schedules: CourseSchedule[];
-  isPending: boolean;
   loading: boolean;
   error: string | null;
   processingId: string | null;
-  onApprove: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (schedule: CourseSchedule) => void;
   onReload: () => Promise<void>;
@@ -432,7 +409,7 @@ type ScheduleSortKey = 'university' | 'class_year' | 'semester' | 'academic_year
 type SortDirection = 'default' | 'asc' | 'desc';
 
 const ScheduleTable: React.FC<ScheduleTableProps> = ({
-  schedules, isPending, loading, error, processingId, onApprove, onDelete, onEdit, onReload,
+  schedules, loading, error, processingId, onDelete, onEdit, onReload,
 }) => {
   const [sortConfig, setSortConfig] = useState<{ key: ScheduleSortKey; direction: SortDirection }>({
     key: 'university', direction: 'default',
@@ -532,12 +509,12 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
       return acc;
     }, []);
 
-  const thClass = "px-4 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors";
+  const thClass = "px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-700 transition-colors";
 
-  if (loading) return <div className="px-6 py-12 text-center text-sm text-gray-500">Yükleniyor...</div>;
+  if (loading) return <div className="px-6 py-12 text-center text-sm text-slate-400">Yükleniyor...</div>;
   if (error) return (
     <div className="px-6 py-8">
-      <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</div>
+      <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{error}</div>
     </div>
   );
 
@@ -546,16 +523,16 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
       {/* Arama Çubuğu */}
       <div className="mb-3 flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           <input
             type="text"
             placeholder="Üniversite, bölüm, sınıf, dönem ile ara..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-8 py-2 rounded-lg border border-gray-700 bg-gray-900 text-sm text-gray-200 placeholder-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-8 pr-8 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10 shadow-sm"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650">
               <X size={13} />
             </button>
           )}
@@ -564,7 +541,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
         <button
           onClick={handleBulkDelete}
           disabled={isBulkDeleting || filteredData.length === 0}
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold whitespace-nowrap"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-55 text-red-600 hover:bg-red-100/70 border border-red-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold whitespace-nowrap"
         >
           <Trash2 size={14} />
           {isBulkDeleting ? 'Siliniyor...' : 'Sayfadaki Tümünü Sil'}
@@ -572,23 +549,23 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
       </div>
 
       {schedules.length === 0 ? (
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 px-6 py-12 text-center">
-          <CheckCircle2 size={28} className="text-emerald-400 mx-auto mb-3" />
-          <p className="text-sm font-semibold text-gray-300">
-            {isPending ? 'Onay bekleyen ders programı yok.' : 'Onaylı ders programı yok.'}
+        <div className="bg-white rounded-[2rem] border border-slate-100/50 shadow-xl shadow-slate-200/40 px-6 py-12 text-center">
+          <CheckCircle2 size={28} className="text-green-500 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-500">
+            Onaylı ders programı yok.
           </p>
         </div>
       ) : filteredData.length === 0 ? (
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 px-6 py-12 text-center">
-          <p className="text-sm text-gray-500">"{searchQuery}" için sonuç bulunamadı.</p>
+        <div className="bg-white rounded-[2rem] border border-slate-100/50 shadow-xl shadow-slate-200/40 px-6 py-12 text-center">
+          <p className="text-sm text-slate-400">"{searchQuery}" için sonuç bulunamadı.</p>
         </div>
       ) : (
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100/50 shadow-xl shadow-slate-200/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-800">
-                  <th className="px-6 py-3 font-semibold cursor-pointer select-none hover:text-gray-200 transition-colors" onClick={() => handleSort('university')}>
+                <tr className="text-left text-slate-400 border-b border-slate-100">
+                  <th className="px-6 py-3 font-semibold cursor-pointer select-none hover:text-slate-700 transition-colors" onClick={() => handleSort('university')}>
                     <span className="inline-flex items-center gap-1.5">Üniversite / Bölüm {renderSortIcon('university')}</span>
                   </th>
                   <th className={thClass} onClick={() => handleSort('class_year')}>
@@ -603,21 +580,21 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
                   <th className={thClass} onClick={() => handleSort('courses')}>
                     <span className="inline-flex items-center gap-1.5">Dersler {renderSortIcon('courses')}</span>
                   </th>
-                  <th className="px-4 py-3 font-semibold">İşlemler</th>
+                  <th className="px-4 py-3 font-semibold text-slate-400">İşlemler</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.map((sch) => (
-                  <tr key={sch.id} className="border-b border-gray-800/70">
+                  <tr key={sch.id} className="border-b border-slate-100 hover:bg-slate-50/30 transition-colors">
                     <td className="px-6 py-4 align-top">
-                      <p className="font-semibold text-gray-200 leading-snug">{sch.university}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{sch.department}</p>
+                      <p className="font-semibold text-slate-800 leading-snug">{sch.university}</p>
+                      <p className="text-xs text-slate-450 mt-0.5">{sch.department}</p>
                     </td>
-                    <td className="px-4 py-4 text-gray-300 align-top">{sch.class_year}</td>
-                    <td className="px-4 py-4 text-gray-300 align-top">{sch.semester}</td>
-                    <td className="px-4 py-4 text-gray-300 align-top">{sch.academic_year}</td>
+                    <td className="px-4 py-4 text-slate-650 align-top">{sch.class_year}</td>
+                    <td className="px-4 py-4 text-slate-650 align-top">{sch.semester}</td>
+                    <td className="px-4 py-4 text-slate-650 align-top">{sch.academic_year}</td>
                     <td className="px-4 py-4 align-top">
-                      <span className="bg-indigo-500/10 text-indigo-400 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      <span className="bg-sky-50 text-sky-600 text-xs font-semibold px-2 py-0.5 rounded-full">
                         {sch.courses.length} ders
                       </span>
                     </td>
@@ -625,27 +602,17 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => onEdit(sch)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-gray-800 text-gray-200 hover:bg-gray-700 text-xs font-semibold"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200/80 text-xs font-semibold transition-colors"
                         >
                           <PencilLine size={12} /> Düzenle
                         </button>
-                        {isPending && (
-                          <button
-                            onClick={() => onApprove(sch.id)}
-                            disabled={processingId === sch.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold"
-                          >
-                            <CheckCircle2 size={12} />
-                            {processingId === sch.id ? 'Onaylanıyor...' : 'Onayla'}
-                          </button>
-                        )}
                         <button
                           onClick={() => setDeleteConfirmId(sch.id)}
                           disabled={processingId === sch.id}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-500 disabled:opacity-50 text-xs font-semibold"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-55 text-red-655 hover:bg-red-100/70 border border-red-100 disabled:opacity-50 text-xs font-semibold transition-colors"
                         >
                           <Trash2 size={12} />
-                          {processingId === sch.id ? 'Siliniyor...' : isPending ? 'Reddet' : 'Sil'}
+                          {processingId === sch.id ? 'Siliniyor...' : 'Sil'}
                         </button>
                       </div>
                     </td>
@@ -657,27 +624,27 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
 
           {/* Sayfalama */}
           {totalPages > 1 && (
-            <div className="px-4 py-3 border-t border-gray-800 flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-xs text-gray-500">
+            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs text-slate-400">
                 {(currentPage - 1) * SCH_ITEMS_PER_PAGE + 1}–{Math.min(currentPage * SCH_ITEMS_PER_PAGE, filteredData.length)} / {filteredData.length} kayıt
               </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-2.5 py-1.5 rounded-md bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 text-xs font-semibold"
+                  className="px-2.5 py-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 text-xs font-semibold transition-colors"
                 >
                   Önceki
                 </button>
                 {pageNumbers.map((item, idx) =>
                   item === '...' ? (
-                    <span key={`e-${idx}`} className="px-1.5 text-xs text-gray-500">…</span>
+                    <span key={`e-${idx}`} className="px-1.5 text-xs text-slate-400">…</span>
                   ) : (
                     <button
                       key={item}
                       onClick={() => setCurrentPage(item as number)}
                       className={`w-7 h-7 rounded-md text-xs font-semibold transition-colors ${
-                        currentPage === item ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        currentPage === item ? 'bg-sky-600 text-white shadow-md shadow-sky-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
                       {item}
@@ -687,7 +654,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-2.5 py-1.5 rounded-md bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-40 text-xs font-semibold"
+                  className="px-2.5 py-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 disabled:opacity-40 text-xs font-semibold transition-colors"
                 >
                   Sonraki
                 </button>
@@ -699,30 +666,30 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
 
       {/* Silme Onay Modalı */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-6">
-            <h3 className="text-base font-bold text-gray-100 mb-2">
-              {isPending ? 'Reddet ve Sil' : 'Kaydı Sil'}
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white border border-slate-100 rounded-[2rem] shadow-2xl p-6">
+            <h3 className="text-base font-bold text-slate-900 mb-2">
+              Kaydı Sil
             </h3>
-            <p className="text-sm text-gray-400 mb-6">
+            <p className="text-sm text-slate-500 mb-6">
               Bu ders programını{' '}
-              <span className="text-red-400 font-semibold">
-                {isPending ? 'reddetmek ve kalıcı olarak silmek' : 'kalıcı olarak silmek'}
+              <span className="text-red-650 font-semibold">
+                kalıcı olarak silmek
               </span>{' '}
               istediğinize emin misiniz? Bu işlem geri alınamaz.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 text-sm font-semibold"
+                className="px-4 py-2 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 text-sm font-semibold transition-colors"
               >
                 Vazgeç
               </button>
               <button
                 onClick={() => { onDelete(deleteConfirmId); setDeleteConfirmId(null); }}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 text-sm font-semibold"
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 text-sm font-semibold transition-colors"
               >
-                {isPending ? 'Reddet ve Sil' : 'Sil'}
+                Sil
               </button>
             </div>
           </div>

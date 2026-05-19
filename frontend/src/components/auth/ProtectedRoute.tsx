@@ -35,10 +35,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const hasStoredAuth = storedToken && (storedUser || isAuthenticated);
   
   if (!isAuthenticated && !hasStoredAuth) {
-    // 🎯 KRİTİK: Admin paneline ait roller admin login ekranına yönlendirilir
-    const requiresAdminPortal = requireRole === 'admin' || requireRole === 'university_admin';
-    const redirectPath = requiresAdminPortal ? "/admin/login" : "/login";
-    return <Navigate to={redirectPath} state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   const actualUser = user || (storedUser ? JSON.parse(storedUser) : null);

@@ -486,30 +486,4 @@ async def apply_to_listing(
         raise HTTPException(status_code=500, detail=f"Başvuru gönderilemedi: {str(e)}")
 
     return {"conversation_id": conversation.id, "success": True}
- 
- 
-@router.delete("/listings/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_listing(
-    listing_id: str,
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> None:
-    """İlan sahibi veya admin silebilir."""
-    stmt = select(CareerListing).where(CareerListing.id == listing_id)
-    result = await session.execute(stmt)
-    listing = result.scalar_one_or_none()
- 
-    if not listing:
-        raise HTTPException(status_code=404, detail="İlan bulunamadı.")
- 
-    # Sadece sahibi veya admin silebilir
-    is_admin = UserRole(current_user.role) in {UserRole.ADMIN, UserRole.UNIVERSITY_ADMIN}
-    if listing.posted_by != current_user.id and not is_admin:
-        raise HTTPException(status_code=403, detail="Bu ilanı silme yetkiniz bulunmamaktadır.")
- 
-    await session.delete(listing)
-    try:
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        raise HTTPException(status_code=500, detail="İlan silinirken bir hata oluştu.")
+

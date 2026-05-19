@@ -492,6 +492,7 @@ async def get_course_schedule(
             CourseSchedule.class_year.ilike(f"{class_year}%"),
             CourseSchedule.semester.ilike(target_semester),
             CourseSchedule.academic_year == target_year,
+            CourseSchedule.is_approved == True,
         )
     )
     result = await session.execute(stmt)
@@ -645,7 +646,7 @@ async def admin_list_approved_calendar_events(
     session: AsyncSession = Depends(get_db),
 ):
     """Onaylanmış akademik takvim etkinliklerini listeler. (Admin)"""
-    conditions = []
+    conditions = [AcademicCalendarEvent.is_approved == True]
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(AcademicCalendarEvent.university_id == admin.university_id)
@@ -1662,7 +1663,7 @@ async def admin_list_approved_schedules(
     session: AsyncSession = Depends(get_db),
 ):
     """Onaylı ders programlarını listeler. (Admin)"""
-    conditions = []
+    conditions = [CourseSchedule.is_approved == True]
     if admin.role == UserRole.UNIVERSITY_ADMIN:
         _check_university_access(admin)
         conditions.append(CourseSchedule.university_id == admin.university_id)

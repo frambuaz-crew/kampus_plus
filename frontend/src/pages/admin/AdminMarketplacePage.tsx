@@ -31,20 +31,20 @@ const CONDITION_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  active:  { label: 'Aktif',         className: 'bg-green-500/10 text-green-400' },
-  sold:    { label: 'Satıldı',       className: 'bg-gray-500/10 text-gray-400' },
-  expired: { label: 'Süresi Doldu',  className: 'bg-yellow-500/10 text-yellow-400' },
+  active:  { label: 'Aktif',         className: 'bg-green-50 text-green-600 border border-green-100' },
+  sold:    { label: 'Satıldı',       className: 'bg-slate-100 text-slate-500 border border-slate-200' },
+  expired: { label: 'Süresi Doldu',  className: 'bg-amber-50 text-amber-600 border border-amber-100' },
 };
 
 const ComingSoon: React.FC<{ title: string; description: string; icon: React.ReactNode }> = ({
   title, description, icon,
 }) => (
   <div className="flex flex-col items-center justify-center py-24 text-center">
-    <div className="w-16 h-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-4 text-gray-500">
+    <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-4 text-slate-450 shadow-sm animate-pulse">
       {icon}
     </div>
-    <h3 className="text-lg font-bold text-gray-300 mb-2">{title}</h3>
-    <p className="text-sm text-gray-600 max-w-sm">{description}</p>
+    <h3 className="text-sm font-bold text-slate-800 mb-1">{title}</h3>
+    <p className="text-xs text-slate-400 max-w-sm leading-relaxed">{description}</p>
   </div>
 );
 
@@ -64,75 +64,75 @@ const ListingInspectModal: React.FC<{ listing: MarketplaceListing; onClose: () =
     if (listing.image_urls) imageUrls = JSON.parse(listing.image_urls as string) as string[];
   } catch { /* ignore */ }
 
-  const statusInfo = STATUS_LABELS[listing.status ?? ''] ?? { label: listing.status, className: 'bg-gray-700 text-gray-400' };
+  const statusInfo = STATUS_LABELS[listing.status ?? ''] ?? { label: listing.status, className: 'bg-slate-100 text-slate-500' };
   const categoryName = listing.category?.name ?? '—';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col max-h-[85vh]"
+        className="relative w-full max-w-2xl bg-white border border-slate-100 rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-800 shrink-0">
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
-            <Eye size={16} className="text-blue-400 shrink-0 mt-0.5" />
-            <h2 className="text-base font-bold text-white leading-snug truncate">{listing.title}</h2>
+            <Eye size={15} className="text-sky-600 shrink-0 mt-0.5" />
+            <h2 className="text-sm font-bold text-slate-900 leading-snug truncate">{listing.title}</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-white rounded-lg hover:bg-gray-800 transition-colors shrink-0">
+          <button onClick={onClose} className="p-1.5 text-slate-450 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shrink-0">
             <X size={16} />
           </button>
         </div>
 
-        <div className="px-6 py-3 border-b border-gray-800 flex flex-wrap gap-x-5 gap-y-2 shrink-0">
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <User size={12} className="text-gray-500" />
-            <span className="font-semibold text-gray-300">{sellerName}</span>
-            {sellerUsername && <span className="text-gray-600">{sellerUsername}</span>}
+        <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-x-5 gap-y-2 shrink-0 text-xs text-slate-450 font-bold uppercase tracking-wider text-[10px]">
+          <div className="flex items-center gap-1.5">
+            <User size={12} className="text-slate-400" />
+            <span className="text-slate-700">{sellerName}</span>
+            {sellerUsername && <span className="text-sky-600 font-semibold">{sellerUsername}</span>}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <Calendar size={12} className="text-gray-500" />
-            {listing.created_at ? new Date(listing.created_at).toLocaleDateString('tr-TR', {
+          <div className="flex items-center gap-1.5">
+            <Calendar size={12} className="text-slate-400" />
+            <span>{listing.created_at ? new Date(listing.created_at).toLocaleDateString('tr-TR', {
               day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
-            }) : '—'}
+            }) : '—'}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <DollarSign size={12} className="text-gray-500" />
-            <span className="font-bold text-green-400">
+          <div className="flex items-center gap-1.5">
+            <DollarSign size={12} className="text-slate-450" />
+            <span className="text-green-600 font-extrabold">
               {Number(listing.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
             </span>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">{categoryName}</span>
-            <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
+          <div className="flex items-center gap-2">
+            <span className="bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-0.5 rounded-lg">{categoryName}</span>
+            <span className="bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-0.5 rounded-lg">
               {CONDITION_LABELS[listing.condition ?? ''] ?? listing.condition ?? '—'}
             </span>
-            <span className={`px-2 py-0.5 rounded-full font-semibold ${statusInfo.className}`}>
+            <span className={`px-2.5 py-0.5 rounded-full font-bold ${statusInfo.className}`}>
               {statusInfo.label}
             </span>
           </div>
         </div>
 
         {imageUrls.length > 0 && (
-          <div className="px-6 py-3 border-b border-gray-800 flex gap-2 overflow-x-auto shrink-0">
+          <div className="px-6 py-4 border-b border-slate-100 flex gap-2 overflow-x-auto shrink-0 bg-slate-50/20">
             {imageUrls.map((url, i) => (
               <img key={i} src={url} alt={`İlan görseli ${i + 1}`}
-                className="h-20 w-20 object-cover rounded-lg border border-gray-700 shrink-0" />
+                className="h-20 w-20 object-cover rounded-xl border border-slate-200 shadow-sm shrink-0" />
             ))}
           </div>
         )}
 
-        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Açıklama</p>
+        <div className="px-6 py-5 overflow-y-auto flex-1 min-h-0 bg-white">
+          <p className="text-[10px] font-bold text-slate-450 uppercase tracking-widest mb-2">Açıklama Detayı</p>
           {listing.description
-            ? <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{listing.description}</p>
-            : <p className="text-sm text-gray-600 italic">Açıklama girilmemiş.</p>}
+            ? <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed font-medium">{listing.description}</p>
+            : <p className="text-sm text-slate-400 italic">Açıklama girilmemiş.</p>}
         </div>
 
-        <div className="px-6 py-3 border-t border-gray-800 flex justify-end shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors">
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end shrink-0 bg-slate-50/50">
+          <button onClick={onClose} className="px-4 py-2 text-xs font-bold bg-slate-100 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-200 hover:text-slate-800 transition-colors">
             Kapat
           </button>
         </div>
@@ -182,7 +182,7 @@ const ListingsTab: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
-        <div className="w-8 h-8 border-2 border-red-200 border-t-red-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-sky-200 border-t-sky-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -193,53 +193,53 @@ const ListingsTab: React.FC = () => {
         <ListingInspectModal listing={selectedListing} onClose={() => setSelectedListing(null)} />
       )}
       <div>
-        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
-            <Package size={16} className="text-blue-400" />
-            <span className="text-sm font-semibold text-gray-300">Tüm İlanlar</span>
+            <Package size={15} className="text-slate-400" />
+            <span className="text-sm font-bold text-slate-700">Tüm İlanlar</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-semibold">
-              {listings.length} ilan
+            <span className="text-[10px] font-bold bg-sky-50 text-sky-600 px-2.5 py-1 rounded-full border border-sky-100">
+              {listings.length} ilan listelendi
             </span>
-            <button onClick={fetchListings} className="p-1.5 text-gray-500 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
+            <button onClick={() => void fetchListings()} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <RefreshCw size={14} />
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="mx-6 mt-4 text-sm text-red-400 flex items-center gap-2 bg-red-500/10 p-3 rounded-lg">
+          <div className="mx-6 mt-4 text-xs font-semibold text-red-650 flex items-center gap-2 bg-red-50 border border-red-100 p-3 rounded-xl">
             <AlertCircle size={16} /> {error}
           </div>
         )}
 
         {listings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Package size={40} className="text-gray-600 mb-3" />
-            <p className="text-sm text-gray-600">Henüz ilan bulunmuyor.</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Package size={36} className="text-slate-350 mb-3" />
+            <p className="text-sm text-slate-400 font-semibold">Henüz ilan bulunmuyor.</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-800">
+          <div className="divide-y divide-slate-100">
             {listings.map(listing => {
-              const statusInfo = STATUS_LABELS[listing.status ?? ''] ?? { label: listing.status, className: 'bg-gray-700 text-gray-400' };
+              const statusInfo = STATUS_LABELS[listing.status ?? ''] ?? { label: listing.status, className: 'bg-slate-100 text-slate-500' };
               const sellerName = listing.creator
                 ? `${listing.creator.first_name ?? ''} ${listing.creator.last_name ?? ''}`.trim() || 'Anonim'
                 : 'Anonim';
               const categoryName = listing.category?.name ?? '—';
               return (
-                <div key={listing.id} className="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-gray-800/50 transition-colors">
+                <div key={listing.id} className="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <p className="text-sm font-semibold text-gray-200 truncate">{listing.title}</p>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <p className="text-sm font-bold text-slate-800 truncate leading-snug">{listing.title}</p>
+                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}>
                         {statusInfo.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                      <span>{sellerName}</span>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
+                      <span className="text-slate-600">{sellerName}</span>
                       <span>•</span>
-                      <span className="text-green-400 font-semibold">
+                      <span className="text-green-600 font-extrabold">
                         {Number(listing.price).toLocaleString('tr-TR')} ₺
                       </span>
                       <span>•</span>
@@ -248,19 +248,19 @@ const ListingsTab: React.FC = () => {
                       <span>{listing.created_at ? new Date(listing.created_at).toLocaleDateString('tr-TR') : '—'}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={() => setSelectedListing(listing)}
-                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-105 hover:bg-sky-100 transition-colors"
                     >
                       <Eye size={12} /> İncele
                     </button>
                     <button
                       onClick={() => void handleDelete(listing.id)}
                       disabled={deleting === listing.id}
-                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-red-50 text-red-650 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50"
                     >
-                      <Trash2 size={12} /> {deleting === listing.id ? '...' : 'Sil'}
+                      <Trash2 size={12} /> {deleting === listing.id ? 'Siliniyor…' : 'Sil'}
                     </button>
                   </div>
                 </div>
@@ -309,69 +309,69 @@ const CategoryFormModal: React.FC<CategoryFormModalProps> = ({ initial, onSave, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md bg-white border border-slate-100 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <Tag size={16} className="text-orange-400" />
-            <h2 className="text-base font-bold text-white">
+            <Tag size={16} className="text-sky-600" />
+            <h2 className="text-sm font-bold text-slate-900">
               {initial ? 'Kategoriyi Düzenle' : 'Yeni Kategori Ekle'}
             </h2>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-white rounded-lg hover:bg-gray-800 transition-colors">
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
             <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={e => void handleSubmit(e)} className="px-6 py-5 space-y-4">
           {formError && (
-            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
-              <AlertCircle size={14} /> {formError}
+            <div className="flex items-center gap-2 text-xs font-semibold text-red-650 bg-red-50 border border-red-100 p-3 rounded-xl">
+              <AlertCircle size={14} className="shrink-0" /> {formError}
             </div>
           )}
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Ad *</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Örn: Elektronik"
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-extrabold">Kategori Adı *</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Örn: Ev & Yurt Eşyası"
               maxLength={100} required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/40" />
+              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-sky-500 font-medium" />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">İkon (Emoji)</label>
-            <input type="text" value={icon} onChange={e => setIcon(e.target.value)} placeholder="Örn: 💻"
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-extrabold">İkon (Emoji)</label>
+            <input type="text" value={icon} onChange={e => setIcon(e.target.value)} placeholder="Örn: 🛋️"
               maxLength={50}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/40" />
+              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-sky-500 font-medium" />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Açıklama</label>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-extrabold">Açıklama</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)}
               placeholder="Kategori hakkında kısa bir açıklama..." maxLength={500} rows={3}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/40 resize-none" />
+              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-sky-500 resize-none font-medium" />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Sıralama</label>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-extrabold">Sıralama Önceliği</label>
             <input type="number" value={orderIndex} onChange={e => setOrderIndex(Number(e.target.value))} min={0}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/40" />
+              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 font-bold outline-none focus:bg-white focus:border-sky-500" />
           </div>
 
-          <div className="flex items-center justify-between py-1">
-            <span className="text-sm font-semibold text-gray-300">Aktif</span>
+          <div className="flex items-center justify-between py-1 bg-slate-55 bg-slate-50 border border-slate-100 p-3 rounded-xl">
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Yayın Durumu</span>
             <button type="button" onClick={() => setIsActive(v => !v)}
-              className={`transition-colors ${isActive ? 'text-green-400' : 'text-gray-600'}`}>
-              {isActive ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+              className={`transition-colors ${isActive ? 'text-green-500' : 'text-slate-400'}`}>
+              {isActive ? <ToggleRight size={30} /> : <ToggleLeft size={30} />}
             </button>
           </div>
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
+              className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 border border-slate-200 text-slate-650 hover:bg-slate-200 hover:text-slate-800 transition-colors">
               İptal
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-lg text-sm font-bold bg-orange-600 text-white hover:bg-orange-500 transition-colors disabled:opacity-50">
+              className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-sky-600 text-white hover:bg-sky-500 transition-colors disabled:opacity-50 shadow-md shadow-sky-500/10">
               {saving ? 'Kaydediliyor...' : 'Kaydet'}
             </button>
           </div>
@@ -430,7 +430,7 @@ const CategoriesTab: React.FC = () => {
 
   const handleDelete = async (cat: MarketplaceCategory) => {
     if (cat.listing_count > 0) {
-      setError(`"${cat.name}" kategorisinde ${cat.listing_count} ilan var. Önce ilanları silin veya taşıyın.`);
+      setError(`"${cat.name}" kategorisinde ${cat.listing_count} aktif ilan var. Önce ilanları silin veya taşıyın.`);
       return;
     }
     if (!confirm(`"${cat.name}" kategorisini silmek istediğinize emin misiniz?`)) return;
@@ -448,7 +448,7 @@ const CategoriesTab: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
-        <div className="w-8 h-8 border-2 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-sky-250 border-t-sky-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -465,94 +465,104 @@ const CategoriesTab: React.FC = () => {
       )}
 
       <div>
-        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
-            <Tag size={16} className="text-orange-400" />
-            <span className="text-sm font-semibold text-gray-300">Marketplace Kategorileri</span>
+            <Tag size={15} className="text-slate-400" />
+            <span className="text-sm font-bold text-slate-700">Marketplace Kategorileri</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full font-semibold">
-              {categories.length} kategori
+            <span className="text-[10px] font-bold bg-sky-50 text-sky-600 px-2.5 py-1 rounded-full border border-sky-100">
+              {categories.length} kategori listelendi
             </span>
-            <button onClick={fetchCategories} className="p-1.5 text-gray-500 hover:text-gray-300 rounded-lg hover:bg-gray-800 transition-colors">
+            <button onClick={() => void fetchCategories()} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <RefreshCw size={14} />
             </button>
             <button onClick={openCreate}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-orange-600 text-white rounded-lg hover:bg-orange-500 transition-colors">
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold bg-sky-600 text-white rounded-xl hover:bg-sky-500 transition-colors shadow-md shadow-sky-500/10">
               <Plus size={13} /> Yeni Kategori Ekle
             </button>
           </div>
         </div>
 
         {error && (
-          <div className="mx-6 mt-4 text-sm text-red-400 flex items-center gap-2 bg-red-500/10 p-3 rounded-lg">
+          <div className="mx-6 mt-4 text-xs font-semibold text-red-650 flex items-center gap-2 bg-red-50 border border-red-100 p-3.5 rounded-xl">
             <AlertCircle size={16} /> {error}
-            <button onClick={() => setError(null)} className="ml-auto"><X size={14} /></button>
+            <button onClick={() => setError(null)} className="ml-auto hover:text-red-900"><X size={14} /></button>
           </div>
         )}
 
         {categories.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Tag size={40} className="text-gray-700 mb-3" />
-            <h3 className="text-base font-bold text-gray-400 mb-1">Henüz kategori yok</h3>
-            <p className="text-sm text-gray-600 mb-4">İlk kategoriyi ekleyerek başlayın.</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Tag size={36} className="text-slate-300 mb-3" />
+            <h3 className="text-sm font-semibold text-slate-450 mb-1">Henüz kategori yok</h3>
+            <p className="text-xs text-slate-450 mb-4">İlk kategoriyi ekleyerek başlayın.</p>
             <button onClick={openCreate}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-orange-600 text-white rounded-lg hover:bg-orange-500 transition-colors">
+              className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-sky-600 text-white rounded-xl hover:bg-sky-500 transition-colors">
               <Plus size={14} /> Yeni Kategori Ekle
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-gray-800">
-            {/* Table header */}
-            <div className="px-6 py-2.5 grid grid-cols-[3rem_1fr_2fr_6rem_5rem_6rem] gap-4 text-[10px] font-black uppercase tracking-widest text-gray-600">
-              <span>İkon</span>
-              <span>Ad</span>
-              <span>Açıklama</span>
-              <span className="text-center">İlan</span>
-              <span className="text-center">Durum</span>
-              <span className="text-right">İşlem</span>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-widest text-slate-450">
+                  <th className="px-6 py-3 w-16 text-center">İkon</th>
+                  <th className="px-6 py-3">Adı / Sıra</th>
+                  <th className="px-6 py-3">Açıklama</th>
+                  <th className="px-6 py-3 w-24 text-center">İlan Sayısı</th>
+                  <th className="px-6 py-3 w-28 text-center">Durum</th>
+                  <th className="px-6 py-3 w-28 text-right">İşlemler</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {categories.map(cat => {
+                  const isEmoji = !!cat.icon && (cat.icon.codePointAt(0) ?? 0) > 127;
+                  return (
+                    <tr key={cat.id} className="hover:bg-slate-50/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-55 bg-slate-50 border border-slate-150 text-base shadow-sm shrink-0 mx-auto">
+                          {isEmoji ? cat.icon : '🏷️'}
+                        </div>
+                      </td>
 
-            {categories.map(cat => {
-              const isEmoji = !!cat.icon && (cat.icon.codePointAt(0) ?? 0) > 127;
-              return (
-                <div key={cat.id} className="px-6 py-3.5 grid grid-cols-[3rem_1fr_2fr_6rem_5rem_6rem] gap-4 items-center hover:bg-gray-800/40 transition-colors">
-                  <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 text-base overflow-hidden shrink-0">
-                    {isEmoji ? cat.icon : '🏷️'}
-                  </div>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-bold text-slate-800 truncate">{cat.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Sıra: #{cat.order_index}</p>
+                      </td>
 
-                  <div>
-                    <p className="text-sm font-semibold text-gray-200 truncate">{cat.name}</p>
-                    <p className="text-[10px] text-gray-600">Sıra: {cat.order_index}</p>
-                  </div>
+                      <td className="px-6 py-4 text-xs text-slate-500 font-medium">
+                        <span className="line-clamp-2 max-w-sm">{cat.description ?? '—'}</span>
+                      </td>
 
-                  <p className="text-xs text-gray-500 truncate">{cat.description ?? '—'}</p>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-sm font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{cat.listing_count}</span>
+                      </td>
 
-                  <div className="text-center">
-                    <span className="text-sm font-bold text-gray-300">{cat.listing_count}</span>
-                  </div>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                          cat.is_active ? 'bg-green-50 border-green-100 text-green-600' : 'bg-slate-100 border-slate-200 text-slate-450'
+                        }`}>
+                          {cat.is_active ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </td>
 
-                  <div className="flex justify-center">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      cat.is_active ? 'bg-green-500/10 text-green-400' : 'bg-gray-700 text-gray-500'
-                    }`}>
-                      {cat.is_active ? 'Aktif' : 'Pasif'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-1.5">
-                    <button onClick={() => openEdit(cat)}
-                      className="p-1.5 text-gray-500 hover:text-orange-400 hover:bg-orange-500/10 rounded-lg transition-colors" title="Düzenle">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => void handleDelete(cat)} disabled={deleting === cat.id}
-                      className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50" title="Sil">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                      <td className="px-6 py-4 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <button onClick={() => openEdit(cat)}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Düzenle">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => void handleDelete(cat)} disabled={deleting === cat.id}
+                            className="p-1.5 text-slate-400 hover:text-red-650 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50" title="Sil">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -567,24 +577,24 @@ export const AdminMarketplacePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('listings');
 
   return (
-    <div>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
-          <ShoppingBag size={22} className="text-red-500" />
-          <h1 className="text-2xl font-black text-white tracking-tight">Marketplace Yönetimi</h1>
+          <ShoppingBag size={22} className="text-sky-600 animate-pulse" />
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Marketplace Yönetimi</h1>
         </div>
-        <p className="text-sm text-gray-500">Raporlanan ilanları inceleyin, aktif ilanları ve kategorileri yönetin.</p>
+        <p className="text-sm text-slate-400 font-bold uppercase tracking-widest text-[10px]">Raporlanan ilanları inceleyin, aktif ilanları ve kategorileri yönetin.</p>
       </div>
 
-      <div className="flex gap-1 bg-gray-900 p-1 rounded-xl mb-6 w-fit">
+      <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl border border-slate-100 shadow-sm w-fit">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               activeTab === tab.key
-                ? 'bg-red-600 text-white shadow-lg'
-                : 'text-gray-500 hover:text-gray-300'
+                ? 'bg-gradient-to-tr from-sky-600 to-indigo-600 text-white shadow-lg shadow-sky-500/20'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
             }`}
           >
             {tab.icon}
@@ -593,7 +603,7 @@ export const AdminMarketplacePage: React.FC = () => {
         ))}
       </div>
 
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100/50 shadow-xl shadow-slate-200/40 overflow-hidden">
         {activeTab === 'reports' && (
           <ComingSoon
             icon={<Flag size={32} />}

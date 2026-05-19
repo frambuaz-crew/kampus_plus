@@ -30,7 +30,7 @@ import { Error500Page } from './pages/Error500Page';
 import { Error403Page } from './pages/Error403Page';
 import { AuthProvider } from './contexts/AuthContext';
 import { RegistrationProvider } from './contexts/RegistrationContext';
-import { AdminLoginPage } from './pages/admin/AdminLoginPage';
+
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminAcademicPage } from './pages/admin/AdminAcademicPage';
 import { AdminForumPage } from './pages/admin/AdminForumPage';
@@ -55,7 +55,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<AuthPage initialMode="login" />} />
           <Route path="/register" element={<AuthPage initialMode="register" />} />
-          <Route path="/admin/login" element={<AdminLoginPage />} />
+
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
